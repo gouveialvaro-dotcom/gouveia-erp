@@ -30,8 +30,11 @@ export function Topbar({
   mostrarNotificacoes: boolean;
 }) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
-      <SidebarTrigger />
+    <header className="flex h-14 shrink-0 items-center justify-end border-b bg-background px-4">
+      {/* No desktop o botão de recolher vive dentro da própria sidebar. No
+          mobile ela vira um painel deslizante, e um gatilho interno ficaria
+          inalcançável com o painel fechado — por isso este permanece aqui. */}
+      <SidebarTrigger className="mr-auto md:hidden" />
       <div className="flex items-center gap-3">
         {mostrarNotificacoes && <SinoNotificacoes />}
         <div className="flex flex-col items-end leading-tight">

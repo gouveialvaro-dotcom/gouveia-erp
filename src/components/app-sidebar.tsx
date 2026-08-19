@@ -23,6 +23,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { podeLer, type Modulo, type Perfil } from "@/lib/permissoes";
 
@@ -51,13 +52,16 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
   );
 
   return (
-    <Sidebar>
+    // "icon" em vez do padrão "offcanvas": com o botão de recolher dentro da
+    // própria sidebar, o modo offcanvas a esconderia por inteiro e levaria o
+    // botão junto, sem deixar como reabrir.
+    <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+        <div className="flex items-center gap-2 px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground group-data-[collapsible=icon]:hidden">
             <Zap className="h-4 w-4" />
           </div>
-          <div className="flex flex-col leading-tight">
+          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold text-sidebar-foreground">
               Gouveia Engenharia
             </span>
@@ -65,6 +69,10 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
               Gestão Interna
             </span>
           </div>
+          <SidebarTrigger
+            className="ml-auto text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:ml-0"
+            title="Recolher menu"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -76,7 +84,13 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
                 const ativo = pathname?.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton render={<Link href={item.href} />} isActive={ativo}>
+                    {/* tooltip só aparece com a sidebar recolhida, quando o
+                        rótulo do item fica oculto */}
+                    <SidebarMenuButton
+                      render={<Link href={item.href} />}
+                      isActive={ativo}
+                      tooltip={item.titulo}
+                    >
                       <item.icone />
                       <span>{item.titulo}</span>
                     </SidebarMenuButton>
@@ -88,7 +102,7 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <span className="px-2 py-1 text-xs text-sidebar-foreground/50">
+        <span className="px-2 py-1 text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
           v0.1 · Fase 1 (MVP)
         </span>
       </SidebarFooter>
