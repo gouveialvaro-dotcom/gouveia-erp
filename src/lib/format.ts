@@ -1,0 +1,20 @@
+export function formatarMoeda(valor: number | string) {
+  const numero = typeof valor === "string" ? Number(valor) : valor;
+  return numero.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+export function formatarData(data: Date | string) {
+  // Colunas date/timestamp do Postgres chegam como string ("2026-08-19" ou
+  // "2026-08-19T00:00:00+00:00"). Formatar via Date()+toLocaleDateString
+  // converte para o fuso local e pode exibir o dia anterior (ex.: meia-noite
+  // UTC vira 21h do dia anterior em UTC-3). Como os 10 primeiros
+  // caracteres já são o "YYYY-MM-DD" pretendido, extrai direto da string.
+  if (typeof data === "string") {
+    const [ano, mes, dia] = data.slice(0, 10).split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+  return data.toLocaleDateString("pt-BR");
+}
