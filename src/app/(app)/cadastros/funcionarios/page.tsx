@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { formatarMoeda } from "@/lib/format";
+import { custoDiarioFuncionario, DIAS_UTEIS_MES_PADRAO } from "@/lib/mao-obra";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,7 +25,7 @@ export default async function PaginaFuncionarios() {
   ]);
   const funcionarios = funcionariosData ?? [];
 
-  const diasUteisMes = parametros?.diasUteisMes ?? 22;
+  const diasUteisMes = parametros?.diasUteisMes ?? DIAS_UTEIS_MES_PADRAO;
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,8 +50,7 @@ export default async function PaginaFuncionarios() {
           </TableHeader>
           <TableBody>
             {funcionarios.map((f) => {
-              const custoDia =
-                (f.salarioMensal / diasUteisMes) * (1 + f.encargosPercent / 100);
+              const custoDia = custoDiarioFuncionario(f, diasUteisMes);
               return (
                 <TableRow key={f.id}>
                   <TableCell className="font-medium">

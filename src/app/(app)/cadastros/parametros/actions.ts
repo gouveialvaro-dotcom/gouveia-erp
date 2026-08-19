@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { auth } from "@/auth";
+import { exigirPermissao } from "@/lib/api-auth";
 
 const parametrosSchema = z.object({
   bdiPadrao: z.coerce.number().min(0),
@@ -26,6 +27,9 @@ export async function salvarParametros(
     return { erro: "Apenas administradores podem editar os parâmetros gerais." };
   }
 
+  // Confere o usuário da sessão contra o banco antes de gravar `atualizadoPorId`.
+  const { usuarioId } = await exigirPermissao("cadastrosGerais", "escrita");
+
   const dados = parametrosSchema.safeParse({
     bdiPadrao: formData.get("bdiPadrao"),
     encargosSociais: formData.get("encargosSociais"),
@@ -44,10 +48,10 @@ export async function salvarParametros(
   if (existente) {
     await supabase
       .from("ParametroGeral")
-      .update({ ...dados.data, atualizadoPorId: session.user.id })
+      .update({ ...dados.data, atualizadoPorId: usuarioId })
       .eq("id", existente.id);
   } else {
-    await supabase.from("ParametroGeral").insert({ ...dados.data, atualizadoPorId: session.user.id });
+    await supabase.from("ParametroGeral").insert({ ...dados.data, atualizadoPorId: usuarioId });
   }
 
   revalidatePath("/cadastros/parametros");

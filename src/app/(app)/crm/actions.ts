@@ -143,7 +143,7 @@ const interacaoSchema = z.object({
 });
 
 export async function adicionarInteracao(oportunidadeId: string, formData: FormData) {
-  const { session } = await exigirPermissao("crm", "escrita");
+  const { usuarioId } = await exigirPermissao("crm", "escrita");
 
   const dados = interacaoSchema.safeParse({
     tipo: formData.get("tipo"),
@@ -154,7 +154,7 @@ export async function adicionarInteracao(oportunidadeId: string, formData: FormD
 
   await supabase
     .from("Interacao")
-    .insert({ ...dados.data, oportunidadeId, responsavelId: session.user.id });
+    .insert({ ...dados.data, oportunidadeId, responsavelId: usuarioId });
 
   revalidatePath(`/crm/${oportunidadeId}`);
 }
@@ -172,7 +172,7 @@ const anexoSchema = z.object({
 });
 
 export async function adicionarAnexo(oportunidadeId: string, formData: FormData) {
-  const { session } = await exigirPermissao("crm", "escrita");
+  const { usuarioId } = await exigirPermissao("crm", "escrita");
 
   const dados = anexoSchema.safeParse({
     nomeArquivo: formData.get("nomeArquivo"),
@@ -183,7 +183,7 @@ export async function adicionarAnexo(oportunidadeId: string, formData: FormData)
 
   await supabase
     .from("Anexo")
-    .insert({ ...dados.data, oportunidadeId, enviadoPorId: session.user.id });
+    .insert({ ...dados.data, oportunidadeId, enviadoPorId: usuarioId });
 
   revalidatePath(`/crm/${oportunidadeId}`);
 }

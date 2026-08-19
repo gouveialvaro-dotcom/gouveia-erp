@@ -10,6 +10,8 @@ const ITENS: { titulo: string; href: string; modulo: Modulo }[] = [
   { titulo: "Materiais", href: "/cadastros/materiais", modulo: "cadastrosGerais" },
   { titulo: "Kits", href: "/cadastros/kits", modulo: "cadastrosGerais" },
   { titulo: "Funcionários", href: "/cadastros/funcionarios", modulo: "cadastrosGerais" },
+  { titulo: "Concessionárias", href: "/cadastros/concessionarias", modulo: "posVenda" },
+  { titulo: "Tipos de problema", href: "/cadastros/tipos-problema", modulo: "posVenda" },
   { titulo: "Descrições padrão", href: "/cadastros/descricoes", modulo: "cadastrosGerais" },
   { titulo: "Parâmetros gerais", href: "/cadastros/parametros", modulo: "cadastrosGerais" },
 ];

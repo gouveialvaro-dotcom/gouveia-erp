@@ -22,7 +22,7 @@ export async function salvarMaterial(
   _estado: EstadoFormMaterial,
   formData: FormData
 ): Promise<EstadoFormMaterial> {
-  const { session } = await exigirPermissao("cadastrosGerais", "escrita");
+  const { usuarioId } = await exigirPermissao("cadastrosGerais", "escrita");
 
   const dados = materialSchema.safeParse({
     codigo: formData.get("codigo"),
@@ -43,7 +43,7 @@ export async function salvarMaterial(
   } else {
     const { error } = await supabase
       .from("Material")
-      .insert({ ...dados.data, criadoPorId: session.user.id });
+      .insert({ ...dados.data, criadoPorId: usuarioId });
     if (error) return { erro: "Já existe um material cadastrado com esse código." };
   }
 

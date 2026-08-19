@@ -3,18 +3,13 @@
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SinoNotificacoes } from "@/components/pos-venda/sino-notificacoes";
 import { Button } from "@/components/ui/button";
 import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar";
-
-const ROTULO_PERFIL: Record<string, string> = {
-  comercial: "Comercial",
-  engenharia: "Engenharia",
-  obra: "Obra",
-  admin: "Administrador",
-};
+import { ROTULO_PERFIL, type Perfil } from "@/lib/permissoes";
 
 function iniciais(nome: string) {
   return nome
@@ -28,14 +23,17 @@ function iniciais(nome: string) {
 export function Topbar({
   nome,
   perfil,
+  mostrarNotificacoes,
 }: {
   nome: string;
-  perfil: string;
+  perfil: Perfil;
+  mostrarNotificacoes: boolean;
 }) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
       <SidebarTrigger />
       <div className="flex items-center gap-3">
+        {mostrarNotificacoes && <SinoNotificacoes />}
         <div className="flex flex-col items-end leading-tight">
           <span className="text-sm font-medium">{nome}</span>
           <span className="text-xs text-muted-foreground">

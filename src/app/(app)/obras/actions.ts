@@ -60,7 +60,7 @@ export async function atualizarObra(
   _estado: EstadoFormObra,
   formData: FormData
 ): Promise<EstadoFormObra> {
-  const { session } = await exigirPermissao("obras", "escrita");
+  const { usuarioId } = await exigirPermissao("obras", "escrita");
 
   const dados = atualizarObraSchema.safeParse({
     status: formData.get("status"),
@@ -84,7 +84,7 @@ export async function atualizarObra(
       custoRealizado: dados.data.custoRealizado,
       dataInicio: dados.data.dataInicio ?? null,
       dataPrevistaConclusao: dados.data.dataPrevistaConclusao ?? null,
-      atualizadoPorId: session.user.id,
+      atualizadoPorId: usuarioId,
     })
     .eq("id", obraId);
 

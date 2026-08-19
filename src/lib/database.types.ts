@@ -1,6 +1,3 @@
-// Gerado a partir do schema do Supabase (mcp__claude_ai_Supabase__generate_typescript_types).
-// Para regenerar após uma migration: peça para gerar os types novamente a partir do projeto Supabase.
-
 export type Json =
   | string
   | number
@@ -10,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
@@ -60,6 +59,163 @@ export type Database = {
           },
         ]
       }
+      AnexoChamado: {
+        Row: {
+          caminho: string
+          chamadoId: string
+          criadoEm: string
+          enviadoPorId: string
+          id: string
+          nomeArquivo: string
+          tamanho: number | null
+          tipoMime: string | null
+        }
+        Insert: {
+          caminho: string
+          chamadoId: string
+          criadoEm?: string
+          enviadoPorId: string
+          id?: string
+          nomeArquivo: string
+          tamanho?: number | null
+          tipoMime?: string | null
+        }
+        Update: {
+          caminho?: string
+          chamadoId?: string
+          criadoEm?: string
+          enviadoPorId?: string
+          id?: string
+          nomeArquivo?: string
+          tamanho?: number | null
+          tipoMime?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "AnexoChamado_chamadoId_fkey"
+            columns: ["chamadoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "AnexoChamado_enviadoPorId_fkey"
+            columns: ["enviadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Chamado: {
+        Row: {
+          abertoEm: string
+          atualizadoEm: string
+          clienteId: string
+          concluidoEm: string | null
+          criadoEm: string
+          criadoPorId: string | null
+          descricao: string | null
+          estagio: Database["public"]["Enums"]["EstagioChamado"]
+          id: string
+          numero: number
+          obraId: string | null
+          prazoLimite: string
+          prioridade: Database["public"]["Enums"]["PrioridadeChamado"]
+          protocoloConcessionaria: string | null
+          responsavelId: string
+          solucao: string | null
+          tipoProblemaId: string
+          titulo: string
+          unidadeConsumidoraId: string | null
+        }
+        Insert: {
+          abertoEm?: string
+          atualizadoEm?: string
+          clienteId: string
+          concluidoEm?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao?: string | null
+          estagio?: Database["public"]["Enums"]["EstagioChamado"]
+          id?: string
+          numero?: number
+          obraId?: string | null
+          prazoLimite: string
+          prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
+          protocoloConcessionaria?: string | null
+          responsavelId: string
+          solucao?: string | null
+          tipoProblemaId: string
+          titulo: string
+          unidadeConsumidoraId?: string | null
+        }
+        Update: {
+          abertoEm?: string
+          atualizadoEm?: string
+          clienteId?: string
+          concluidoEm?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao?: string | null
+          estagio?: Database["public"]["Enums"]["EstagioChamado"]
+          id?: string
+          numero?: number
+          obraId?: string | null
+          prazoLimite?: string
+          prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
+          protocoloConcessionaria?: string | null
+          responsavelId?: string
+          solucao?: string | null
+          tipoProblemaId?: string
+          titulo?: string
+          unidadeConsumidoraId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Chamado_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Chamado_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Chamado_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: false
+            referencedRelation: "Obra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Chamado_responsavelId_fkey"
+            columns: ["responsavelId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Chamado_tipoProblemaId_fkey"
+            columns: ["tipoProblemaId"]
+            isOneToOne: false
+            referencedRelation: "TipoProblemaPosVenda"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Chamado_unidadeConsumidoraId_fkey"
+            columns: ["unidadeConsumidoraId"]
+            isOneToOne: false
+            referencedRelation: "UnidadeConsumidora"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Cliente: {
         Row: {
           atualizadoEm: string
@@ -106,6 +262,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      Concessionaria: {
+        Row: {
+          ativo: boolean
+          criadoEm: string
+          id: string
+          nome: string
+          sigla: string | null
+          uf: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          criadoEm?: string
+          id?: string
+          nome: string
+          sigla?: string | null
+          uf?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          criadoEm?: string
+          id?: string
+          nome?: string
+          sigla?: string | null
+          uf?: string | null
+        }
+        Relationships: []
       }
       ContatoCliente: {
         Row: {
@@ -269,6 +452,57 @@ export type Database = {
           },
         ]
       }
+      InteracaoChamado: {
+        Row: {
+          chamadoId: string
+          criadoEm: string
+          data: string
+          descricao: string
+          direcao: Database["public"]["Enums"]["DirecaoInteracao"]
+          id: string
+          protocolo: string | null
+          responsavelId: string
+          tipo: Database["public"]["Enums"]["TipoInteracaoChamado"]
+        }
+        Insert: {
+          chamadoId: string
+          criadoEm?: string
+          data?: string
+          descricao: string
+          direcao?: Database["public"]["Enums"]["DirecaoInteracao"]
+          id?: string
+          protocolo?: string | null
+          responsavelId: string
+          tipo: Database["public"]["Enums"]["TipoInteracaoChamado"]
+        }
+        Update: {
+          chamadoId?: string
+          criadoEm?: string
+          data?: string
+          descricao?: string
+          direcao?: Database["public"]["Enums"]["DirecaoInteracao"]
+          id?: string
+          protocolo?: string | null
+          responsavelId?: string
+          tipo?: Database["public"]["Enums"]["TipoInteracaoChamado"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "InteracaoChamado_chamadoId_fkey"
+            columns: ["chamadoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "InteracaoChamado_responsavelId_fkey"
+            columns: ["responsavelId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Kit: {
         Row: {
           atualizadoEm: string
@@ -381,6 +615,67 @@ export type Database = {
           {
             foreignKeyName: "Material_criadoPorId_fkey"
             columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      NotificacaoPosVenda: {
+        Row: {
+          chamadoId: string
+          criadoEm: string
+          detalhe: string | null
+          geradaPorId: string | null
+          id: string
+          lidaEm: string | null
+          referencia: string
+          tipo: Database["public"]["Enums"]["TipoNotificacaoPosVenda"]
+          titulo: string
+          usuarioId: string
+        }
+        Insert: {
+          chamadoId: string
+          criadoEm?: string
+          detalhe?: string | null
+          geradaPorId?: string | null
+          id?: string
+          lidaEm?: string | null
+          referencia?: string
+          tipo: Database["public"]["Enums"]["TipoNotificacaoPosVenda"]
+          titulo: string
+          usuarioId: string
+        }
+        Update: {
+          chamadoId?: string
+          criadoEm?: string
+          detalhe?: string | null
+          geradaPorId?: string | null
+          id?: string
+          lidaEm?: string | null
+          referencia?: string
+          tipo?: Database["public"]["Enums"]["TipoNotificacaoPosVenda"]
+          titulo?: string
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "NotificacaoPosVenda_chamadoId_fkey"
+            columns: ["chamadoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoPosVenda_geradaPorId_fkey"
+            columns: ["geradaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoPosVenda_usuarioId_fkey"
+            columns: ["usuarioId"]
             isOneToOne: false
             referencedRelation: "Usuario"
             referencedColumns: ["id"]
@@ -507,12 +802,14 @@ export type Database = {
       }
       Orcamento: {
         Row: {
+          ajusteMaoObraPercent: number
           atualizadoEm: string
           bdiPersonalizado: number | null
           camposEspecificos: Json | null
           clienteId: string
           criadoEm: string
           criadoPorId: string
+          descontoPercent: number
           descricao: string | null
           id: string
           impostosPersonalizado: number | null
@@ -521,12 +818,14 @@ export type Database = {
           tipoProposta: Database["public"]["Enums"]["TipoProposta"]
         }
         Insert: {
+          ajusteMaoObraPercent?: number
           atualizadoEm?: string
           bdiPersonalizado?: number | null
           camposEspecificos?: Json | null
           clienteId: string
           criadoEm?: string
           criadoPorId: string
+          descontoPercent?: number
           descricao?: string | null
           id?: string
           impostosPersonalizado?: number | null
@@ -535,12 +834,14 @@ export type Database = {
           tipoProposta: Database["public"]["Enums"]["TipoProposta"]
         }
         Update: {
+          ajusteMaoObraPercent?: number
           atualizadoEm?: string
           bdiPersonalizado?: number | null
           camposEspecificos?: Json | null
           clienteId?: string
           criadoEm?: string
           criadoPorId?: string
+          descontoPercent?: number
           descricao?: string | null
           id?: string
           impostosPersonalizado?: number | null
@@ -915,6 +1216,131 @@ export type Database = {
           },
         ]
       }
+      TipoProblemaPosVenda: {
+        Row: {
+          ativo: boolean
+          criadoEm: string
+          dependeConcessionaria: boolean
+          descricao: string | null
+          diasAlerta: number
+          id: string
+          nome: string
+          ordem: number
+          prazoDias: number
+        }
+        Insert: {
+          ativo?: boolean
+          criadoEm?: string
+          dependeConcessionaria?: boolean
+          descricao?: string | null
+          diasAlerta?: number
+          id?: string
+          nome: string
+          ordem?: number
+          prazoDias?: number
+        }
+        Update: {
+          ativo?: boolean
+          criadoEm?: string
+          dependeConcessionaria?: boolean
+          descricao?: string | null
+          diasAlerta?: number
+          id?: string
+          nome?: string
+          ordem?: number
+          prazoDias?: number
+        }
+        Relationships: []
+      }
+      UnidadeConsumidora: {
+        Row: {
+          apelido: string | null
+          ativo: boolean
+          atualizadoEm: string
+          cidade: string | null
+          clienteId: string
+          concessionariaId: string
+          criadoEm: string
+          endereco: string | null
+          geradoraId: string | null
+          id: string
+          numero: string
+          obraId: string | null
+          percentualRateio: number | null
+          potenciaKwp: number | null
+          tipo: Database["public"]["Enums"]["TipoUnidadeConsumidora"]
+          titular: string | null
+          uf: string | null
+        }
+        Insert: {
+          apelido?: string | null
+          ativo?: boolean
+          atualizadoEm?: string
+          cidade?: string | null
+          clienteId: string
+          concessionariaId: string
+          criadoEm?: string
+          endereco?: string | null
+          geradoraId?: string | null
+          id?: string
+          numero: string
+          obraId?: string | null
+          percentualRateio?: number | null
+          potenciaKwp?: number | null
+          tipo?: Database["public"]["Enums"]["TipoUnidadeConsumidora"]
+          titular?: string | null
+          uf?: string | null
+        }
+        Update: {
+          apelido?: string | null
+          ativo?: boolean
+          atualizadoEm?: string
+          cidade?: string | null
+          clienteId?: string
+          concessionariaId?: string
+          criadoEm?: string
+          endereco?: string | null
+          geradoraId?: string | null
+          id?: string
+          numero?: string
+          obraId?: string | null
+          percentualRateio?: number | null
+          potenciaKwp?: number | null
+          tipo?: Database["public"]["Enums"]["TipoUnidadeConsumidora"]
+          titular?: string | null
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "UnidadeConsumidora_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UnidadeConsumidora_concessionariaId_fkey"
+            columns: ["concessionariaId"]
+            isOneToOne: false
+            referencedRelation: "Concessionaria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UnidadeConsumidora_geradoraId_fkey"
+            columns: ["geradoraId"]
+            isOneToOne: false
+            referencedRelation: "UnidadeConsumidora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UnidadeConsumidora_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: false
+            referencedRelation: "Obra"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Usuario: {
         Row: {
           ativo: boolean
@@ -922,6 +1348,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          notificaPosVenda: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash: string
         }
@@ -931,6 +1358,7 @@ export type Database = {
           email: string
           id?: string
           nome: string
+          notificaPosVenda?: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash: string
         }
@@ -940,6 +1368,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          notificaPosVenda?: boolean
           perfil?: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash?: string
         }
@@ -953,6 +1382,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      DirecaoInteracao: "cliente" | "concessionaria" | "interno"
+      EstagioChamado:
+        | "aberto"
+        | "em_analise"
+        | "aguardando_concessionaria"
+        | "concluido"
       EstagioOportunidade:
         | "lead"
         | "levantamento_escopo"
@@ -961,12 +1396,32 @@ export type Database = {
         | "negociacao"
         | "aprovada"
         | "perdida"
-      PerfilUsuario: "comercial" | "engenharia" | "obra" | "admin"
+      PerfilUsuario:
+        | "comercial"
+        | "engenharia"
+        | "obra"
+        | "admin"
+        | "atendimento"
+      PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
       TipoInteracao: "ligacao" | "email" | "reuniao" | "visita"
+      TipoInteracaoChamado:
+        | "ligacao"
+        | "email"
+        | "whatsapp"
+        | "reuniao"
+        | "visita"
+        | "protocolo"
+        | "nota_interna"
+      TipoNotificacaoPosVenda:
+        | "chamado_novo"
+        | "chamado_vencido"
+        | "chamado_atualizado"
+        | "interacao_registrada"
       TipoOrcamentoItem: "material" | "kit"
       TipoProposta: "usina_solar" | "redes"
+      TipoUnidadeConsumidora: "geradora" | "beneficiaria"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1094,6 +1549,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      DirecaoInteracao: ["cliente", "concessionaria", "interno"],
+      EstagioChamado: [
+        "aberto",
+        "em_analise",
+        "aguardando_concessionaria",
+        "concluido",
+      ],
       EstagioOportunidade: [
         "lead",
         "levantamento_escopo",
@@ -1103,12 +1565,35 @@ export const Constants = {
         "aprovada",
         "perdida",
       ],
-      PerfilUsuario: ["comercial", "engenharia", "obra", "admin"],
+      PerfilUsuario: [
+        "comercial",
+        "engenharia",
+        "obra",
+        "admin",
+        "atendimento",
+      ],
+      PrioridadeChamado: ["baixa", "media", "alta", "critica"],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
       TipoInteracao: ["ligacao", "email", "reuniao", "visita"],
+      TipoInteracaoChamado: [
+        "ligacao",
+        "email",
+        "whatsapp",
+        "reuniao",
+        "visita",
+        "protocolo",
+        "nota_interna",
+      ],
+      TipoNotificacaoPosVenda: [
+        "chamado_novo",
+        "chamado_vencido",
+        "chamado_atualizado",
+        "interacao_registrada",
+      ],
       TipoOrcamentoItem: ["material", "kit"],
       TipoProposta: ["usina_solar", "redes"],
+      TipoUnidadeConsumidora: ["geradora", "beneficiaria"],
     },
   },
 } as const

@@ -18,7 +18,7 @@ export async function salvarKit(
   _estado: EstadoFormKit,
   formData: FormData
 ): Promise<EstadoFormKit> {
-  const { session } = await exigirPermissao("cadastrosGerais", "escrita");
+  const { usuarioId } = await exigirPermissao("cadastrosGerais", "escrita");
 
   const dados = kitSchema.safeParse({
     nome: formData.get("nome"),
@@ -35,7 +35,7 @@ export async function salvarKit(
   } else {
     const { data: criado } = await supabase
       .from("Kit")
-      .insert({ ...dados.data, criadoPorId: session.user.id })
+      .insert({ ...dados.data, criadoPorId: usuarioId })
       .select("id")
       .single();
     id = criado?.id ?? null;

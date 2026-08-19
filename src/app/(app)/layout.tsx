@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/topbar";
-import type { Perfil } from "@/lib/permissoes";
+import { podeLer, type Perfil } from "@/lib/permissoes";
 
 export default async function AppLayout({
   children,
@@ -21,7 +21,13 @@ export default async function AppLayout({
     <SidebarProvider>
       <AppSidebar perfil={perfil} />
       <SidebarInset>
-        <Topbar nome={session.user.name ?? session.user.email ?? ""} perfil={perfil} />
+        <Topbar
+          nome={session.user.name ?? session.user.email ?? ""}
+          perfil={perfil}
+          // O sino só existe para quem enxerga o módulo; entre esses, quem
+          // recebe de fato é definido em /administracao.
+          mostrarNotificacoes={podeLer(perfil, "posVenda")}
+        />
         <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>

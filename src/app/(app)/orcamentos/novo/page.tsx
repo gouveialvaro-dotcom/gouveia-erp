@@ -9,10 +9,13 @@ export default async function PaginaNovoOrcamento() {
   const { perfil } = await acessoModulo("orcamentos");
   if (!podeEscrever(perfil, "orcamentos")) redirect("/orcamentos");
 
-  const { data } = await supabase
-    .from("Cliente")
-    .select("id, razaoSocial")
-    .order("razaoSocial", { ascending: true });
+  const [{ data }, { data: descricoesPadrao }] = await Promise.all([
+    supabase.from("Cliente").select("id, razaoSocial").order("razaoSocial", { ascending: true }),
+    supabase
+      .from("DescricaoPadrao")
+      .select("id, nome, tipoProposta, texto")
+      .order("nome", { ascending: true }),
+  ]);
 
   return (
     <div className="flex flex-col gap-1">
@@ -21,7 +24,7 @@ export default async function PaginaNovoOrcamento() {
       </Link>
       <h2 className="text-lg font-semibold mt-2">Novo orçamento</h2>
       <p className="text-sm text-muted-foreground mb-4">Cadastro de orçamento</p>
-      <OrcamentoForm clientes={data ?? []} />
+      <OrcamentoForm clientes={data ?? []} descricoesPadrao={descricoesPadrao ?? []} />
     </div>
   );
 }

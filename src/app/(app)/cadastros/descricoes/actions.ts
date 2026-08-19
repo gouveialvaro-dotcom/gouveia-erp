@@ -19,7 +19,7 @@ export async function salvarDescricaoPadrao(
   _estado: EstadoFormDescricao,
   formData: FormData
 ): Promise<EstadoFormDescricao> {
-  const { session } = await exigirPermissao("cadastrosGerais", "escrita");
+  const { usuarioId } = await exigirPermissao("cadastrosGerais", "escrita");
 
   const dados = descricaoSchema.safeParse({
     nome: formData.get("nome"),
@@ -34,7 +34,7 @@ export async function salvarDescricaoPadrao(
   if (descricaoId) {
     await supabase.from("DescricaoPadrao").update(dados.data).eq("id", descricaoId);
   } else {
-    await supabase.from("DescricaoPadrao").insert({ ...dados.data, criadoPorId: session.user.id });
+    await supabase.from("DescricaoPadrao").insert({ ...dados.data, criadoPorId: usuarioId });
   }
 
   revalidatePath("/cadastros/descricoes");
