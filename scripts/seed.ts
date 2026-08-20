@@ -139,21 +139,8 @@ async function main() {
     }
   }
 
-  const funcionariosSeed = [
-    { nome: "Francisco Thiago de Gouveia", cargo: "Engenheiro Eletricista", salarioMensal: 14000, encargosPercent: 80 },
-    { nome: "José Carlos Ferreira", cargo: "Eletricista Instalador", salarioMensal: 4200, encargosPercent: 80 },
-    { nome: "Antônio Marcos Souza", cargo: "Ajudante de Obra", salarioMensal: 2400, encargosPercent: 80 },
-    { nome: "Roberto Silva", cargo: "Supervisor de Obra", salarioMensal: 6200, encargosPercent: 80 },
-    { nome: "Paulo Henrique Lima", cargo: "Técnico em Eletrotécnica", salarioMensal: 5100, encargosPercent: 80 },
-  ];
-
-  for (const f of funcionariosSeed) {
-    const { data: existente } = await supabase.from("Funcionario").select("id").eq("nome", f.nome).maybeSingle();
-    if (!existente) {
-      await supabase.from("Funcionario").insert({ ...f, criadoPorId: engenharia.id });
-    }
-  }
-
+  // O catálogo de mão de obra vem da planilha de custo real da empresa:
+  // rode `npx tsx --env-file=.env scripts/importar-funcoes.ts`.
   const descricoesSeed = [
     {
       nome: "Usina Solar · Geração distribuída (telhado/solo)",

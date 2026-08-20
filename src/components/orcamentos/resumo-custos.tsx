@@ -25,7 +25,7 @@ type ItemMaterial = {
 type Alocacao = {
   diasAlocados: number;
   custoCalculado: number;
-  funcionario: { nome: string; cargo: string } | null;
+  funcao: { nome: string } | null;
 };
 
 type PropostaResumo = {
@@ -247,8 +247,7 @@ export function ResumoCustos({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Função/Cargo</TableHead>
+                  <TableHead>Função</TableHead>
                   <TableHead className="text-right">Dias</TableHead>
                   <TableHead className="text-right">Custo/dia</TableHead>
                   <TableHead className="text-right">Custo total</TableHead>
@@ -257,8 +256,7 @@ export function ResumoCustos({
               <TableBody>
                 {maoObra.map((alocacao, indice) => (
                   <TableRow key={indice}>
-                    <TableCell>{alocacao.funcionario?.nome ?? "—"}</TableCell>
-                    <TableCell>{alocacao.funcionario?.cargo ?? "—"}</TableCell>
+                    <TableCell>{alocacao.funcao?.nome ?? "—"}</TableCell>
                     <TableCell className="text-right">{alocacao.diasAlocados}</TableCell>
                     <TableCell className="text-right">
                       {formatarMoeda(alocacao.custoCalculado / alocacao.diasAlocados)}
@@ -271,7 +269,7 @@ export function ResumoCustos({
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={2} className="font-medium">
+                  <TableCell className="font-medium">
                     Total de mão de obra
                   </TableCell>
                   <TableCell className="text-right">{totalDias}</TableCell>

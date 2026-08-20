@@ -40,7 +40,7 @@ export default async function PaginaEditarOrcamento({
     { data: orcamento },
     { data: clientes },
     { data: materiaisData },
-    { data: funcionariosData },
+    { data: funcoesData },
     { data: propostasData },
     { data: parametros },
     { data: descricoesPadrao },
@@ -48,7 +48,7 @@ export default async function PaginaEditarOrcamento({
     supabase
       .from("Orcamento")
       .select(
-        "*, cliente:Cliente(id, razaoSocial), itens:OrcamentoItem(*, material:Material(*)), maoObra:OrcamentoMaoObra(*, funcionario:Funcionario(nome, cargo))"
+        "*, cliente:Cliente(id, razaoSocial), itens:OrcamentoItem(*, material:Material(*)), maoObra:OrcamentoMaoObra(*, funcao:Funcao(nome))"
       )
       .eq("id", id)
       .eq("itens.tipo", "material")
@@ -58,7 +58,7 @@ export default async function PaginaEditarOrcamento({
     supabase.from("Cliente").select("id, razaoSocial").order("razaoSocial", { ascending: true }),
     supabase.from("Material").select("*").order("descricao", { ascending: true }),
     supabase
-      .from("Funcionario")
+      .from("Funcao")
       .select("*")
       .eq("ativo", true)
       .order("nome", { ascending: true }),
@@ -80,9 +80,9 @@ export default async function PaginaEditarOrcamento({
     value: m.id,
     label: `${m.codigo} · ${m.descricao}`,
   }));
-  const funcionariosItems = (funcionariosData ?? []).map((f) => ({
+  const funcoesItems = (funcoesData ?? []).map((f) => ({
     value: f.id,
-    label: `${f.nome} · ${f.cargo}`,
+    label: f.nome,
   }));
   const podeEditar = podeEscrever(perfil, "orcamentos");
   const propostas = propostasData ?? [];
@@ -222,7 +222,7 @@ export default async function PaginaEditarOrcamento({
         <TabsContent value="maoObra" className="mt-4">
           {podeEditar && (
             <AdicionarMaoObraForm
-              funcionarios={funcionariosItems}
+              funcoes={funcoesItems}
               adicionarMaoObra={adicionarMaoObraComOrcamento}
             />
           )}
@@ -231,8 +231,7 @@ export default async function PaginaEditarOrcamento({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Função/Cargo</TableHead>
+                  <TableHead>Função</TableHead>
                   <TableHead className="text-right">Dias</TableHead>
                   <TableHead className="text-right">Custo/dia</TableHead>
                   <TableHead className="text-right">Custo total</TableHead>
@@ -243,9 +242,8 @@ export default async function PaginaEditarOrcamento({
                 {orcamento.maoObra.map((alocacao) => (
                   <TableRow key={alocacao.id}>
                     <TableCell className="font-medium">
-                      {alocacao.funcionario?.nome ?? "—"}
+                      {alocacao.funcao?.nome ?? "—"}
                     </TableCell>
-                    <TableCell>{alocacao.funcionario?.cargo ?? "—"}</TableCell>
                     <TableCell className="text-right">{alocacao.diasAlocados}</TableCell>
                     <TableCell className="text-right">
                       {formatarMoeda(alocacao.custoCalculado / alocacao.diasAlocados)}
@@ -272,10 +270,10 @@ export default async function PaginaEditarOrcamento({
                 {orcamento.maoObra.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={podeEditar ? 6 : 5}
+                      colSpan={podeEditar ? 5 : 4}
                       className="text-center text-muted-foreground py-6"
                     >
-                      Nenhum funcionário alocado.
+                      Nenhuma função alocada.
                     </TableCell>
                   </TableRow>
                 )}

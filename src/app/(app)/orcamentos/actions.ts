@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
 import { calcularTotais } from "@/lib/proposta";
-import { custoDiarioFuncionario, DIAS_UTEIS_MES_PADRAO } from "@/lib/mao-obra";
+import { custoDiarioMaoObra, DIAS_UTEIS_MES_PADRAO } from "@/lib/mao-obra";
 import { ORDEM_ESTAGIO_FLUXO } from "@/lib/crm";
 
 const orcamentoSchema = z.object({
@@ -112,32 +112,32 @@ export async function removerMaterialOrcamento(orcamentoId: string, itemId: stri
   revalidatePath(`/orcamentos/${orcamentoId}`);
 }
 
-// Aloca um funcionário ao orçamento. O custo é congelado no momento da alocação
-// (como o custo unitário dos materiais), para que um reajuste salarial futuro
-// não altere orçamentos já fechados.
+// Aloca uma função ao orçamento ("Eletricista × 30 dias"). O custo é congelado
+// no momento da alocação (como o custo unitário dos materiais), para que um
+// reajuste na planilha de mão de obra não altere orçamentos já fechados.
 export async function adicionarMaoObraOrcamento(orcamentoId: string, formData: FormData) {
   await exigirPermissao("orcamentos", "escrita");
 
-  const funcionarioId = String(formData.get("funcionarioId") ?? "");
+  const funcaoId = String(formData.get("funcaoId") ?? "");
   const diasAlocados = Number(formData.get("diasAlocados"));
 
-  if (!funcionarioId || !diasAlocados || diasAlocados <= 0) {
-    throw new Error("Selecione um funcionário e uma quantidade de dias válida.");
+  if (!funcaoId || !diasAlocados || diasAlocados <= 0) {
+    throw new Error("Selecione uma função e uma quantidade de dias válida.");
   }
 
-  const [{ data: funcionario }, { data: parametros }] = await Promise.all([
+  const [{ data: funcao }, { data: parametros }] = await Promise.all([
     supabase
-      .from("Funcionario")
+      .from("Funcao")
       .select("salarioMensal, encargosPercent")
-      .eq("id", funcionarioId)
+      .eq("id", funcaoId)
       .maybeSingle(),
     supabase.from("ParametroGeral").select("diasUteisMes").limit(1).maybeSingle(),
   ]);
 
-  if (!funcionario) throw new Error("Funcionário não encontrado.");
+  if (!funcao) throw new Error("Função não encontrada.");
 
-  const custoDia = custoDiarioFuncionario(
-    funcionario,
+  const custoDia = custoDiarioMaoObra(
+    funcao,
     parametros?.diasUteisMes ?? DIAS_UTEIS_MES_PADRAO
   );
 
@@ -145,7 +145,7 @@ export async function adicionarMaoObraOrcamento(orcamentoId: string, formData: F
     .from("OrcamentoMaoObra")
     .select("*")
     .eq("orcamentoId", orcamentoId)
-    .eq("funcionarioId", funcionarioId)
+    .eq("funcaoId", funcaoId)
     .maybeSingle();
 
   if (alocacaoExistente) {
@@ -157,7 +157,7 @@ export async function adicionarMaoObraOrcamento(orcamentoId: string, formData: F
   } else {
     await supabase.from("OrcamentoMaoObra").insert({
       orcamentoId,
-      funcionarioId,
+      funcaoId,
       diasAlocados,
       custoCalculado: custoDia * diasAlocados,
     });

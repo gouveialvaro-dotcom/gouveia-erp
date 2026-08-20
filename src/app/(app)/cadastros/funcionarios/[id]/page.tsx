@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
+import { carregarFuncoes } from "@/lib/funcoes";
 import { FuncionarioForm } from "@/components/cadastros/funcionario-form";
 
 export default async function PaginaEditarFuncionario({
@@ -13,7 +14,13 @@ export default async function PaginaEditarFuncionario({
   if (!podeEscrever(perfil, "cadastrosGerais")) redirect("/cadastros/funcionarios");
 
   const { id } = await params;
-  const { data: funcionario } = await supabase.from("Funcionario").select("*").eq("id", id).maybeSingle();
+  // Funções inativas entram na lista da edição: se a função de alguém já
+  // cadastrado foi desativada, escondê-la deixaria o campo em branco e a
+  // gravação exigiria trocar a função de quem só teve o salário corrigido.
+  const [{ data: funcionario }, { funcoes, diasUteisMes }] = await Promise.all([
+    supabase.from("Funcionario").select("*").eq("id", id).maybeSingle(),
+    carregarFuncoes({ somenteAtivas: false }),
+  ]);
   if (!funcionario) notFound();
 
   return (
@@ -21,6 +28,8 @@ export default async function PaginaEditarFuncionario({
       <h2 className="text-lg font-semibold">Funcionário · {funcionario.nome}</h2>
       <p className="text-sm text-muted-foreground mb-4">Edição de cadastro</p>
       <FuncionarioForm
+        funcoes={funcoes.map((f) => ({ ...f, nome: f.ativo ? f.nome : `${f.nome} (inativa)` }))}
+        diasUteisMes={diasUteisMes}
         funcionario={{
           ...funcionario,
           salarioMensal: funcionario.salarioMensal.toString(),
