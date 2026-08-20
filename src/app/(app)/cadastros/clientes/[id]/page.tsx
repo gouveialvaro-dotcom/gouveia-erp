@@ -4,12 +4,17 @@ import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { formatarData } from "@/lib/format";
 import { podeEscrever } from "@/lib/permissoes";
-import { ROTULO_TIPO_UC } from "@/lib/pos-venda";
+import {
+  ROTULO_RAMO,
+  ROTULO_SITUACAO_MANUTENCAO,
+  listaDoRamo,
+  situacaoManutencao,
+  vigenciaManutencao,
+} from "@/lib/clientes";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
-import { UnidadeConsumidoraForm } from "@/components/cadastros/unidade-consumidora-form";
+import { UnidadeForm } from "@/components/cadastros/unidade-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -19,7 +24,91 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adicionarContato, removerContato, removerUnidadeConsumidora } from "../actions";
+import { removerUnidade } from "../actions";
+
+type UnidadeLinha = {
+  id: string;
+  numero: string;
+  endereco: string | null;
+  tipo: "geradora" | "beneficiaria";
+  concessionaria: { nome: string; sigla: string | null } | null;
+  chamados: { count: number }[];
+};
+
+// Uma tabela por tipo de unidade: geradora e beneficiária são listas
+// independentes dentro do cadastro do cliente solar.
+function TabelaUnidades({
+  linhas,
+  tipo,
+  clienteId,
+  podeEditar,
+}: {
+  linhas: UnidadeLinha[];
+  tipo: "geradora" | "beneficiaria";
+  clienteId: string;
+  podeEditar: boolean;
+}) {
+  return (
+    <div className="rounded-md border bg-card mb-4 max-w-4xl">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Número da unidade</TableHead>
+            <TableHead>Endereço</TableHead>
+            <TableHead>Concessionária</TableHead>
+            <TableHead className="text-right">Chamados</TableHead>
+            {podeEditar && <TableHead />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {linhas.map((u) => {
+            const chamados = u.chamados[0]?.count ?? 0;
+            return (
+              <TableRow key={u.id}>
+                <TableCell className="font-medium">{u.numero}</TableCell>
+                <TableCell>{u.endereco ?? "—"}</TableCell>
+                <TableCell>{u.concessionaria?.sigla ?? u.concessionaria?.nome ?? "—"}</TableCell>
+                <TableCell className="text-right">
+                  {chamados ? (
+                    <Link href={`/pos-venda?cliente=${clienteId}`} className="hover:underline">
+                      {chamados}
+                    </Link>
+                  ) : (
+                    0
+                  )}
+                </TableCell>
+                {podeEditar && (
+                  <TableCell className="text-right">
+                    {chamados ? (
+                      // Excluir deixaria os chamados sem a unidade de origem.
+                      <span className="text-xs text-muted-foreground">Em uso no pós-venda</span>
+                    ) : (
+                      <form action={removerUnidade.bind(null, clienteId, u.id)}>
+                        <Button type="submit" variant="ghost" size="sm">
+                          Excluir
+                        </Button>
+                      </form>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+          {linhas.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={podeEditar ? 5 : 4}
+                className="text-center text-muted-foreground py-6"
+              >
+                Nenhuma unidade {tipo === "geradora" ? "geradora" : "beneficiária"} cadastrada.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
 export default async function PaginaEditarCliente({
   params,
@@ -31,211 +120,154 @@ export default async function PaginaEditarCliente({
 
   const { data: cliente } = await supabase
     .from("Cliente")
-    .select("*, contatos:ContatoCliente(*), orcamentos:Orcamento(*)")
+    .select("*, orcamentos:Orcamento(*)")
     .eq("id", id)
     .order("criadoEm", { referencedTable: "Orcamento", ascending: false })
     .maybeSingle();
 
   if (!cliente) notFound();
 
+  const solar = cliente.ramo === "energia_solar";
   const podeEditar = podeEscrever(perfil, "clientes");
-  // UC é mantida pelo atendimento, que só lê o cadastro do cliente.
-  const podeEditarUc = podeEscrever(perfil, "posVenda");
-  const adicionarContatoComCliente = adicionarContato.bind(null, cliente.id);
+  // As UGs/UBs alimentam o chamado: o atendimento também mantém essa lista,
+  // ainda que só leia o resto do cadastro.
+  const podeEditarUnidade = podeEditar || podeEscrever(perfil, "posVenda");
 
-  const [{ data: unidades }, { data: concessionarias }, { data: obras }] = await Promise.all([
+  const [{ data: unidades }, { data: concessionarias }] = await Promise.all([
     supabase
       .from("UnidadeConsumidora")
-      .select(
-        "*, concessionaria:Concessionaria(nome, sigla), chamados:Chamado(count)"
-      )
+      .select("id, numero, endereco, tipo, concessionaria:Concessionaria(nome, sigla), chamados:Chamado(count)")
       .eq("clienteId", cliente.id)
-      .order("tipo")
       .order("numero"),
     supabase.from("Concessionaria").select("id, nome").eq("ativo", true).order("nome"),
-    supabase
-      .from("Obra")
-      .select("id, oportunidade:Oportunidade!inner(clienteId, orcamento:Orcamento(nomeProjeto))")
-      .eq("oportunidade.clienteId", cliente.id),
   ]);
 
-  const unidadesDoCliente = unidades ?? [];
-  const numeroPorId = new Map(unidadesDoCliente.map((u) => [u.id, u.numero]));
+  const todas: UnidadeLinha[] = unidades ?? [];
+  const geradoras = todas.filter((u) => u.tipo === "geradora");
+  const beneficiarias = todas.filter((u) => u.tipo === "beneficiaria");
+  const situacao = ROTULO_SITUACAO_MANUTENCAO[situacaoManutencao(cliente)];
+  const vigencia = vigenciaManutencao(cliente);
 
   return (
     <div className="flex flex-col gap-1">
-      <h2 className="text-lg font-semibold">Cliente · {cliente.razaoSocial}</h2>
-      <p className="text-sm text-muted-foreground mb-4">Edição de cadastro</p>
+      <Link href={listaDoRamo(cliente.ramo)} className="text-sm text-muted-foreground hover:underline w-fit">
+        ← {ROTULO_RAMO[cliente.ramo]}
+      </Link>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold">Cliente · {cliente.razaoSocial}</h2>
+        <Badge variant="outline">{ROTULO_RAMO[cliente.ramo]}</Badge>
+        {solar && <Badge variant={situacao.variant}>{situacao.texto}</Badge>}
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        {solar && vigencia
+          ? `Contrato de manutenção vigente de ${vigencia}.`
+          : solar
+            ? "Sem período de manutenção cadastrado — o pós-venda não aceita abrir chamado deste cliente."
+            : "Edição de cadastro."}
+      </p>
 
       {podeEditar ? (
         <ClienteForm
+          ramo={cliente.ramo}
           cliente={{
             id: cliente.id,
+            ramo: cliente.ramo,
             razaoSocial: cliente.razaoSocial,
             cnpj: cliente.cnpj,
+            contato: cliente.contato,
+            telefone: cliente.telefone,
+            email: cliente.email,
             endereco: cliente.endereco,
-            cidade: cliente.cidade,
-            uf: cliente.uf,
             observacoes: cliente.observacoes,
+            manutencaoInicio: cliente.manutencaoInicio,
+            manutencaoFim: cliente.manutencaoFim,
           }}
         />
       ) : (
         <dl className="grid grid-cols-2 gap-3 max-w-2xl text-sm">
-          <div><dt className="text-muted-foreground">Razão social</dt><dd>{cliente.razaoSocial}</dd></div>
-          <div><dt className="text-muted-foreground">CNPJ</dt><dd>{cliente.cnpj}</dd></div>
-          <div><dt className="text-muted-foreground">Cidade/UF</dt><dd>{cliente.cidade ?? "—"}/{cliente.uf ?? "—"}</dd></div>
-          <div><dt className="text-muted-foreground">Endereço</dt><dd>{cliente.endereco ?? "—"}</dd></div>
+          <div>
+            <dt className="text-muted-foreground">Razão social</dt>
+            <dd>{cliente.razaoSocial}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">CNPJ / CPF</dt>
+            <dd>{cliente.cnpj}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Contato</dt>
+            <dd>
+              {cliente.contato ?? "—"}
+              {cliente.telefone ? ` · ${cliente.telefone}` : ""}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">E-mail</dt>
+            <dd>{cliente.email ?? "—"}</dd>
+          </div>
+          {solar ? (
+            <div>
+              <dt className="text-muted-foreground">Manutenção</dt>
+              <dd>{vigencia ?? "sem período cadastrado"}</dd>
+            </div>
+          ) : (
+            <div>
+              <dt className="text-muted-foreground">Endereço</dt>
+              <dd>{cliente.endereco ?? "—"}</dd>
+            </div>
+          )}
+          <div className="col-span-2">
+            <dt className="text-muted-foreground">Observações</dt>
+            <dd className="whitespace-pre-line">{cliente.observacoes ?? "—"}</dd>
+          </div>
         </dl>
       )}
 
-      <Separator className="my-6" />
+      {solar && (
+        <>
+          <Separator className="my-6" />
 
-      <h3 className="font-semibold mb-3">Contatos</h3>
-      <div className="rounded-md border bg-card mb-4 max-w-3xl">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>E-mail</TableHead>
-              {podeEditar && <TableHead />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cliente.contatos.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.nome}</TableCell>
-                <TableCell>{c.cargo ?? "—"}</TableCell>
-                <TableCell>{c.telefone ?? "—"}</TableCell>
-                <TableCell>{c.email ?? "—"}</TableCell>
-                {podeEditar && (
-                  <TableCell className="text-right">
-                    <form
-                      action={async () => {
-                        "use server";
-                        await removerContato(cliente.id, c.id);
-                      }}
-                    >
-                      <Button type="submit" variant="ghost" size="sm">
-                        Remover
-                      </Button>
-                    </form>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-            {cliente.contatos.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                  Nenhum contato cadastrado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+          <h3 className="font-semibold mb-1">Unidades geradoras</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Onde fica a usina. É a unidade que gera os créditos compensados nas beneficiárias.
+          </p>
+          <TabelaUnidades
+            linhas={geradoras}
+            tipo="geradora"
+            clienteId={cliente.id}
+            podeEditar={podeEditarUnidade}
+          />
+          {podeEditarUnidade && (
+            <UnidadeForm
+              clienteId={cliente.id}
+              tipo="geradora"
+              concessionarias={concessionarias ?? []}
+            />
+          )}
 
-      {podeEditar && (
-        <form action={adicionarContatoComCliente} className="grid grid-cols-4 gap-3 max-w-3xl items-end mb-8">
-          <Input name="nome" placeholder="Nome" required />
-          <Input name="cargo" placeholder="Cargo" />
-          <Input name="telefone" placeholder="Telefone" />
-          <div className="flex gap-2">
-            <Input name="email" placeholder="E-mail" />
-            <Button type="submit" variant="secondary">+ Contato</Button>
-          </div>
-        </form>
+          <h3 className="font-semibold mb-1">Unidades beneficiárias</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Unidades que recebem os créditos da geradora — cada uma com seu número e endereço.
+          </p>
+          <TabelaUnidades
+            linhas={beneficiarias}
+            tipo="beneficiaria"
+            clienteId={cliente.id}
+            podeEditar={podeEditarUnidade}
+          />
+          {podeEditarUnidade && (
+            <UnidadeForm
+              clienteId={cliente.id}
+              tipo="beneficiaria"
+              concessionarias={concessionarias ?? []}
+            />
+          )}
+
+          <Separator className="my-2" />
+        </>
       )}
 
-      <h3 className="font-semibold mb-1">Unidades consumidoras</h3>
-      <p className="text-sm text-muted-foreground mb-3">
-        Base do pós-venda: é a UC que a concessionária fatura, mede e compensa. Beneficiárias
-        precisam apontar para a geradora e o rateio somado não pode passar de 100%.
-      </p>
-      <div className="rounded-md border bg-card mb-4 max-w-4xl">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>UC</TableHead>
-              <TableHead>Concessionária</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Geradora / rateio</TableHead>
-              <TableHead className="text-right">Chamados</TableHead>
-              {podeEditarUc && <TableHead />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {unidadesDoCliente.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell className="font-medium">
-                  {u.numero}
-                  {u.apelido && (
-                    <span className="text-muted-foreground font-normal"> — {u.apelido}</span>
-                  )}
-                </TableCell>
-                <TableCell>{u.concessionaria?.sigla ?? u.concessionaria?.nome ?? "—"}</TableCell>
-                <TableCell>
-                  <Badge variant={u.tipo === "geradora" ? "secondary" : "outline"}>
-                    {ROTULO_TIPO_UC[u.tipo]}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {u.tipo === "beneficiaria"
-                    ? `UC ${numeroPorId.get(u.geradoraId ?? "") ?? "?"} · ${u.percentualRateio ?? "—"}%`
-                    : u.potenciaKwp
-                      ? `${u.potenciaKwp} kWp`
-                      : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  {u.chamados[0]?.count ? (
-                    <Link href={`/pos-venda?cliente=${cliente.id}`} className="hover:underline">
-                      {u.chamados[0].count}
-                    </Link>
-                  ) : (
-                    0
-                  )}
-                </TableCell>
-                {podeEditarUc && (
-                  <TableCell className="text-right">
-                    <form action={removerUnidadeConsumidora.bind(null, cliente.id, u.id)}>
-                      <Button type="submit" variant="ghost" size="sm">
-                        Remover
-                      </Button>
-                    </form>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-            {unidadesDoCliente.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={podeEditarUc ? 6 : 5} className="text-center text-muted-foreground py-6">
-                  Nenhuma unidade consumidora cadastrada.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {podeEditarUc && (
-        <UnidadeConsumidoraForm
-          clienteId={cliente.id}
-          concessionarias={concessionarias ?? []}
-          geradoras={unidadesDoCliente
-            .filter((u) => u.tipo === "geradora")
-            .map((u) => ({
-              id: u.id,
-              rotulo: `${u.numero}${u.apelido ? ` — ${u.apelido}` : ""}`,
-            }))}
-          obras={(obras ?? []).map((o) => ({
-            id: o.id,
-            rotulo: o.oportunidade?.orcamento?.nomeProjeto ?? "Obra sem projeto nomeado",
-          }))}
-        />
-      )}
-
-      <h3 className="font-semibold mb-3">Histórico de orçamentos e propostas</h3>
+      <h3 className="font-semibold mb-3 mt-4">Histórico de orçamentos e propostas</h3>
       <div className="rounded-md border bg-card max-w-3xl">
         <Table>
           <TableHeader>

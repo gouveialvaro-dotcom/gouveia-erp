@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
 import { ORDEM_ESTAGIO_FLUXO, ROTULO_ESTAGIO, hojeIso, somarDias } from "@/lib/pos-venda";
+import { impedimentoDeAbertura } from "@/lib/clientes";
 import { notificarPosVenda } from "@/lib/notificacoes-pos-venda";
 
 export type EstadoFormChamado = { erro?: string } | undefined;
@@ -83,6 +84,21 @@ export async function criarChamado(
   if (!dados.success) {
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
   }
+
+  // Quem autoriza o atendimento é o cadastro do cliente: o pós-venda só atende
+  // energia solar e só dentro da vigência do contrato de manutenção. A tela já
+  // avisa antes de enviar; aqui é a trava de fato (a action é alcançável por
+  // POST direto).
+  const { data: cliente } = await supabase
+    .from("Cliente")
+    .select("ramo, manutencaoInicio, manutencaoFim")
+    .eq("id", dados.data.clienteId)
+    .maybeSingle();
+
+  if (!cliente) return { erro: "Cliente não encontrado." };
+
+  const impedimento = impedimentoDeAbertura(cliente, dados.data.abertoEm);
+  if (impedimento) return { erro: impedimento };
 
   const prazoLimite = await prazoDoTipo(dados.data.tipoProblemaId, dados.data.abertoEm);
   if (!prazoLimite) return { erro: "Tipo de problema não encontrado." };

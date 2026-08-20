@@ -4,16 +4,32 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
-import { exigirPermissao } from "@/lib/api-auth";
+import { exigirAlgumaPermissao, exigirPermissao } from "@/lib/api-auth";
+import { SLUG_POR_RAMO } from "@/lib/clientes";
 
-const clienteSchema = z.object({
-  razaoSocial: z.string().min(1, "Informe a razão social."),
-  cnpj: z.string().min(1, "Informe o CNPJ."),
-  endereco: z.string().optional(),
-  cidade: z.string().optional(),
-  uf: z.string().max(2).optional(),
-  observacoes: z.string().optional(),
-});
+// O ramo decide o formato do cadastro: energia solar tem contrato de
+// manutenção e unidades geradoras/beneficiárias; redes/subestações é um
+// cadastro simples com endereço.
+const clienteSchema = z
+  .object({
+    ramo: z.enum(["energia_solar", "redes_subestacoes"]),
+    razaoSocial: z.string().min(1, "Informe a razão social."),
+    cnpj: z.string().min(1, "Informe o CNPJ/CPF."),
+    contato: z.string().optional(),
+    telefone: z.string().optional(),
+    email: z.email("Informe um e-mail válido.").optional(),
+    observacoes: z.string().optional(),
+    endereco: z.string().optional(),
+    manutencaoInicio: z.string().optional(),
+    manutencaoFim: z.string().optional(),
+  })
+  .refine((d) => !d.manutencaoInicio === !d.manutencaoFim, {
+    message: "Informe as duas datas do plano de manutenção (início e fim).",
+  })
+  .refine(
+    (d) => !d.manutencaoInicio || !d.manutencaoFim || d.manutencaoFim >= d.manutencaoInicio,
+    { message: "O fim da manutenção não pode ser anterior ao início." }
+  );
 
 export type EstadoFormCliente = { erro?: string } | undefined;
 
@@ -25,160 +41,155 @@ export async function salvarCliente(
   const { usuarioId } = await exigirPermissao("clientes", "escrita");
 
   const dados = clienteSchema.safeParse({
+    ramo: formData.get("ramo"),
     razaoSocial: formData.get("razaoSocial"),
     cnpj: formData.get("cnpj"),
-    endereco: formData.get("endereco") || undefined,
-    cidade: formData.get("cidade") || undefined,
-    uf: formData.get("uf") || undefined,
+    contato: formData.get("contato") || undefined,
+    telefone: formData.get("telefone") || undefined,
+    email: formData.get("email") || undefined,
     observacoes: formData.get("observacoes") || undefined,
+    endereco: formData.get("endereco") || undefined,
+    manutencaoInicio: formData.get("manutencaoInicio") || undefined,
+    manutencaoFim: formData.get("manutencaoFim") || undefined,
   });
 
   if (!dados.success) {
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { ramo, endereco, manutencaoInicio, manutencaoFim, ...comum } = dados.data;
+
+  // Cada ramo grava só os campos do seu formulário — o endereço do cliente
+  // solar são os das UGs/UBs, e o cliente de redes não tem manutenção.
+  const registro =
+    ramo === "energia_solar"
+      ? {
+          ...comum,
+          ramo,
+          contato: comum.contato ?? null,
+          telefone: comum.telefone ?? null,
+          email: comum.email ?? null,
+          observacoes: comum.observacoes ?? null,
+          manutencaoInicio: manutencaoInicio ?? null,
+          manutencaoFim: manutencaoFim ?? null,
+        }
+      : {
+          ...comum,
+          ramo,
+          contato: comum.contato ?? null,
+          telefone: comum.telefone ?? null,
+          email: comum.email ?? null,
+          observacoes: comum.observacoes ?? null,
+          endereco: endereco ?? null,
+        };
+
+  // Reclassificar para redes/subestações esconderia as UGs/UBs e tiraria o
+  // cliente do pós-venda — com unidade ou chamado no histórico, isso é perda
+  // silenciosa de informação.
+  if (clienteId && ramo === "redes_subestacoes") {
+    const [{ count: unidades }, { count: chamados }] = await Promise.all([
+      supabase
+        .from("UnidadeConsumidora")
+        .select("id", { count: "exact", head: true })
+        .eq("clienteId", clienteId),
+      supabase
+        .from("Chamado")
+        .select("id", { count: "exact", head: true })
+        .eq("clienteId", clienteId),
+    ]);
+
+    if ((unidades ?? 0) > 0 || (chamados ?? 0) > 0) {
+      return {
+        erro:
+          "Cliente tem unidades ou chamados de energia solar. Exclua-os antes de mudar o ramo " +
+          "para redes/subestações.",
+      };
+    }
   }
 
   let id = clienteId;
   if (clienteId) {
-    const { error } = await supabase.from("Cliente").update(dados.data).eq("id", clienteId);
-    if (error) return { erro: "Já existe um cliente cadastrado com esse CNPJ." };
+    const { error } = await supabase.from("Cliente").update(registro).eq("id", clienteId);
+    if (error) return { erro: "Já existe um cliente cadastrado com esse CNPJ/CPF." };
   } else {
     const { data: criado, error } = await supabase
       .from("Cliente")
-      .insert({ ...dados.data, criadoPorId: usuarioId })
+      .insert({ ...registro, criadoPorId: usuarioId })
       .select("id")
       .single();
-    if (error || !criado) return { erro: "Já existe um cliente cadastrado com esse CNPJ." };
+    if (error || !criado) return { erro: "Já existe um cliente cadastrado com esse CNPJ/CPF." };
     id = criado.id;
   }
 
-  revalidatePath("/cadastros/clientes");
+  revalidatePath(`/cadastros/clientes/${SLUG_POR_RAMO[ramo]}`);
+  revalidatePath("/pos-venda");
   redirect(`/cadastros/clientes/${id}`);
 }
 
-const contatoSchema = z.object({
-  nome: z.string().min(1, "Informe o nome do contato."),
-  cargo: z.string().optional(),
-  telefone: z.string().optional(),
-  email: z.string().optional(),
+// --- Unidades geradoras e beneficiárias -----------------------------------
+// Ficam dentro do cadastro do cliente de energia solar, e são também a âncora
+// do pós-venda: é na UC que a concessionária fatura, mede e compensa.
+
+const unidadeSchema = z.object({
+  numero: z.string().min(1, "Informe o número da unidade."),
+  endereco: z.string().min(1, "Informe o endereço da unidade."),
+  tipo: z.enum(["geradora", "beneficiaria"]),
+  concessionariaId: z.string().optional(),
 });
-
-export async function adicionarContato(clienteId: string, formData: FormData) {
-  await exigirPermissao("clientes", "escrita");
-
-  const dados = contatoSchema.parse({
-    nome: formData.get("nome"),
-    cargo: formData.get("cargo") || undefined,
-    telefone: formData.get("telefone") || undefined,
-    email: formData.get("email") || undefined,
-  });
-
-  await supabase.from("ContatoCliente").insert({ ...dados, clienteId });
-  revalidatePath(`/cadastros/clientes/${clienteId}`);
-}
-
-export async function removerContato(clienteId: string, contatoId: string) {
-  await exigirPermissao("clientes", "escrita");
-  await supabase.from("ContatoCliente").delete().eq("id", contatoId);
-  revalidatePath(`/cadastros/clientes/${clienteId}`);
-}
-
-// --- Unidades consumidoras ------------------------------------------------
-// A UC é a âncora do pós-venda: é nela que a concessionária fatura, mede e
-// compensa, então quase todo chamado aponta para uma.
-
-const unidadeSchema = z
-  .object({
-    numero: z.string().min(1, "Informe o número da UC."),
-    apelido: z.string().optional(),
-    concessionariaId: z.string().min(1, "Selecione a concessionária."),
-    tipo: z.enum(["geradora", "beneficiaria"]),
-    geradoraId: z.string().optional(),
-    percentualRateio: z.coerce.number().gt(0).max(100).optional(),
-    obraId: z.string().optional(),
-    titular: z.string().optional(),
-    potenciaKwp: z.coerce.number().nonnegative().optional(),
-    cidade: z.string().optional(),
-    uf: z.string().max(2).optional(),
-  })
-  .refine((d) => d.tipo === "geradora" || !!d.geradoraId, {
-    message: "Beneficiária precisa apontar para a UC geradora que a compensa.",
-  })
-  .refine((d) => d.tipo === "geradora" || d.percentualRateio !== undefined, {
-    message: "Informe o percentual de rateio da beneficiária.",
-  });
 
 export type EstadoFormUnidade = { erro?: string } | undefined;
 
-export async function adicionarUnidadeConsumidora(
+export async function adicionarUnidade(
   clienteId: string,
+  tipo: "geradora" | "beneficiaria",
   _estado: EstadoFormUnidade,
   formData: FormData
 ): Promise<EstadoFormUnidade> {
-  // A UC é artefato de pós-venda, ainda que apareça na tela do cliente: quem
-  // mantém é o atendimento, que não tem escrita no cadastro do cliente.
-  await exigirPermissao("posVenda", "escrita");
+  // A UC é insumo do chamado, mas mora no cadastro do cliente: quem mantém é o
+  // comercial (dono do cadastro) ou o atendimento (dono do pós-venda).
+  await exigirAlgumaPermissao(["clientes", "posVenda"], "escrita");
 
   const dados = unidadeSchema.safeParse({
     numero: formData.get("numero"),
-    apelido: formData.get("apelido") || undefined,
-    concessionariaId: formData.get("concessionariaId"),
-    tipo: formData.get("tipo"),
-    geradoraId: formData.get("geradoraId") || undefined,
-    percentualRateio: formData.get("percentualRateio") || undefined,
-    obraId: formData.get("obraId") || undefined,
-    titular: formData.get("titular") || undefined,
-    potenciaKwp: formData.get("potenciaKwp") || undefined,
-    cidade: formData.get("cidade") || undefined,
-    uf: formData.get("uf") || undefined,
+    endereco: formData.get("endereco"),
+    tipo,
+    concessionariaId: formData.get("concessionariaId") || undefined,
   });
 
   if (!dados.success) {
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
-  }
-
-  // Rateio somando mais de 100% numa geradora é exatamente a origem do
-  // "erro de compensação de unidade beneficiária" — barra antes de virar
-  // chamado.
-  if (dados.data.tipo === "beneficiaria" && dados.data.geradoraId) {
-    const { data: irmas } = await supabase
-      .from("UnidadeConsumidora")
-      .select("percentualRateio")
-      .eq("geradoraId", dados.data.geradoraId);
-
-    const jaRateado = (irmas ?? []).reduce((s, u) => s + (u.percentualRateio ?? 0), 0);
-    const total = jaRateado + (dados.data.percentualRateio ?? 0);
-    if (total > 100) {
-      return {
-        erro: `Rateio ultrapassa 100% na geradora (${jaRateado}% já distribuídos).`,
-      };
-    }
   }
 
   const { error } = await supabase.from("UnidadeConsumidora").insert({
     clienteId,
     numero: dados.data.numero,
-    apelido: dados.data.apelido ?? null,
-    concessionariaId: dados.data.concessionariaId,
+    endereco: dados.data.endereco,
     tipo: dados.data.tipo,
-    geradoraId: dados.data.tipo === "beneficiaria" ? (dados.data.geradoraId ?? null) : null,
-    percentualRateio:
-      dados.data.tipo === "beneficiaria" ? (dados.data.percentualRateio ?? null) : null,
-    obraId: dados.data.obraId ?? null,
-    titular: dados.data.titular ?? null,
-    potenciaKwp: dados.data.potenciaKwp ?? null,
-    cidade: dados.data.cidade ?? null,
-    uf: dados.data.uf ?? null,
+    concessionariaId: dados.data.concessionariaId ?? null,
   });
 
   if (error) {
-    return { erro: "Já existe uma UC com esse número nessa concessionária." };
+    return { erro: "Já existe uma unidade com esse número neste cliente." };
   }
 
   revalidatePath(`/cadastros/clientes/${clienteId}`);
+  revalidatePath("/pos-venda");
 }
 
-export async function removerUnidadeConsumidora(clienteId: string, unidadeId: string) {
-  await exigirPermissao("posVenda", "escrita");
+export async function removerUnidade(clienteId: string, unidadeId: string) {
+  await exigirAlgumaPermissao(["clientes", "posVenda"], "escrita");
+
+  // Chamado aponta para a UC (FK com ON DELETE SET NULL): excluir uma unidade
+  // já usada deixaria o histórico do atendimento sem referência. A tela também
+  // esconde o botão nesse caso; aqui é a trava de fato.
+  const { count } = await supabase
+    .from("Chamado")
+    .select("id", { count: "exact", head: true })
+    .eq("unidadeConsumidoraId", unidadeId);
+
+  if (count && count > 0) return;
+
   await supabase.from("UnidadeConsumidora").delete().eq("id", unidadeId);
   revalidatePath(`/cadastros/clientes/${clienteId}`);
+  revalidatePath("/pos-venda");
 }

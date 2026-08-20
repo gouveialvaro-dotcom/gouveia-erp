@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { criarChamado, type EstadoFormChamado } from "@/app/(app)/pos-venda/actions";
 import { formatarData } from "@/lib/format";
 import { ROTULO_PRIORIDADE, hojeIso, somarDias } from "@/lib/pos-venda";
+import { impedimentoDeAbertura, vigenciaManutencao, type RamoCliente } from "@/lib/clientes";
 import { Button } from "@/components/ui/button";
 import { ComboboxCampo } from "@/components/ui/combobox-campo";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,14 @@ export type TipoProblemaOpcao = {
 export type UnidadeOpcao = { id: string; clienteId: string; rotulo: string };
 export type ObraOpcao = { id: string; clienteId: string; rotulo: string };
 
+export type ClienteOpcao = {
+  id: string;
+  nome: string;
+  ramo: RamoCliente;
+  manutencaoInicio: string | null;
+  manutencaoFim: string | null;
+};
+
 export function ChamadoCriarForm({
   clientes,
   unidades,
@@ -29,7 +39,7 @@ export function ChamadoCriarForm({
   usuarios,
   responsavelPadraoId,
 }: {
-  clientes: { id: string; nome: string }[];
+  clientes: ClienteOpcao[];
   unidades: UnidadeOpcao[];
   obras: ObraOpcao[];
   tipos: TipoProblemaOpcao[];
@@ -51,6 +61,13 @@ export function ChamadoCriarForm({
   const obrasDoCliente = obras.filter((o) => o.clienteId === clienteId);
   const tipo = tipos.find((t) => t.id === tipoId);
 
+  // O chamado só pode ser aberto dentro do contrato de manutenção do cliente,
+  // conferido na data de abertura escolhida. A mesma regra roda na server
+  // action — aqui é para avisar antes de o atendente digitar o chamado inteiro.
+  const cliente = clientes.find((c) => c.id === clienteId);
+  const impedimento = cliente ? impedimentoDeAbertura(cliente, abertoEm) : null;
+  const vigencia = cliente ? vigenciaManutencao(cliente) : null;
+
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 max-w-2xl">
@@ -64,7 +81,25 @@ export function ChamadoCriarForm({
             textoVazio="Nenhum cliente encontrado."
             aoSelecionar={(opcao) => setClienteId(opcao?.value ?? "")}
           />
+          {cliente && !impedimento && vigencia && (
+            <p className="text-xs text-muted-foreground">
+              Plano de manutenção ativo · vigência {vigencia}
+            </p>
+          )}
         </div>
+
+        {impedimento && (
+          <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <strong>{impedimento}</strong>
+            <span className="block mt-1 text-muted-foreground">
+              Ajuste o período do contrato no{" "}
+              <Link href={`/cadastros/clientes/${clienteId}`} className="underline">
+                cadastro do cliente
+              </Link>{" "}
+              ou escolha uma data de abertura dentro da vigência.
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="unidadeConsumidoraId">Unidade consumidora</Label>
@@ -204,7 +239,10 @@ export function ChamadoCriarForm({
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
 
       <div>
-        <Button type="submit" disabled={pendente || tipos.length === 0}>
+        <Button
+          type="submit"
+          disabled={pendente || tipos.length === 0 || Boolean(impedimento)}
+        >
           {pendente ? "Abrindo..." : "Abrir chamado"}
         </Button>
       </div>

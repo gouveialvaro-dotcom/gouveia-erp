@@ -221,36 +221,54 @@ export type Database = {
           atualizadoEm: string
           cidade: string | null
           cnpj: string
+          contato: string | null
           criadoEm: string
           criadoPorId: string | null
+          email: string | null
           endereco: string | null
           id: string
+          manutencaoFim: string | null
+          manutencaoInicio: string | null
           observacoes: string | null
+          ramo: Database["public"]["Enums"]["RamoCliente"]
           razaoSocial: string
+          telefone: string | null
           uf: string | null
         }
         Insert: {
           atualizadoEm?: string
           cidade?: string | null
           cnpj: string
+          contato?: string | null
           criadoEm?: string
           criadoPorId?: string | null
+          email?: string | null
           endereco?: string | null
           id?: string
+          manutencaoFim?: string | null
+          manutencaoInicio?: string | null
           observacoes?: string | null
+          ramo?: Database["public"]["Enums"]["RamoCliente"]
           razaoSocial: string
+          telefone?: string | null
           uf?: string | null
         }
         Update: {
           atualizadoEm?: string
           cidade?: string | null
           cnpj?: string
+          contato?: string | null
           criadoEm?: string
           criadoPorId?: string | null
+          email?: string | null
           endereco?: string | null
           id?: string
+          manutencaoFim?: string | null
+          manutencaoInicio?: string | null
           observacoes?: string | null
+          ramo?: Database["public"]["Enums"]["RamoCliente"]
           razaoSocial?: string
+          telefone?: string | null
           uf?: string | null
         }
         Relationships: [
@@ -1259,7 +1277,7 @@ export type Database = {
           atualizadoEm: string
           cidade: string | null
           clienteId: string
-          concessionariaId: string
+          concessionariaId: string | null
           criadoEm: string
           endereco: string | null
           geradoraId: string | null
@@ -1278,7 +1296,7 @@ export type Database = {
           atualizadoEm?: string
           cidade?: string | null
           clienteId: string
-          concessionariaId: string
+          concessionariaId?: string | null
           criadoEm?: string
           endereco?: string | null
           geradoraId?: string | null
@@ -1297,7 +1315,7 @@ export type Database = {
           atualizadoEm?: string
           cidade?: string | null
           clienteId?: string
-          concessionariaId?: string
+          concessionariaId?: string | null
           criadoEm?: string
           endereco?: string | null
           geradoraId?: string | null
@@ -1403,6 +1421,7 @@ export type Database = {
         | "admin"
         | "atendimento"
       PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
+      RamoCliente: "energia_solar" | "redes_subestacoes"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
       TipoInteracao: "ligacao" | "email" | "reuniao" | "visita"
@@ -1573,6 +1592,7 @@ export const Constants = {
         "atendimento",
       ],
       PrioridadeChamado: ["baixa", "media", "alta", "critica"],
+      RamoCliente: ["energia_solar", "redes_subestacoes"],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
       TipoInteracao: ["ligacao", "email", "reuniao", "visita"],

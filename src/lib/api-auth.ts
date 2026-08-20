@@ -35,16 +35,27 @@ async function resolverUsuarioId(id: string | undefined, email: string | null | 
 // `usuarioId` é o id já conferido no banco — use-o para gravar qualquer coluna
 // que referencie Usuario, nunca `session.user.id` direto.
 export async function exigirPermissao(modulo: Modulo, nivelMinimo: "leitura" | "escrita") {
+  return exigirAlgumaPermissao([modulo], nivelMinimo);
+}
+
+// Mesma garantia, mas basta um dos módulos autorizar. Existe para o dado que é
+// compartilhado por dois donos — as unidades geradoras/beneficiárias moram no
+// cadastro do cliente (comercial) e são insumo do chamado (atendimento).
+export async function exigirAlgumaPermissao(
+  modulos: Modulo[],
+  nivelMinimo: "leitura" | "escrita"
+) {
   const session = await auth();
   if (!session?.user) {
     throw new ApiAuthError(401, "Não autenticado.");
   }
 
   const perfil = session.user.perfil as Perfil;
-  const nivel = nivelAcesso(perfil, modulo);
 
-  const autorizado =
-    nivelMinimo === "leitura" ? nivel !== "nenhum" : nivel === "escrita";
+  const autorizado = modulos.some((modulo) => {
+    const nivel = nivelAcesso(perfil, modulo);
+    return nivelMinimo === "leitura" ? nivel !== "nenhum" : nivel === "escrita";
+  });
 
   if (!autorizado) {
     throw new ApiAuthError(403, "Sem permissão para esta ação.");

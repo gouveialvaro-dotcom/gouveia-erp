@@ -42,50 +42,53 @@ async function main() {
     });
   }
 
+  // Contrato de manutenção de um ano a partir de hoje: sem vigência ativa o
+  // pós-venda recusa abrir chamado do cliente solar.
+  const hoje = new Date().toISOString().slice(0, 10);
+  const daquiUmAno = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
+
   const clientesSeed = [
     {
       razaoSocial: "Smartfit Academias Ltda",
       cnpj: "12.345.678/0001-90",
-      endereco: "Av. Afonso Pena, 1500",
-      cidade: "Natal",
-      uf: "RN",
-      contato: { nome: "Filipe Linhares", cargo: "Gerente de Facilities", telefone: "(84) 99999-0001", email: "filipe.linhares@smartfit.com.br" },
+      ramo: "energia_solar" as const,
+      contato: "Filipe Linhares",
+      telefone: "(84) 99999-0001",
+      email: "filipe.linhares@smartfit.com.br",
+      manutencaoInicio: hoje,
+      manutencaoFim: daquiUmAno,
     },
     {
       razaoSocial: "Enel Green Power Brasil S.A.",
       cnpj: "23.456.789/0001-01",
+      ramo: "redes_subestacoes" as const,
       endereco: "Rod. BR-304, km 12",
       cidade: "Mossoró",
       uf: "RN",
-      contato: { nome: "Marina Costa", cargo: "Engenheira de Projetos", telefone: "(84) 99999-0002", email: "marina.costa@enel.com" },
+      contato: "Marina Costa",
+      telefone: "(84) 99999-0002",
+      email: "marina.costa@enel.com",
     },
     {
       razaoSocial: "Casa dos Ventos Energias Renováveis S.A.",
       cnpj: "34.567.890/0001-12",
+      ramo: "redes_subestacoes" as const,
       endereco: "Rua do Sol, 200",
       cidade: "João Câmara",
       uf: "RN",
-      contato: { nome: "Roberto Almeida", cargo: "Coordenador de Obras", telefone: "(84) 99999-0003", email: "roberto.almeida@casadosventos.com.br" },
+      contato: "Roberto Almeida",
+      telefone: "(84) 99999-0003",
+      email: "roberto.almeida@casadosventos.com.br",
     },
   ];
 
   const clientesCriados = [];
-  for (const { contato, ...cliente } of clientesSeed) {
+  for (const cliente of clientesSeed) {
     const { data: clienteCriado } = await supabase
       .from("Cliente")
       .upsert({ ...cliente, criadoPorId: comercial.id }, { onConflict: "cnpj" })
       .select()
       .single();
-    if (clienteCriado) {
-      const { data: contatoExistente } = await supabase
-        .from("ContatoCliente")
-        .select("id")
-        .eq("clienteId", clienteCriado.id)
-        .maybeSingle();
-      if (!contatoExistente) {
-        await supabase.from("ContatoCliente").insert({ ...contato, clienteId: clienteCriado.id });
-      }
-    }
     clientesCriados.push(clienteCriado);
   }
 

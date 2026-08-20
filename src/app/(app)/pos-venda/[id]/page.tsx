@@ -19,6 +19,12 @@ import {
   mesesAtras,
   textoPrazo,
 } from "@/lib/pos-venda";
+import {
+  ROTULO_RAMO,
+  ROTULO_SITUACAO_MANUTENCAO,
+  situacaoManutencao,
+  vigenciaManutencao,
+} from "@/lib/clientes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +46,7 @@ import { MarcarLido } from "@/components/pos-venda/marcar-lido";
 import { adicionarInteracao, removerInteracao, removerAnexo } from "../actions";
 
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial, cidade, uf), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta, dependeConcessionaria), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
+  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta, dependeConcessionaria), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
 
 function formatarTamanho(bytes: number | null) {
   if (bytes === null) return "—";
@@ -117,6 +123,12 @@ export default async function PaginaChamado({
   ]);
 
   const recorrente = (ocorrencias ?? 0) >= MIN_OCORRENCIAS_RECORRENCIA;
+  // Situação do contrato de manutenção do cliente hoje — é o que autoriza (ou
+  // não) novos chamados deste cliente.
+  const situacaoCliente = chamado.cliente
+    ? ROTULO_SITUACAO_MANUTENCAO[situacaoManutencao(chamado.cliente, hoje)]
+    : null;
+  const vigenciaCliente = chamado.cliente ? vigenciaManutencao(chamado.cliente) : null;
   const diasEmAberto = diferencaEmDias(chamado.abertoEm, chamado.concluidoEm ?? hoje);
   const adicionarInteracaoComId = adicionarInteracao.bind(null, chamado.id);
 
@@ -154,7 +166,8 @@ export default async function PaginaChamado({
         <Link href={`/cadastros/clientes/${chamado.cliente?.id}`} className="hover:underline">
           {chamado.cliente?.razaoSocial}
         </Link>
-        {chamado.cliente?.cidade && ` · ${chamado.cliente.cidade}/${chamado.cliente.uf ?? ""}`}
+        {chamado.cliente?.contato && ` · ${chamado.cliente.contato}`}
+        {chamado.cliente?.telefone && ` · ${chamado.cliente.telefone}`}
         {" · "}Aberto em {formatarData(chamado.abertoEm)} por{" "}
         {chamado.responsavel?.nome ?? "—"}
       </p>
@@ -205,6 +218,41 @@ export default async function PaginaChamado({
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-sm">Cadastro do cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 text-sm">
+            <p className="font-medium">
+              <Link
+                href={`/cadastros/clientes/${chamado.cliente?.id}`}
+                className="hover:underline"
+              >
+                {chamado.cliente?.razaoSocial}
+              </Link>
+            </p>
+            <p className="text-muted-foreground">
+              {ROTULO_RAMO[chamado.cliente?.ramo ?? "energia_solar"]} · {chamado.cliente?.cnpj}
+            </p>
+            <p>Contato: {chamado.cliente?.contato ?? "—"}</p>
+            <p>Telefone: {chamado.cliente?.telefone ?? "—"}</p>
+            <p>E-mail: {chamado.cliente?.email ?? "—"}</p>
+            {situacaoCliente && (
+              <p className="flex flex-wrap items-center gap-2">
+                <Badge variant={situacaoCliente.variant}>{situacaoCliente.texto}</Badge>
+                {vigenciaCliente && (
+                  <span className="text-xs text-muted-foreground">{vigenciaCliente}</span>
+                )}
+              </p>
+            )}
+            {chamado.cliente?.observacoes && (
+              <p className="text-xs text-muted-foreground whitespace-pre-line">
+                {chamado.cliente.observacoes}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm">Unidade consumidora</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 text-sm">
@@ -215,9 +263,10 @@ export default async function PaginaChamado({
                   {chamado.uc.apelido && ` — ${chamado.uc.apelido}`}
                 </p>
                 <p className="text-muted-foreground">
-                  {chamado.uc.concessionaria?.nome ?? "—"} ·{" "}
+                  {chamado.uc.concessionaria?.nome ?? "sem concessionária"} ·{" "}
                   {ROTULO_TIPO_UC[chamado.uc.tipo]}
                 </p>
+                {chamado.uc.endereco && <p>{chamado.uc.endereco}</p>}
                 {chamado.uc.potenciaKwp && <p>{chamado.uc.potenciaKwp} kWp</p>}
                 {chamado.uc.tipo === "beneficiaria" && (
                   <p>

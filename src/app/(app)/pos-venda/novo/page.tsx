@@ -16,10 +16,16 @@ export default async function PaginaNovoChamado() {
     { data: tipos },
     { data: usuarios },
   ] = await Promise.all([
-    supabase.from("Cliente").select("id, razaoSocial").order("razaoSocial"),
+    // Só energia solar: cliente de redes/subestações não tem contrato de
+    // manutenção e não é atendido pelo pós-venda.
+    supabase
+      .from("Cliente")
+      .select("id, razaoSocial, ramo, manutencaoInicio, manutencaoFim")
+      .eq("ramo", "energia_solar")
+      .order("razaoSocial"),
     supabase
       .from("UnidadeConsumidora")
-      .select("id, clienteId, numero, apelido, tipo, concessionaria:Concessionaria(sigla, nome)")
+      .select("id, clienteId, numero, apelido, endereco, tipo, concessionaria:Concessionaria(sigla, nome)")
       .eq("ativo", true)
       .order("numero"),
     supabase
@@ -55,13 +61,19 @@ export default async function PaginaNovoChamado() {
       )}
 
       <ChamadoCriarForm
-        clientes={(clientes ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
+        clientes={(clientes ?? []).map((c) => ({
+          id: c.id,
+          nome: c.razaoSocial,
+          ramo: c.ramo,
+          manutencaoInicio: c.manutencaoInicio,
+          manutencaoFim: c.manutencaoFim,
+        }))}
         unidades={(unidades ?? []).map((u) => ({
           id: u.id,
           clienteId: u.clienteId,
           rotulo: `${u.numero}${u.apelido ? ` — ${u.apelido}` : ""} · ${
-            u.concessionaria?.sigla ?? u.concessionaria?.nome ?? "—"
-          } · ${u.tipo === "geradora" ? "geradora" : "beneficiária"}`,
+            u.tipo === "geradora" ? "geradora" : "beneficiária"
+          }${u.endereco ? ` · ${u.endereco}` : ""}`,
         }))}
         obras={(obras ?? [])
           .filter((o) => o.oportunidade?.clienteId)

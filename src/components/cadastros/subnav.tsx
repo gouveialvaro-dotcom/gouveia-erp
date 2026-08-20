@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils";
 import { podeLer, type Modulo, type Perfil } from "@/lib/permissoes";
 
 const ITENS: { titulo: string; href: string; modulo: Modulo }[] = [
-  { titulo: "Clientes", href: "/cadastros/clientes", modulo: "clientes" },
+  // Cada ramo tem seu próprio cadastro: energia solar tem unidades e contrato
+  // de manutenção; redes/subestações é só o cadastro de contato.
+  { titulo: "Clientes · Energia solar", href: "/cadastros/clientes/solar", modulo: "clientes" },
+  { titulo: "Clientes · Redes/Subestações", href: "/cadastros/clientes/redes", modulo: "clientes" },
   { titulo: "Materiais", href: "/cadastros/materiais", modulo: "cadastrosGerais" },
   { titulo: "Kits", href: "/cadastros/kits", modulo: "cadastrosGerais" },
   { titulo: "Funcionários", href: "/cadastros/funcionarios", modulo: "cadastrosGerais" },

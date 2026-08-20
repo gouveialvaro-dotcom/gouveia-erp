@@ -60,7 +60,13 @@ export default async function PaginaPosVenda({
     novidades,
   ] = await Promise.all([
     query,
-    supabase.from("Cliente").select("id, razaoSocial").order("razaoSocial"),
+    // O pós-venda atende só energia solar — o filtro por cliente segue a mesma
+    // base de quem pode ter chamado.
+    supabase
+      .from("Cliente")
+      .select("id, razaoSocial")
+      .eq("ramo", "energia_solar")
+      .order("razaoSocial"),
     supabase
       .from("TipoProblemaPosVenda")
       .select("id, nome, prazoDias, diasAlerta")
