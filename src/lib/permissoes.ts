@@ -8,6 +8,7 @@ export type Modulo =
   | "posVenda" // chamados, tipos de problema, concessionárias e UCs
   | "obras"
   | "dashboards"
+  | "chat"
   | "administracao";
 
 export type NivelAcesso = "nenhum" | "leitura" | "escrita";
@@ -78,6 +79,16 @@ const MATRIZ: Record<Modulo, Record<Perfil, NivelAcesso>> = {
     obra: "leitura",
     atendimento: "leitura",
     admin: "leitura",
+  },
+  // Todo usuário ativo conversa em qualquer conversa, então a linha é
+  // uniforme. Ela existe mesmo assim para que desligar o chat de um perfil
+  // depois seja mexer aqui, e não espalhar if pelas telas e actions.
+  chat: {
+    comercial: "escrita",
+    engenharia: "escrita",
+    obra: "escrita",
+    atendimento: "escrita",
+    admin: "escrita",
   },
   administracao: {
     comercial: "nenhum",
