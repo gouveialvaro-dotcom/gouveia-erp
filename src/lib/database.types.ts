@@ -107,6 +107,44 @@ export type Database = {
           },
         ]
       }
+      AnexoMensagem: {
+        Row: {
+          caminho: string
+          criadoEm: string
+          id: string
+          mensagemId: string
+          nomeArquivo: string
+          tamanho: number | null
+          tipoMime: string | null
+        }
+        Insert: {
+          caminho: string
+          criadoEm?: string
+          id?: string
+          mensagemId: string
+          nomeArquivo: string
+          tamanho?: number | null
+          tipoMime?: string | null
+        }
+        Update: {
+          caminho?: string
+          criadoEm?: string
+          id?: string
+          mensagemId?: string
+          nomeArquivo?: string
+          tamanho?: number | null
+          tipoMime?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "AnexoMensagem_mensagemId_fkey"
+            columns: ["mensagemId"]
+            isOneToOne: false
+            referencedRelation: "Mensagem"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Chamado: {
         Row: {
           abertoEm: string
@@ -339,6 +377,131 @@ export type Database = {
             columns: ["clienteId"]
             isOneToOne: false
             referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Conversa: {
+        Row: {
+          criadaEm: string
+          criadaPorId: string
+          id: string
+          obraId: string | null
+          tipo: Database["public"]["Enums"]["TipoConversa"]
+          titulo: string | null
+        }
+        Insert: {
+          criadaEm?: string
+          criadaPorId: string
+          id?: string
+          obraId?: string | null
+          tipo: Database["public"]["Enums"]["TipoConversa"]
+          titulo?: string | null
+        }
+        Update: {
+          criadaEm?: string
+          criadaPorId?: string
+          id?: string
+          obraId?: string | null
+          tipo?: Database["public"]["Enums"]["TipoConversa"]
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Conversa_criadaPorId_fkey"
+            columns: ["criadaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Conversa_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: false
+            referencedRelation: "Obra"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ConversaWhatsapp: {
+        Row: {
+          atualizadoEm: string
+          chamadoAtivoId: string | null
+          clienteId: string | null
+          contatoClienteId: string | null
+          criadoEm: string
+          donoId: string | null
+          id: string
+          nomePerfil: string | null
+          pendente: boolean
+          telefone: string
+          telefoneExibicao: string
+          ultimaMensagemDirecao:
+            | Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+            | null
+          ultimaMensagemEm: string | null
+        }
+        Insert: {
+          atualizadoEm?: string
+          chamadoAtivoId?: string | null
+          clienteId?: string | null
+          contatoClienteId?: string | null
+          criadoEm?: string
+          donoId?: string | null
+          id?: string
+          nomePerfil?: string | null
+          pendente?: boolean
+          telefone: string
+          telefoneExibicao: string
+          ultimaMensagemDirecao?:
+            | Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+            | null
+          ultimaMensagemEm?: string | null
+        }
+        Update: {
+          atualizadoEm?: string
+          chamadoAtivoId?: string | null
+          clienteId?: string | null
+          contatoClienteId?: string | null
+          criadoEm?: string
+          donoId?: string | null
+          id?: string
+          nomePerfil?: string | null
+          pendente?: boolean
+          telefone?: string
+          telefoneExibicao?: string
+          ultimaMensagemDirecao?:
+            | Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+            | null
+          ultimaMensagemEm?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ConversaWhatsapp_chamadoAtivoId_fkey"
+            columns: ["chamadoAtivoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ConversaWhatsapp_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ConversaWhatsapp_contatoClienteId_fkey"
+            columns: ["contatoClienteId"]
+            isOneToOne: false
+            referencedRelation: "ContatoCliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ConversaWhatsapp_donoId_fkey"
+            columns: ["donoId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
             referencedColumns: ["id"]
           },
         ]
@@ -684,6 +847,140 @@ export type Database = {
           {
             foreignKeyName: "Material_criadoPorId_fkey"
             columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Mensagem: {
+        Row: {
+          autorId: string
+          conversaId: string
+          corpo: string | null
+          criadaEm: string
+          id: string
+          removidaEm: string | null
+          removidaPorId: string | null
+        }
+        Insert: {
+          autorId: string
+          conversaId: string
+          corpo?: string | null
+          criadaEm?: string
+          id?: string
+          removidaEm?: string | null
+          removidaPorId?: string | null
+        }
+        Update: {
+          autorId?: string
+          conversaId?: string
+          corpo?: string | null
+          criadaEm?: string
+          id?: string
+          removidaEm?: string | null
+          removidaPorId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Mensagem_autorId_fkey"
+            columns: ["autorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Mensagem_conversaId_fkey"
+            columns: ["conversaId"]
+            isOneToOne: false
+            referencedRelation: "Conversa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Mensagem_removidaPorId_fkey"
+            columns: ["removidaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      MensagemWhatsapp: {
+        Row: {
+          caminhoStorage: string | null
+          chamadoId: string | null
+          conteudo: string | null
+          conversaId: string
+          criadoEm: string
+          direcao: Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+          entregue: boolean
+          enviadoPorId: string | null
+          erroEnvio: string | null
+          id: string
+          mensagemExternaId: string | null
+          mime: string | null
+          nomeArquivo: string | null
+          payload: Json | null
+          recebidoEm: string
+          tamanho: number | null
+          tipo: Database["public"]["Enums"]["TipoMensagemWhatsapp"]
+        }
+        Insert: {
+          caminhoStorage?: string | null
+          chamadoId?: string | null
+          conteudo?: string | null
+          conversaId: string
+          criadoEm?: string
+          direcao: Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+          entregue?: boolean
+          enviadoPorId?: string | null
+          erroEnvio?: string | null
+          id?: string
+          mensagemExternaId?: string | null
+          mime?: string | null
+          nomeArquivo?: string | null
+          payload?: Json | null
+          recebidoEm?: string
+          tamanho?: number | null
+          tipo?: Database["public"]["Enums"]["TipoMensagemWhatsapp"]
+        }
+        Update: {
+          caminhoStorage?: string | null
+          chamadoId?: string | null
+          conteudo?: string | null
+          conversaId?: string
+          criadoEm?: string
+          direcao?: Database["public"]["Enums"]["DirecaoMensagemWhatsapp"]
+          entregue?: boolean
+          enviadoPorId?: string | null
+          erroEnvio?: string | null
+          id?: string
+          mensagemExternaId?: string | null
+          mime?: string | null
+          nomeArquivo?: string | null
+          payload?: Json | null
+          recebidoEm?: string
+          tamanho?: number | null
+          tipo?: Database["public"]["Enums"]["TipoMensagemWhatsapp"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "MensagemWhatsapp_chamadoId_fkey"
+            columns: ["chamadoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "MensagemWhatsapp_conversaId_fkey"
+            columns: ["conversaId"]
+            isOneToOne: false
+            referencedRelation: "ConversaWhatsapp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "MensagemWhatsapp_enviadoPorId_fkey"
+            columns: ["enviadoPorId"]
             isOneToOne: false
             referencedRelation: "Usuario"
             referencedColumns: ["id"]
@@ -1098,6 +1395,45 @@ export type Database = {
           },
         ]
       }
+      ParticipanteConversa: {
+        Row: {
+          conversaId: string
+          entrouEm: string
+          id: string
+          ultimaLeituraEm: string | null
+          usuarioId: string
+        }
+        Insert: {
+          conversaId: string
+          entrouEm?: string
+          id?: string
+          ultimaLeituraEm?: string | null
+          usuarioId: string
+        }
+        Update: {
+          conversaId?: string
+          entrouEm?: string
+          id?: string
+          ultimaLeituraEm?: string | null
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ParticipanteConversa_conversaId_fkey"
+            columns: ["conversaId"]
+            isOneToOne: false
+            referencedRelation: "Conversa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ParticipanteConversa_usuarioId_fkey"
+            columns: ["usuarioId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Proposta: {
         Row: {
           ano: number
@@ -1471,6 +1807,7 @@ export type Database = {
     }
     Enums: {
       DirecaoInteracao: "cliente" | "concessionaria" | "interno"
+      DirecaoMensagemWhatsapp: "entrada" | "saida"
       EstagioChamado:
         | "aberto"
         | "em_analise"
@@ -1495,6 +1832,7 @@ export type Database = {
       RamoCliente: "energia_solar" | "redes_subestacoes"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
+      TipoConversa: "obra" | "direta" | "grupo"
       TipoInteracao: "ligacao" | "email" | "reuniao" | "visita"
       TipoInteracaoChamado:
         | "ligacao"
@@ -1504,6 +1842,7 @@ export type Database = {
         | "visita"
         | "protocolo"
         | "nota_interna"
+      TipoMensagemWhatsapp: "texto" | "imagem" | "documento" | "audio"
       TipoNotificacaoPosVenda:
         | "chamado_novo"
         | "chamado_vencido"
@@ -1640,6 +1979,7 @@ export const Constants = {
   public: {
     Enums: {
       DirecaoInteracao: ["cliente", "concessionaria", "interno"],
+      DirecaoMensagemWhatsapp: ["entrada", "saida"],
       EstagioChamado: [
         "aberto",
         "em_analise",
@@ -1667,6 +2007,7 @@ export const Constants = {
       RamoCliente: ["energia_solar", "redes_subestacoes"],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
+      TipoConversa: ["obra", "direta", "grupo"],
       TipoInteracao: ["ligacao", "email", "reuniao", "visita"],
       TipoInteracaoChamado: [
         "ligacao",
@@ -1677,6 +2018,7 @@ export const Constants = {
         "protocolo",
         "nota_interna",
       ],
+      TipoMensagemWhatsapp: ["texto", "imagem", "documento", "audio"],
       TipoNotificacaoPosVenda: [
         "chamado_novo",
         "chamado_vencido",

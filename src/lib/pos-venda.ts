@@ -179,3 +179,21 @@ export function tempoRelativo(iso: string, agora = Date.now()) {
   if (horas < 24) return `há ${horas} h`;
   return `há ${Math.floor(horas / 24)} d`;
 }
+
+// --- Anexos ---------------------------------------------------------------
+// Ficam aqui, e não no actions.ts do módulo, porque o atendimento por WhatsApp
+// também promove mídia a anexo e precisa obedecer ao mesmo limite: duas
+// definições separadas divergiriam no primeiro ajuste.
+
+export const BUCKET_ANEXOS = "pos-venda";
+export const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024;
+
+/** Sanitiza para o nome do objeto no bucket; o nome original vai para a coluna
+ *  nomeArquivo e é o que o usuário vê. */
+export function nomeSeguro(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .slice(-80);
+}

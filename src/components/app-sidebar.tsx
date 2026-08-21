@@ -9,6 +9,7 @@ import {
   LifeBuoy,
   HardHat,
   LayoutDashboard,
+  MessageCircle,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -39,6 +40,12 @@ const ITENS: ItemNav[] = [
   { titulo: "Orçamentos", href: "/orcamentos", icone: Calculator, modulos: ["orcamentos"] },
   { titulo: "CRM / Propostas", href: "/crm", icone: Kanban, modulos: ["crm"] },
   { titulo: "Pós-venda", href: "/pos-venda", icone: LifeBuoy, modulos: ["posVenda"] },
+  {
+    titulo: "WhatsApp",
+    href: "/pos-venda/whatsapp",
+    icone: MessageCircle,
+    modulos: ["posVenda"],
+  },
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
   { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
   { titulo: "Administração", href: "/administracao", icone: ShieldCheck, modulos: ["administracao"] },
@@ -50,6 +57,12 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
   const itensVisiveis = ITENS.filter((item) =>
     item.modulos.some((modulo) => podeLer(perfil, modulo))
   );
+
+  // Só o item mais específico acende. Sem isso "/pos-venda/whatsapp" marcaria
+  // também "Pós-venda", já que uma rota é prefixo da outra.
+  const itemAtivo = itensVisiveis
+    .filter((item) => pathname === item.href || pathname?.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 
   return (
     // "icon" em vez do padrão "offcanvas": com o botão de recolher dentro da
@@ -81,7 +94,7 @@ export function AppSidebar({ perfil }: { perfil: Perfil }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {itensVisiveis.map((item) => {
-                const ativo = pathname?.startsWith(item.href);
+                const ativo = item.href === itemAtivo?.href;
                 return (
                   <SidebarMenuItem key={item.href}>
                     {/* tooltip só aparece com a sidebar recolhida, quando o

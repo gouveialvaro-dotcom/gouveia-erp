@@ -5,14 +5,19 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
-import { ORDEM_ESTAGIO_FLUXO, ROTULO_ESTAGIO, hojeIso, somarDias } from "@/lib/pos-venda";
+import {
+  BUCKET_ANEXOS,
+  ORDEM_ESTAGIO_FLUXO,
+  ROTULO_ESTAGIO,
+  TAMANHO_MAXIMO_ANEXO,
+  hojeIso,
+  nomeSeguro,
+  somarDias,
+} from "@/lib/pos-venda";
 import { impedimentoDeAbertura } from "@/lib/clientes";
 import { notificarPosVenda } from "@/lib/notificacoes-pos-venda";
 
 export type EstadoFormChamado = { erro?: string } | undefined;
-
-const BUCKET_ANEXOS = "pos-venda";
-const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024;
 
 function revalidarChamado(chamadoId: string) {
   revalidatePath("/pos-venda");
@@ -34,6 +39,20 @@ async function resumoChamado(chamadoId: string) {
     titulo: data.titulo,
     cliente: data.cliente?.razaoSocial ?? "—",
   };
+}
+
+// Concluir o chamado devolve a conversa de WhatsApp para "sem chamado". A
+// marcação é corrente, não histórica: a próxima mensagem do cliente já costuma
+// ser outro assunto e não pode entrar num atendimento encerrado. As mensagens
+// que já estavam vinculadas não são tocadas (ver lib/pos-venda-whatsapp.ts).
+async function soltarConversasDoChamado(chamadoId: string) {
+  const { data } = await supabase
+    .from("ConversaWhatsapp")
+    .update({ chamadoAtivoId: null, atualizadoEm: new Date().toISOString() })
+    .eq("chamadoAtivoId", chamadoId)
+    .select("id");
+
+  if (data?.length) revalidatePath("/pos-venda/whatsapp");
 }
 
 // O prazo do SLA nasce do tipo de problema, não da digitação: cada tipo tem
@@ -207,6 +226,8 @@ export async function atualizarChamado(
 
   if (error) return { erro: "Não foi possível salvar o chamado." };
 
+  if (concluido) await soltarConversasDoChamado(chamadoId);
+
   const resumo = await resumoChamado(chamadoId);
   const mudouEstagio = atual.estagio !== dados.data.estagio;
   await notificarPosVenda({
@@ -242,6 +263,8 @@ async function moverEstagio(chamadoId: string, estagioAtual: string, passo: 1 | 
       atualizadoEm: new Date().toISOString(),
     })
     .eq("id", chamadoId);
+
+  if (estagio === "concluido") await soltarConversasDoChamado(chamadoId);
 
   const resumo = await resumoChamado(chamadoId);
   await notificarPosVenda({
@@ -335,16 +358,6 @@ export async function removerInteracao(chamadoId: string, interacaoId: string) {
 }
 
 export type EstadoAnexo = { erro?: string } | undefined;
-
-// Sanitiza para o nome do objeto no bucket; o nome original vai para a coluna
-// nomeArquivo e é o que o usuário vê.
-function nomeSeguro(nome: string) {
-  return nome
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "-")
-    .slice(-80);
-}
 
 export async function enviarAnexo(
   chamadoId: string,
