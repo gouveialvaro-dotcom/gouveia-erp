@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { clienteIdDaObra, projetoDaObra } from "@/lib/obras";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { ChamadoCriarForm } from "@/components/pos-venda/chamado-criar-form";
@@ -30,7 +31,9 @@ export default async function PaginaNovoChamado() {
       .order("numero"),
     supabase
       .from("Obra")
-      .select("id, criadoEm, oportunidade:Oportunidade(clienteId, orcamento:Orcamento(nomeProjeto))")
+      .select(
+        "id, criadoEm, clienteId, nomeProjeto, oportunidade:Oportunidade(clienteId, orcamento:Orcamento(nomeProjeto))"
+      )
       .order("criadoEm", { ascending: false }),
     supabase
       .from("TipoProblemaPosVenda")
@@ -75,13 +78,12 @@ export default async function PaginaNovoChamado() {
             u.tipo === "geradora" ? "geradora" : "beneficiária"
           }${u.endereco ? ` · ${u.endereco}` : ""}`,
         }))}
-        obras={(obras ?? [])
-          .filter((o) => o.oportunidade?.clienteId)
-          .map((o) => ({
-            id: o.id,
-            clienteId: o.oportunidade!.clienteId,
-            rotulo: o.oportunidade?.orcamento?.nomeProjeto ?? "Obra sem projeto nomeado",
-          }))}
+        obras={(obras ?? []).flatMap((o) => {
+          // A obra manual guarda o cliente na própria linha; a de funil, na
+          // oportunidade. Antes daqui a manual sumia do seletor de obra.
+          const clienteId = clienteIdDaObra(o);
+          return clienteId ? [{ id: o.id, clienteId, rotulo: projetoDaObra(o) }] : [];
+        })}
         tipos={tipos ?? []}
         usuarios={usuarios ?? []}
         responsavelPadraoId={userId}

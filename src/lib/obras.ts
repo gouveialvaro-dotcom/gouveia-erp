@@ -23,8 +23,10 @@ export const ROTULO_ORIGEM_OBRA: Record<string, string> = {
 // mão, que era o que fazia a obra manual aparecer como "—".
 export type ObraIdentificavel = {
   nomeProjeto?: string | null;
+  clienteId?: string | null;
   cliente?: { razaoSocial: string } | null;
   oportunidade?: {
+    clienteId?: string | null;
     cliente?: { razaoSocial: string } | null;
     orcamento?: { nomeProjeto: string } | null;
   } | null;
@@ -36,4 +38,10 @@ export function clienteDaObra(obra: ObraIdentificavel): string {
 
 export function projetoDaObra(obra: ObraIdentificavel): string {
   return obra.oportunidade?.orcamento?.nomeProjeto ?? obra.nomeProjeto ?? "—";
+}
+
+// O cliente da obra de funil está na oportunidade; o da obra manual, na
+// própria linha. Quem filtra obras por cliente precisa olhar os dois.
+export function clienteIdDaObra(obra: ObraIdentificavel): string | null {
+  return obra.oportunidade?.clienteId ?? obra.clienteId ?? null;
 }

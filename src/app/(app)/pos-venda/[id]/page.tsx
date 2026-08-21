@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { clienteIdDaObra, projetoDaObra } from "@/lib/obras";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { formatarData } from "@/lib/format";
@@ -48,7 +49,7 @@ import { MarcarLido } from "@/components/pos-venda/marcar-lido";
 import { adicionarInteracao, excluirChamado, removerInteracao, removerAnexo } from "../actions";
 
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
+  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, nomeProjeto, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
 
 function formatarTamanho(bytes: number | null) {
   if (bytes === null) return "—";
@@ -101,8 +102,12 @@ export default async function PaginaChamado({
       .order("numero"),
     supabase
       .from("Obra")
-      .select("id, oportunidade:Oportunidade!inner(clienteId, orcamento:Orcamento(nomeProjeto))")
-      .eq("oportunidade.clienteId", chamado.clienteId),
+      // Sem !inner: a obra manual não tem oportunidade e sumiria do seletor.
+      // O filtro por cliente passa a ser em memória — são poucas obras, e o
+      // cliente mora em lugares diferentes conforme a origem.
+      .select(
+        "id, clienteId, nomeProjeto, oportunidade:Oportunidade(clienteId, orcamento:Orcamento(nomeProjeto))"
+      ),
     supabase
       .from("TipoProblemaPosVenda")
       .select("id, nome, prazoDias")
@@ -141,11 +146,9 @@ export default async function PaginaChamado({
       u.concessionaria?.sigla ?? u.concessionaria?.nome ?? "—"
     }`,
   }));
-  const opcoesObras = (obras ?? []).map((o) => ({
-    id: o.id,
-    clienteId: chamado.clienteId,
-    rotulo: o.oportunidade?.orcamento?.nomeProjeto ?? "Obra sem projeto nomeado",
-  }));
+  const opcoesObras = (obras ?? [])
+    .filter((o) => clienteIdDaObra(o) === chamado.clienteId)
+    .map((o) => ({ id: o.id, clienteId: chamado.clienteId, rotulo: projetoDaObra(o) }));
 
   return (
     <div className="flex flex-col gap-1">
@@ -311,7 +314,7 @@ export default async function PaginaChamado({
             {chamado.obra ? (
               <>
                 <Link href={`/obras/${chamado.obra.id}`} className="font-medium hover:underline">
-                  {chamado.obra.oportunidade?.orcamento?.nomeProjeto ?? "Obra"}
+                  {projetoDaObra(chamado.obra)}
                 </Link>
                 <p className="text-muted-foreground">
                   {chamado.obra.status} · {chamado.obra.avancoFisicoPercent}% executado
