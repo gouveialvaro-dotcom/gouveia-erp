@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   ShieldCheck,
+  MessagesSquare,
   Zap,
 } from "lucide-react";
 import {
@@ -47,6 +48,7 @@ const ITENS: ItemNav[] = [
     modulos: ["posVenda"],
   },
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
+  { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"] },
   { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
   { titulo: "Administração", href: "/administracao", icone: ShieldCheck, modulos: ["administracao"] },
 ];

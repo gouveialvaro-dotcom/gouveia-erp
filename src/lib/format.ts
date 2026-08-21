@@ -18,3 +18,17 @@ export function formatarData(data: Date | string) {
   }
   return data.toLocaleDateString("pt-BR");
 }
+
+// Ao contrário de formatarData, aqui o instante importa (hora da mensagem),
+// então converte de verdade em vez de fatiar a string ISO. Renderizado em
+// Server Component, usa o fuso do servidor.
+export function formatarDataHora(data: Date | string) {
+  const instante = typeof data === "string" ? new Date(data) : data;
+  return instante.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

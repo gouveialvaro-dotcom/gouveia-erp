@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { resolverUsuarioId } from "@/lib/api-auth";
 import { type Modulo, type Perfil, nivelAcesso } from "@/lib/permissoes";
 
 // Para uso em Server Components de página: garante sessão válida e retorna
@@ -19,4 +20,13 @@ export async function sessaoAtual() {
 export async function acessoModulo(modulo: Modulo) {
   const { perfil, ...resto } = await sessaoAtual();
   return { ...resto, perfil, nivel: nivelAcesso(perfil, modulo) };
+}
+
+// O id da sessão vem do JWT e pode estar órfão (ver resolverUsuarioId em
+// api-auth.ts). As Server Actions já gravam com o id conferido no banco;
+// páginas que consultam dados por usuário precisam do mesmo id, senão
+// escrevem numa identidade e leem de outra.
+export async function usuarioIdAtual() {
+  const session = await auth();
+  return resolverUsuarioId(session?.user?.id, session?.user?.email);
 }

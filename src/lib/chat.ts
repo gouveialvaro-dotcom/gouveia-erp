@@ -24,6 +24,13 @@ export function podeAuditarChat(perfil: Perfil): boolean {
   return perfil === "admin";
 }
 
+// A mensagem é imutável para quem escreveu: ninguém edita nem apaga a
+// própria. Só o admin remove, e mesmo assim por soft delete — o histórico
+// é a razão de existir do módulo.
+export function podeRemoverMensagem(perfil: Perfil): boolean {
+  return perfil === "admin";
+}
+
 type ConversaExibivel = {
   tipo: TipoConversa;
   titulo: string | null;

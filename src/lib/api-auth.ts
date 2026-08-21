@@ -16,7 +16,7 @@ export class ApiAuthError extends Error {
 // carregando um id órfão e toda gravação que referencia o usuário quebra com
 // erro de chave estrangeira. Aqui o id é conferido contra o banco e, quando não
 // existe mais, recuperado pelo e-mail da sessão antes de desistir.
-async function resolverUsuarioId(id: string | undefined, email: string | null | undefined) {
+export async function resolverUsuarioId(id: string | undefined, email: string | null | undefined) {
   if (id) {
     const { data } = await supabase.from("Usuario").select("id").eq("id", id).maybeSingle();
     if (data) return data.id;
