@@ -1800,6 +1800,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      conversas_do_usuario: {
+        Args: { p_usuario_id: string }
+        Returns: {
+          id: string
+          naoLidas: number
+          obraId: string
+          tipo: Database["public"]["Enums"]["TipoConversa"]
+          titulo: string
+          ultimaMensagemCorpo: string
+          ultimaMensagemEm: string
+        }[]
+      }
       excluir_cliente_cascata: {
         Args: { p_cliente_id: string }
         Returns: undefined
