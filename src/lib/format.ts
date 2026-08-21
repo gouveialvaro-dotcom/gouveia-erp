@@ -20,11 +20,17 @@ export function formatarData(data: Date | string) {
 }
 
 // Ao contrário de formatarData, aqui o instante importa (hora da mensagem),
-// então converte de verdade em vez de fatiar a string ISO. Renderizado em
-// Server Component, usa o fuso do servidor.
+// então converte de verdade em vez de fatiar a string ISO.
+//
+// O fuso é fixo e não o do ambiente: isto roda em Server Component, e o
+// servidor da Vercel está em UTC. Sem fixar, uma mensagem das 12:11 aparece
+// como 15:11 em produção — certa na máquina do desenvolvedor e errada para
+// quem usa. O Brasil não tem mais horário de verão, então America/Sao_Paulo é
+// UTC-3 o ano inteiro e vale também para o Nordeste.
 export function formatarDataHora(data: Date | string) {
   const instante = typeof data === "string" ? new Date(data) : data;
   return instante.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
