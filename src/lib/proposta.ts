@@ -100,7 +100,7 @@ export async function carregarDadosProposta(propostaId: string) {
     supabase
       .from("Orcamento")
       .select(
-        "*, cliente:Cliente(*), itens:OrcamentoItem(*, material:Material(*)), maoObra:OrcamentoMaoObra(*, funcionario:Funcionario(nome, cargo))"
+        "*, cliente:Cliente(*), itens:OrcamentoItem(*, material:Material(*)), maoObra:OrcamentoMaoObra(*, funcao:Funcao(nome))"
       )
       .eq("id", proposta.orcamentoId)
       .eq("itens.tipo", "material")

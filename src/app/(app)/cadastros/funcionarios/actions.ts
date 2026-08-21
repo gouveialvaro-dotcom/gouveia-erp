@@ -8,7 +8,7 @@ import { exigirPermissao } from "@/lib/api-auth";
 
 const funcionarioSchema = z.object({
   nome: z.string().min(1, "Informe o nome."),
-  cargo: z.string().min(1, "Informe o cargo/função."),
+  funcaoId: z.string().min(1, "Escolha uma função."),
   salarioMensal: z.coerce.number().positive("Salário deve ser maior que zero."),
   encargosPercent: z.coerce.number().min(0, "Encargos não pode ser negativo."),
   ativo: z.coerce.boolean(),
@@ -25,7 +25,7 @@ export async function salvarFuncionario(
 
   const dados = funcionarioSchema.safeParse({
     nome: formData.get("nome"),
-    cargo: formData.get("cargo"),
+    funcaoId: formData.get("funcaoId"),
     salarioMensal: formData.get("salarioMensal"),
     encargosPercent: formData.get("encargosPercent"),
     ativo: formData.get("ativo") === "on" || formData.get("ativo") === "true",
@@ -35,10 +35,26 @@ export async function salvarFuncionario(
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  // `cargo` vem do catálogo, não do formulário: o nome da função é buscado
+  // aqui em vez de aceitar um rótulo enviado pelo cliente, que poderia não
+  // corresponder à função escolhida.
+  const { data: funcao } = await supabase
+    .from("Funcao")
+    .select("nome")
+    .eq("id", dados.data.funcaoId)
+    .maybeSingle();
+
+  if (!funcao) return { erro: "Função não encontrada." };
+
+  const registro = { ...dados.data, cargo: funcao.nome };
+
   if (funcionarioId) {
-    await supabase.from("Funcionario").update(dados.data).eq("id", funcionarioId);
+    await supabase
+      .from("Funcionario")
+      .update({ ...registro, atualizadoEm: new Date().toISOString() })
+      .eq("id", funcionarioId);
   } else {
-    await supabase.from("Funcionario").insert({ ...dados.data, criadoPorId: usuarioId });
+    await supabase.from("Funcionario").insert({ ...registro, criadoPorId: usuarioId });
   }
 
   revalidatePath("/cadastros/funcionarios");

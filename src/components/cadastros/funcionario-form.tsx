@@ -1,30 +1,68 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import Link from "next/link";
 import {
   salvarFuncionario,
   type EstadoFormFuncionario,
 } from "@/app/(app)/cadastros/funcionarios/actions";
+import { formatarMoeda } from "@/lib/format";
+import { custoDiarioMaoObra, custoMensalMaoObra } from "@/lib/mao-obra";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ComboboxCampo } from "@/components/ui/combobox-campo";
+
+export type OpcaoFuncao = {
+  id: string;
+  nome: string;
+  salarioMensal: number;
+  encargosPercent: number;
+};
 
 type FuncionarioFormValues = {
   id: string;
   nome: string;
-  cargo: string;
+  funcaoId: string | null;
   salarioMensal: string;
   encargosPercent: string;
   ativo: boolean;
 };
 
-export function FuncionarioForm({ funcionario }: { funcionario?: FuncionarioFormValues }) {
+export function FuncionarioForm({
+  funcoes,
+  diasUteisMes,
+  funcionario,
+}: {
+  funcoes: OpcaoFuncao[];
+  diasUteisMes: number;
+  funcionario?: FuncionarioFormValues;
+}) {
   const salvarComId = salvarFuncionario.bind(null, funcionario?.id ?? null);
   const [estado, formAction, pendente] = useActionState<EstadoFormFuncionario, FormData>(
     salvarComId,
     undefined
   );
+
+  // Salário e encargos são controlados porque escolher uma função os
+  // reescreve. Continuam editáveis depois: a função é o piso do cargo, e
+  // alguém pode ganhar acima dele sem que isso mexa no catálogo.
+  const [salarioMensal, setSalarioMensal] = useState(funcionario?.salarioMensal ?? "");
+  const [encargosPercent, setEncargosPercent] = useState(funcionario?.encargosPercent ?? "");
+
+  const itens = funcoes.map((f) => ({ value: f.id, label: f.nome }));
+  const itemInicial = itens.find((i) => i.value === funcionario?.funcaoId) ?? null;
+
+  function preencherPelaFuncao(funcaoId: string | null) {
+    const funcao = funcoes.find((f) => f.id === funcaoId);
+    if (!funcao) return;
+    setSalarioMensal(String(funcao.salarioMensal));
+    setEncargosPercent(String(funcao.encargosPercent));
+  }
+
+  const custo = { salarioMensal: Number(salarioMensal), encargosPercent: Number(encargosPercent) };
+  const custoVisivel = Number.isFinite(custo.salarioMensal) && custo.salarioMensal > 0;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -33,10 +71,31 @@ export function FuncionarioForm({ funcionario }: { funcionario?: FuncionarioForm
           <Label htmlFor="nome">Nome</Label>
           <Input id="nome" name="nome" defaultValue={funcionario?.nome} required />
         </div>
+
         <div className="col-span-2 flex flex-col gap-1.5">
-          <Label htmlFor="cargo">Função/Cargo</Label>
-          <Input id="cargo" name="cargo" defaultValue={funcionario?.cargo} required />
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="funcaoId">Função/Cargo</Label>
+            <Link
+              href="/cadastros/funcoes"
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Cadastrar nova função
+            </Link>
+          </div>
+          <ComboboxCampo
+            id="funcaoId"
+            name="funcaoId"
+            itens={itens}
+            itemInicial={itemInicial}
+            placeholder="Buscar função..."
+            textoVazio="Nenhuma função encontrada."
+            aoSelecionar={(opcao) => preencherPelaFuncao(opcao?.value ?? null)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Escolher a função preenche salário e encargos com o custo do catálogo.
+          </p>
         </div>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="salarioMensal">Salário mensal (R$)</Label>
           <Input
@@ -45,7 +104,8 @@ export function FuncionarioForm({ funcionario }: { funcionario?: FuncionarioForm
             type="number"
             step="0.01"
             min="0"
-            defaultValue={funcionario?.salarioMensal}
+            value={salarioMensal}
+            onChange={(e) => setSalarioMensal(e.target.value)}
             required
           />
         </div>
@@ -55,12 +115,22 @@ export function FuncionarioForm({ funcionario }: { funcionario?: FuncionarioForm
             id="encargosPercent"
             name="encargosPercent"
             type="number"
-            step="0.01"
+            step="0.0001"
             min="0"
-            defaultValue={funcionario?.encargosPercent}
+            value={encargosPercent}
+            onChange={(e) => setEncargosPercent(e.target.value)}
             required
           />
         </div>
+
+        {custoVisivel && (
+          <p className="col-span-2 text-xs text-muted-foreground">
+            Custo desta pessoa: {formatarMoeda(custoMensalMaoObra(custo))}/mês ·{" "}
+            {formatarMoeda(custoDiarioMaoObra(custo, diasUteisMes))}/dia ({diasUteisMes} dias
+            úteis)
+          </p>
+        )}
+
         <div className="col-span-2 flex items-center gap-2">
           <Checkbox id="ativo" name="ativo" defaultChecked={funcionario?.ativo ?? true} />
           <Label htmlFor="ativo" className="font-normal">Ativo</Label>
