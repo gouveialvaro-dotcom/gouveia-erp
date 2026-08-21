@@ -381,6 +381,47 @@ export type Database = {
           },
         ]
       }
+      Funcao: {
+        Row: {
+          ativo: boolean
+          atualizadoEm: string
+          criadoEm: string
+          criadoPorId: string | null
+          encargosPercent: number
+          id: string
+          nome: string
+          salarioMensal: number
+        }
+        Insert: {
+          ativo?: boolean
+          atualizadoEm?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          encargosPercent: number
+          id?: string
+          nome: string
+          salarioMensal: number
+        }
+        Update: {
+          ativo?: boolean
+          atualizadoEm?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          encargosPercent?: number
+          id?: string
+          nome?: string
+          salarioMensal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Funcao_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Funcionario: {
         Row: {
           ativo: boolean
@@ -389,6 +430,7 @@ export type Database = {
           criadoEm: string
           criadoPorId: string | null
           encargosPercent: number
+          funcaoId: string | null
           id: string
           nome: string
           salarioMensal: number
@@ -400,6 +442,7 @@ export type Database = {
           criadoEm?: string
           criadoPorId?: string | null
           encargosPercent: number
+          funcaoId?: string | null
           id?: string
           nome: string
           salarioMensal: number
@@ -411,6 +454,7 @@ export type Database = {
           criadoEm?: string
           criadoPorId?: string | null
           encargosPercent?: number
+          funcaoId?: string | null
           id?: string
           nome?: string
           salarioMensal?: number
@@ -421,6 +465,13 @@ export type Database = {
             columns: ["criadoPorId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Funcionario_funcaoId_fkey"
+            columns: ["funcaoId"]
+            isOneToOne: false
+            referencedRelation: "Funcao"
             referencedColumns: ["id"]
           },
         ]
@@ -705,39 +756,48 @@ export type Database = {
           atualizadoEm: string
           atualizadoPorId: string | null
           avancoFisicoPercent: number
+          clienteId: string | null
           criadoEm: string
           custoOrcado: number
           custoRealizado: number
           dataInicio: string | null
           dataPrevistaConclusao: string | null
           id: string
-          oportunidadeId: string
+          nomeProjeto: string | null
+          oportunidadeId: string | null
+          origem: Database["public"]["Enums"]["OrigemObra"]
           status: Database["public"]["Enums"]["StatusObra"]
         }
         Insert: {
           atualizadoEm?: string
           atualizadoPorId?: string | null
           avancoFisicoPercent?: number
+          clienteId?: string | null
           criadoEm?: string
           custoOrcado: number
           custoRealizado?: number
           dataInicio?: string | null
           dataPrevistaConclusao?: string | null
           id?: string
-          oportunidadeId: string
+          nomeProjeto?: string | null
+          oportunidadeId?: string | null
+          origem?: Database["public"]["Enums"]["OrigemObra"]
           status?: Database["public"]["Enums"]["StatusObra"]
         }
         Update: {
           atualizadoEm?: string
           atualizadoPorId?: string | null
           avancoFisicoPercent?: number
+          clienteId?: string | null
           criadoEm?: string
           custoOrcado?: number
           custoRealizado?: number
           dataInicio?: string | null
           dataPrevistaConclusao?: string | null
           id?: string
-          oportunidadeId?: string
+          nomeProjeto?: string | null
+          oportunidadeId?: string | null
+          origem?: Database["public"]["Enums"]["OrigemObra"]
           status?: Database["public"]["Enums"]["StatusObra"]
         }
         Relationships: [
@@ -746,6 +806,13 @@ export type Database = {
             columns: ["atualizadoPorId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Obra_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
             referencedColumns: ["id"]
           },
           {
@@ -947,7 +1014,7 @@ export type Database = {
           criadoEm: string
           custoCalculado: number
           diasAlocados: number
-          funcionarioId: string
+          funcaoId: string
           id: string
           orcamentoId: string
         }
@@ -955,7 +1022,7 @@ export type Database = {
           criadoEm?: string
           custoCalculado: number
           diasAlocados: number
-          funcionarioId: string
+          funcaoId: string
           id?: string
           orcamentoId: string
         }
@@ -963,16 +1030,16 @@ export type Database = {
           criadoEm?: string
           custoCalculado?: number
           diasAlocados?: number
-          funcionarioId?: string
+          funcaoId?: string
           id?: string
           orcamentoId?: string
         }
         Relationships: [
           {
-            foreignKeyName: "OrcamentoMaoObra_funcionarioId_fkey"
-            columns: ["funcionarioId"]
+            foreignKeyName: "OrcamentoMaoObra_funcaoId_fkey"
+            columns: ["funcaoId"]
             isOneToOne: false
-            referencedRelation: "Funcionario"
+            referencedRelation: "Funcao"
             referencedColumns: ["id"]
           },
           {
@@ -1417,6 +1484,7 @@ export type Database = {
         | "negociacao"
         | "aprovada"
         | "perdida"
+      OrigemObra: "funil" | "manual"
       PerfilUsuario:
         | "comercial"
         | "engenharia"
@@ -1587,6 +1655,7 @@ export const Constants = {
         "aprovada",
         "perdida",
       ],
+      OrigemObra: ["funil", "manual"],
       PerfilUsuario: [
         "comercial",
         "engenharia",
