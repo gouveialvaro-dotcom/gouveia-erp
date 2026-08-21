@@ -193,3 +193,43 @@ export async function removerAnexo(oportunidadeId: string, anexoId: string) {
   await supabase.from("Anexo").delete().eq("id", anexoId);
   revalidatePath(`/crm/${oportunidadeId}`);
 }
+
+/** Formato que o BotaoExcluir espera de volta (ver components/ui/botao-excluir). */
+export type EstadoExclusao = { erro?: string } | undefined;
+
+// Tira a oportunidade do funil de vez. Interações e anexos vão junto por
+// CASCADE; obra não vai — ela é a execução do contrato e sobreviveria sem a
+// origem, então o banco recusa (RESTRICT) e aqui o aviso sai antes.
+export async function excluirOportunidade(
+  _estado: EstadoExclusao,
+  formData: FormData
+): Promise<EstadoExclusao> {
+  await exigirPermissao("crm", "escrita");
+
+  const oportunidadeId = String(formData.get("oportunidadeId") ?? "");
+
+  const { data: oportunidade } = await supabase
+    .from("Oportunidade")
+    .select("id")
+    .eq("id", oportunidadeId)
+    .maybeSingle();
+
+  if (!oportunidade) return { erro: "Oportunidade não encontrada." };
+
+  const { count: obras } = await supabase
+    .from("Obra")
+    .select("id", { count: "exact", head: true })
+    .eq("oportunidadeId", oportunidadeId);
+
+  if ((obras ?? 0) > 0) {
+    return {
+      erro: `Oportunidade não pode ser excluída: tem ${obras} obra(s) vinculada(s). Exclua a obra antes.`,
+    };
+  }
+
+  const { error } = await supabase.from("Oportunidade").delete().eq("id", oportunidadeId);
+  if (error) return { erro: "Não foi possível excluir a oportunidade." };
+
+  revalidatePath("/crm");
+  redirect("/crm");
+}

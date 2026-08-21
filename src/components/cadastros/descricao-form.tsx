@@ -40,7 +40,14 @@ export function DescricaoForm({ descricao }: { descricao?: DescricaoFormValues }
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="tipoProposta">Tipo de proposta</Label>
-          <Select name="tipoProposta" defaultValue={descricao?.tipoProposta ?? "usina_solar"}>
+          <Select
+            name="tipoProposta"
+            defaultValue={descricao?.tipoProposta ?? "usina_solar"}
+            items={[
+              { value: "usina_solar", label: "Usina Solar" },
+              { value: "redes", label: "Redes" },
+            ]}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

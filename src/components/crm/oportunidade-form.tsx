@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { atualizarOportunidade, type EstadoFormOportunidade } from "@/app/(app)/crm/actions";
 import { ORDEM_ESTAGIO_KANBAN, ROTULO_ESTAGIO } from "@/lib/crm";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,13 @@ export function OportunidadeForm({
       <div className="grid grid-cols-2 gap-4 max-w-2xl">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="estagio">Estágio</Label>
-          <Select name="estagio" defaultValue={oportunidade.estagio}>
+          {/* `items` é o que faz o gatilho exibir o rótulo em vez do valor cru
+              (o id do usuário, no caso do responsável) — ver Select.Value do Base UI. */}
+          <Select
+            name="estagio"
+            defaultValue={oportunidade.estagio}
+            items={ORDEM_ESTAGIO_KANBAN.map((e) => ({ value: e, label: ROTULO_ESTAGIO[e] }))}
+          >
             <SelectTrigger id="estagio" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -57,7 +64,11 @@ export function OportunidadeForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="responsavelId">Responsável</Label>
-          <Select name="responsavelId" defaultValue={oportunidade.responsavelId}>
+          <Select
+            name="responsavelId"
+            defaultValue={oportunidade.responsavelId}
+            items={usuarios.map((u) => ({ value: u.id, label: u.nome }))}
+          >
             <SelectTrigger id="responsavelId" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -83,10 +94,9 @@ export function OportunidadeForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="proximaAcaoData">Próxima ação</Label>
-          <Input
+          <CampoData
             id="proximaAcaoData"
             name="proximaAcaoData"
-            type="date"
             defaultValue={oportunidade.proximaAcaoData?.slice(0, 10) ?? ""}
           />
         </div>

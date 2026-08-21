@@ -2,18 +2,27 @@ import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { TipoProblemaForm } from "@/components/cadastros/tipo-problema-form";
-import { atualizarTipoProblema, alternarTipoProblema } from "./actions";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
+import {
+  atualizarTipoProblema,
+  alternarTipoProblema,
+  excluirTipoProblema,
+} from "./actions";
 
 // Grade em <div> e não <table>: cada linha é um <form> próprio, e um form não
 // pode envolver várias <td> sem quebrar a tabela.
-const COLUNAS = "md:grid-cols-[1fr_6rem_6rem_9rem_auto]";
+//
+// Cabeçalho e linhas são grids independentes, então nenhuma trilha pode ser
+// dimensionada pelo conteúdo: com `auto` na última coluna o cabeçalho medía só
+// a palavra "Chamados", enquanto a linha medía os botões Salvar/Desativar.
+// Sobrava largura para o `1fr` do cabeçalho e todos os títulos escorregavam
+// para a direita das caixas que rotulam. Largura fixa em tudo menos no nome dá
+// a mesma régua para os dois.
+const COLUNAS = "md:grid-cols-[minmax(0,1fr)_6rem_6rem_5rem_15rem]";
 
 export default async function PaginaTiposProblema() {
   const { perfil } = await acessoModulo("posVenda");
@@ -38,15 +47,17 @@ export default async function PaginaTiposProblema() {
       <div className="rounded-md border bg-card divide-y">
         <div
           className={cn(
-            "hidden md:grid gap-3 px-3 py-2 text-xs text-muted-foreground",
+            "hidden md:grid gap-3 px-3 py-2 text-xs text-muted-foreground items-end",
             COLUNAS
           )}
         >
           <span>Tipo de problema</span>
           <span>Prazo (dias)</span>
           <span>Alertar com</span>
-          <span>Depende da concessionária</span>
           <span className="text-right">Chamados</span>
+          {/* Coluna das ações: sem título, mas precisa existir para a grade do
+              cabeçalho ter o mesmo número de trilhas da grade das linhas. */}
+          <span />
         </div>
 
         {tipos.map((t) => (
@@ -78,17 +89,11 @@ export default async function PaginaTiposProblema() {
                   required
                   aria-label="Dias de alerta"
                 />
-                <Label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    name="dependeConcessionaria"
-                    defaultChecked={t.dependeConcessionaria}
-                  />
-                  <span className="md:hidden">Depende da concessionária</span>
-                </Label>
+                <span className="text-sm text-muted-foreground md:text-right">
+                  <span className="md:hidden">Chamados: </span>
+                  {t.chamados[0]?.count ?? 0}
+                </span>
                 <div className="flex items-center justify-end gap-1">
-                  <span className="text-sm text-muted-foreground mr-2">
-                    {t.chamados[0]?.count ?? 0}
-                  </span>
                   <Button type="submit" variant="outline" size="sm">
                     Salvar
                   </Button>
@@ -102,6 +107,19 @@ export default async function PaginaTiposProblema() {
                   >
                     {t.ativo ? "Desativar" : "Ativar"}
                   </button>
+                  <BotaoExcluir
+                    acao={excluirTipoProblema}
+                    campos={{ tipoId: t.id }}
+                    variant="ghost"
+                    titulo={`Excluir "${t.nome}"?`}
+                    descricao={
+                      <>
+                        O tipo some do catálogo, sem volta. Se já houver chamado usando este
+                        tipo, a exclusão é recusada — nesse caso use Desativar, que tira o tipo
+                        da lista de escolha e preserva o histórico.
+                      </>
+                    }
+                  />
                 </div>
               </>
             ) : (
@@ -109,12 +127,13 @@ export default async function PaginaTiposProblema() {
                 <span className="font-medium text-sm">{t.nome}</span>
                 <span className="text-sm">{t.prazoDias}</span>
                 <span className="text-sm">{t.diasAlerta}</span>
-                <span>
-                  {t.dependeConcessionaria && <Badge variant="secondary">Depende</Badge>}
-                </span>
-                <span className="text-sm text-right text-muted-foreground">
+                <span className="text-sm text-muted-foreground md:text-right">
+                  <span className="md:hidden">Chamados: </span>
                   {t.chamados[0]?.count ?? 0}
                 </span>
+                {/* Sem ações para quem só lê, mas a trilha precisa ser ocupada
+                    para as colunas casarem com o cabeçalho. */}
+                <span />
               </>
             )}
           </form>

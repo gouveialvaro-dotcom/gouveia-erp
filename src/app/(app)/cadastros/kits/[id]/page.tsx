@@ -68,7 +68,14 @@ export default async function PaginaEditarKit({
       {podeEditar && (
         <form action={adicionarItemComKit} className="flex gap-3 items-end mb-4 max-w-2xl">
           <div className="flex-1">
-            <Select name="materialId" required>
+            <Select
+              name="materialId"
+              required
+              items={materiais.map((m) => ({
+                value: m.id,
+                label: `${m.codigo} · ${m.descricao}`,
+              }))}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um material..." />
               </SelectTrigger>

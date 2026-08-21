@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { criarOportunidade, type EstadoFormOportunidade } from "@/app/(app)/crm/actions";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,7 +33,13 @@ export function OportunidadeCriarForm({
       <div className="grid grid-cols-2 gap-4 max-w-2xl">
         <div className="col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="orcamentoId">Orçamento</Label>
-          <Select name="orcamentoId">
+          <Select
+            name="orcamentoId"
+            items={orcamentos.map((o) => ({
+              value: o.id,
+              label: `${o.nomeProjeto} — ${o.clienteNome}`,
+            }))}
+          >
             <SelectTrigger id="orcamentoId" className="w-full">
               <SelectValue
                 placeholder={
@@ -51,7 +58,11 @@ export function OportunidadeCriarForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="responsavelId">Responsável</Label>
-          <Select name="responsavelId" defaultValue={responsavelPadraoId}>
+          <Select
+            name="responsavelId"
+            defaultValue={responsavelPadraoId}
+            items={usuarios.map((u) => ({ value: u.id, label: u.nome }))}
+          >
             <SelectTrigger id="responsavelId" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -70,7 +81,7 @@ export function OportunidadeCriarForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="proximaAcaoData">Próxima ação</Label>
-          <Input id="proximaAcaoData" name="proximaAcaoData" type="date" />
+          <CampoData id="proximaAcaoData" name="proximaAcaoData" />
         </div>
       </div>
 

@@ -69,7 +69,14 @@ export function GerarPropostaDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="modelo">Modelo da proposta</Label>
-            <Select name="modelo" defaultValue={modeloPadrao}>
+            <Select
+              name="modelo"
+              defaultValue={modeloPadrao}
+              items={[
+                { value: "usina_solar", label: "Usina Solar" },
+                { value: "redes", label: "Redes" },
+              ]}
+            >
               <SelectTrigger id="modelo" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -82,7 +89,14 @@ export function GerarPropostaDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="formato">Emitir em</Label>
-            <Select name="formato" defaultValue="pdf">
+            <Select
+              name="formato"
+              defaultValue="pdf"
+              items={[
+                { value: "pdf", label: "PDF" },
+                { value: "word", label: "Word (.doc)" },
+              ]}
+            >
               <SelectTrigger id="formato" className="w-full">
                 <SelectValue />
               </SelectTrigger>

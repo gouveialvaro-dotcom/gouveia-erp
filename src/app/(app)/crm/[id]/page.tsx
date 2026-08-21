@@ -6,7 +6,10 @@ import { podeEscrever } from "@/lib/permissoes";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { ROTULO_ESTAGIO, ROTULO_TIPO_INTERACAO } from "@/lib/crm";
 import { OportunidadeForm } from "@/components/crm/oportunidade-form";
+import { excluirProposta } from "@/app/(app)/orcamentos/actions";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +29,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adicionarInteracao, removerInteracao, adicionarAnexo, removerAnexo } from "../actions";
+import {
+  adicionarInteracao,
+  removerInteracao,
+  adicionarAnexo,
+  removerAnexo,
+  excluirOportunidade,
+} from "../actions";
 
 export default async function PaginaOportunidade({
   params,
@@ -60,6 +69,8 @@ export default async function PaginaOportunidade({
     .order("geradoEm", { ascending: false });
 
   const podeEditar = podeEscrever(perfil, "crm");
+  // A proposta é artefato do orçamento: quem apaga é quem tem escrita lá.
+  const podeExcluirProposta = podeEscrever(perfil, "orcamentos");
   const adicionarInteracaoComId = adicionarInteracao.bind(null, oportunidade.id);
   const adicionarAnexoComId = adicionarAnexo.bind(null, oportunidade.id);
 
@@ -68,7 +79,26 @@ export default async function PaginaOportunidade({
       <Link href="/crm" className="text-sm text-muted-foreground hover:underline w-fit">
         ← CRM / Propostas
       </Link>
-      <h2 className="text-lg font-semibold mt-2">{oportunidade.cliente?.razaoSocial}</h2>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold">{oportunidade.cliente?.razaoSocial}</h2>
+        {podeEditar && (
+          <div className="ml-auto">
+            <BotaoExcluir
+              acao={excluirOportunidade}
+              campos={{ oportunidadeId: oportunidade.id }}
+              rotulo="Excluir do funil"
+              titulo="Excluir esta oportunidade?"
+              descricao={
+                <>
+                  As interações e os anexos registrados aqui são apagados junto, sem volta. O
+                  orçamento e as propostas emitidas continuam onde estão — sai só o
+                  acompanhamento comercial. É também o que destrava a exclusão do cliente.
+                </>
+              }
+            />
+          </div>
+        )}
+      </div>
       <p className="text-sm text-muted-foreground mb-4">
         <Link href={`/orcamentos/${oportunidade.orcamento?.id}`} className="hover:underline">
           {oportunidade.orcamento?.nomeProjeto}
@@ -137,9 +167,25 @@ export default async function PaginaOportunidade({
                 <TableCell>{formatarMoeda(p.valorFinal)}</TableCell>
                 <TableCell>{formatarData(p.geradoEm)}</TableCell>
                 <TableCell className="text-right">
-                  <a href={p.arquivoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                    Abrir
-                  </a>
+                  <div className="flex items-center justify-end gap-3">
+                    <a href={p.arquivoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                      Abrir
+                    </a>
+                    {podeExcluirProposta && (
+                      <BotaoExcluir
+                        acao={excluirProposta}
+                        campos={{ propostaId: p.id }}
+                        variant="ghost"
+                        titulo={`Excluir a proposta ${p.numero}/${p.ano}?`}
+                        descricao={
+                          <>
+                            Some do histórico de emissões do orçamento, sem volta. O orçamento e
+                            esta oportunidade continuam como estão — só esta emissão é apagada.
+                          </>
+                        }
+                      />
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -186,7 +232,16 @@ export default async function PaginaOportunidade({
 
       {podeEditar && (
         <form action={adicionarInteracaoComId} className="grid grid-cols-4 gap-3 max-w-3xl items-end mb-8">
-          <Select name="tipo" defaultValue="ligacao">
+          <Select
+            name="tipo"
+            defaultValue="ligacao"
+            items={[
+              { value: "ligacao", label: "Ligação" },
+              { value: "email", label: "E-mail" },
+              { value: "reuniao", label: "Reunião" },
+              { value: "visita", label: "Visita" },
+            ]}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -197,7 +252,7 @@ export default async function PaginaOportunidade({
               <SelectItem value="visita">Visita</SelectItem>
             </SelectContent>
           </Select>
-          <Input name="data" type="date" required />
+          <CampoData name="data" required />
           <div className="col-span-2 flex gap-2">
             <Textarea name="descricao" placeholder="Descrição da interação" rows={1} required />
             <Button type="submit" variant="secondary">+ Registrar</Button>

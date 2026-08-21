@@ -12,6 +12,7 @@ import {
   vigenciaManutencao,
 } from "@/lib/clientes";
 import { ClienteForm } from "@/components/cadastros/cliente-form";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { UnidadeForm } from "@/components/cadastros/unidade-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { removerUnidade } from "../actions";
+import { excluirCliente, removerUnidade } from "../actions";
 
 type UnidadeLinha = {
   id: string;
@@ -158,6 +159,24 @@ export default async function PaginaEditarCliente({
         <h2 className="text-lg font-semibold">Cliente · {cliente.razaoSocial}</h2>
         <Badge variant="outline">{ROTULO_RAMO[cliente.ramo]}</Badge>
         {solar && <Badge variant={situacao.variant}>{situacao.texto}</Badge>}
+        {podeEditar && (
+          <div className="ml-auto">
+            <BotaoExcluir
+              acao={excluirCliente}
+              campos={{ clienteId: cliente.id }}
+              rotulo="Excluir cliente"
+              titulo={`Excluir ${cliente.razaoSocial}?`}
+              descricao={
+                <>
+                  {todas.length > 0 &&
+                    `As ${todas.length} unidade(s) cadastradas neste cliente são apagadas junto. `}
+                  A exclusão não tem volta. Cliente com chamado, orçamento ou oportunidade não
+                  pode ser excluído — nesse caso o aviso aparece aqui e nada é apagado.
+                </>
+              }
+            />
+          </div>
+        )}
       </div>
       <p className="text-sm text-muted-foreground mb-4">
         {solar && vigencia

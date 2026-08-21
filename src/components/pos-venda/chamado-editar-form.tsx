@@ -12,6 +12,7 @@ import {
   type PrioridadeChamado,
 } from "@/lib/pos-venda";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
@@ -156,12 +157,11 @@ export function ChamadoEditarForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="prazoLimite">Prazo limite</Label>
-          <Input
+          <CampoData
             id="prazoLimite"
             name="prazoLimite"
-            type="date"
             value={prazoLimite}
-            onChange={(e) => setPrazoLimite(e.target.value)}
+            aoMudar={setPrazoLimite}
             required
           />
           {prazoDivergente && (

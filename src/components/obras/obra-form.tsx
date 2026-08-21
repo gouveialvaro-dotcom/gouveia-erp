@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { atualizarObra, type EstadoFormObra } from "@/app/(app)/obras/actions";
 import { ORDEM_STATUS_OBRA, ROTULO_STATUS_OBRA } from "@/lib/obras";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,7 +37,11 @@ export function ObraForm({ obra }: { obra: ObraFormValues }) {
       <div className="grid grid-cols-2 gap-4 max-w-2xl">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="status">Status</Label>
-          <Select name="status" defaultValue={obra.status}>
+          <Select
+            name="status"
+            defaultValue={obra.status}
+            items={ORDEM_STATUS_OBRA.map((s) => ({ value: s, label: ROTULO_STATUS_OBRA[s].texto }))}
+          >
             <SelectTrigger id="status" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -85,19 +90,17 @@ export function ObraForm({ obra }: { obra: ObraFormValues }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="dataInicio">Data de início</Label>
-          <Input
+          <CampoData
             id="dataInicio"
             name="dataInicio"
-            type="date"
             defaultValue={obra.dataInicio?.slice(0, 10) ?? ""}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="dataPrevistaConclusao">Previsão de conclusão</Label>
-          <Input
+          <CampoData
             id="dataPrevistaConclusao"
             name="dataPrevistaConclusao"
-            type="date"
             defaultValue={obra.dataPrevistaConclusao?.slice(0, 10) ?? ""}
           />
         </div>

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { salvarCliente, type EstadoFormCliente } from "@/app/(app)/cadastros/clientes/actions";
 import { RAMOS, ROTULO_RAMO, type RamoCliente } from "@/lib/clientes";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
@@ -101,19 +102,17 @@ export function ClienteForm({
             </p>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="manutencaoInicio">Ativação da manutenção</Label>
-              <Input
+              <CampoData
                 id="manutencaoInicio"
                 name="manutencaoInicio"
-                type="date"
                 defaultValue={cliente?.manutencaoInicio?.slice(0, 10) ?? ""}
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="manutencaoFim">Fim da manutenção</Label>
-              <Input
+              <CampoData
                 id="manutencaoFim"
                 name="manutencaoFim"
-                type="date"
                 defaultValue={cliente?.manutencaoFim?.slice(0, 10) ?? ""}
               />
             </div>

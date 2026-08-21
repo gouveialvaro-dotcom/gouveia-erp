@@ -55,7 +55,6 @@ export default async function PaginaPosVenda({
     { data: clientesData },
     { data: tiposData },
     { data: usuariosData },
-    { data: concessionariasData },
     { data: janelaData },
     novidades,
   ] = await Promise.all([
@@ -73,11 +72,6 @@ export default async function PaginaPosVenda({
       .eq("ativo", true)
       .order("ordem"),
     supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),
-    supabase
-      .from("Concessionaria")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome"),
     // Janela de recorrência deliberadamente fora dos filtros da tela: a marca
     // "Recorrente" descreve o histórico do cliente, não o recorte visível.
     supabase
@@ -88,12 +82,7 @@ export default async function PaginaPosVenda({
     chamadosComNovidade(userId),
   ]);
 
-  // A concessionária mora dois níveis abaixo (Chamado → UC → Concessionária).
-  // Filtrar isso no PostgREST exigiria um !inner que muda a forma do retorno;
-  // com o volume desta base sai mais simples e legível filtrar aqui.
-  const chamados = (chamadosData ?? []).filter(
-    (c) => !filtros.concessionaria || c.uc?.concessionaria?.id === filtros.concessionaria
-  );
+  const chamados = chamadosData ?? [];
 
   const ocorrencias = new Map<string, number>();
   for (const c of janelaData ?? []) {
@@ -218,7 +207,6 @@ export default async function PaginaPosVenda({
         clientes={(clientesData ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
         tipos={tiposData ?? []}
         responsaveis={usuariosData ?? []}
-        concessionarias={concessionariasData ?? []}
       />
 
       <div className="flex gap-4 overflow-x-auto pb-2">

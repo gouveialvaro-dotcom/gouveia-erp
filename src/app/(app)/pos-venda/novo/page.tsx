@@ -34,7 +34,7 @@ export default async function PaginaNovoChamado() {
       .order("criadoEm", { ascending: false }),
     supabase
       .from("TipoProblemaPosVenda")
-      .select("id, nome, prazoDias, dependeConcessionaria")
+      .select("id, nome, prazoDias")
       .eq("ativo", true)
       .order("ordem"),
     supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),

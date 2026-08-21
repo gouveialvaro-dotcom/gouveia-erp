@@ -10,6 +10,7 @@ import { AdicionarMaterialForm } from "@/components/orcamentos/adicionar-materia
 import { AdicionarMaoObraForm } from "@/components/orcamentos/adicionar-mao-obra-form";
 import { ResumoCustos } from "@/components/orcamentos/resumo-custos";
 import { GerarPropostaDialog } from "@/components/orcamentos/gerar-proposta-dialog";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -24,6 +25,7 @@ import {
 import {
   adicionarMaoObraOrcamento,
   adicionarMaterialOrcamento,
+  excluirProposta,
   removerMaoObraOrcamento,
   removerMaterialOrcamento,
 } from "../actions";
@@ -364,6 +366,21 @@ export default async function PaginaEditarOrcamento({
                       >
                         Word
                       </Button>
+                      {podeEditar && (
+                        <BotaoExcluir
+                          acao={excluirProposta}
+                          campos={{ propostaId: p.id }}
+                          variant="ghost"
+                          titulo={`Excluir a proposta ${formatarNumeroProposta(p.numero, p.ano, p.revisao)}?`}
+                          descricao={
+                            <>
+                              Some do histórico de emissões deste orçamento, sem volta. O
+                              orçamento e a oportunidade no CRM continuam como estão — só esta
+                              emissão é apagada, e uma nova pode ser gerada a qualquer momento.
+                            </>
+                          }
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

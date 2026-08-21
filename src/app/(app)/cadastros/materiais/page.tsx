@@ -60,7 +60,14 @@ export default async function PaginaMateriais({
 
       <form className="flex gap-3 flex-wrap">
         <Input name="q" defaultValue={q} placeholder="Buscar por código ou descrição..." className="max-w-xs" />
-        <Select name="categoria" defaultValue={categoria ?? "todas"}>
+        <Select
+          name="categoria"
+          defaultValue={categoria ?? "todas"}
+          items={[
+            { value: "todas", label: "Todas as categorias" },
+            ...categorias.map((c) => ({ value: c.categoria, label: c.categoria })),
+          ]}
+        >
           <SelectTrigger className="max-w-[220px]">
             <SelectValue placeholder="Todas as categorias" />
           </SelectTrigger>

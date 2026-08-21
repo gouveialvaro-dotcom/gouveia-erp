@@ -1397,7 +1397,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      excluir_cliente_cascata: {
+        Args: { p_cliente_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       DirecaoInteracao: "cliente" | "concessionaria" | "interno"

@@ -26,8 +26,10 @@ import {
   vigenciaManutencao,
 } from "@/lib/clientes";
 import { Badge } from "@/components/ui/badge";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { SelectNativo } from "@/components/ui/select-nativo";
@@ -43,10 +45,10 @@ import {
 import { ChamadoEditarForm } from "@/components/pos-venda/chamado-editar-form";
 import { AnexoUpload } from "@/components/pos-venda/anexo-upload";
 import { MarcarLido } from "@/components/pos-venda/marcar-lido";
-import { adicionarInteracao, removerInteracao, removerAnexo } from "../actions";
+import { adicionarInteracao, excluirChamado, removerInteracao, removerAnexo } from "../actions";
 
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta, dependeConcessionaria), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
+  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
 
 function formatarTamanho(bytes: number | null) {
   if (bytes === null) return "—";
@@ -103,7 +105,7 @@ export default async function PaginaChamado({
       .eq("oportunidade.clienteId", chamado.clienteId),
     supabase
       .from("TipoProblemaPosVenda")
-      .select("id, nome, prazoDias, dependeConcessionaria")
+      .select("id, nome, prazoDias")
       .eq("ativo", true)
       .order("ordem"),
     supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),
@@ -160,6 +162,23 @@ export default async function PaginaChamado({
         <Badge variant={vencido ? "destructive" : "outline"}>{ROTULO_COLUNA[coluna]}</Badge>
         <Badge variant={prioridade.variant}>{prioridade.texto}</Badge>
         {recorrente && <Badge variant="destructive">Recorrente</Badge>}
+        {podeEditar && (
+          <div className="ml-auto">
+            <BotaoExcluir
+              acao={excluirChamado}
+              campos={{ chamadoId: chamado.id }}
+              rotulo="Excluir chamado"
+              titulo={`Excluir o chamado #${chamado.numero}?`}
+              descricao={
+                <>
+                  A linha do tempo, os anexos e os avisos deste chamado são apagados junto, sem
+                  volta. O chamado sai do histórico do cliente — o que também apaga o sinal de
+                  reincidência que ele representa.
+                </>
+              }
+            />
+          </div>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">
@@ -203,11 +222,6 @@ export default async function PaginaChamado({
                 ? `Concluído em ${formatarData(chamado.concluidoEm ?? chamado.abertoEm)} · ${diasEmAberto} dia(s) até a solução`
                 : `${textoPrazo({ estagio: chamado.estagio, prazoLimite: chamado.prazoLimite }, hoje)} · ${diasEmAberto} dia(s) em aberto`}
             </p>
-            {chamado.tipo?.dependeConcessionaria && (
-              <p className="text-xs text-muted-foreground">
-                Depende da concessionária — o relógio do SLA não pausa.
-              </p>
-            )}
             {chamado.protocoloConcessionaria && (
               <p className="text-xs">
                 Protocolo: <strong>{chamado.protocoloConcessionaria}</strong>
@@ -418,7 +432,7 @@ export default async function PaginaChamado({
               </option>
             ))}
           </SelectNativo>
-          <Input name="data" type="date" defaultValue={hoje} required />
+          <CampoData name="data" defaultValue={hoje} required />
           <Input name="protocolo" placeholder="Protocolo (opcional)" />
           <div className="col-span-4 flex gap-2">
             <Textarea

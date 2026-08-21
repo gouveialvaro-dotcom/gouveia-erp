@@ -126,6 +126,122 @@ export async function salvarCliente(
   redirect(`/cadastros/clientes/${id}`);
 }
 
+// --- Exclusão -------------------------------------------------------------
+
+// Mesmo bucket usado pelos anexos de chamado (ver pos-venda/actions.ts): a
+// exclusão em cascata também precisa limpar os arquivos de lá.
+const BUCKET_ANEXOS_POS_VENDA = "pos-venda";
+
+/** `podeForcar` liga o botão de cascata no diálogo (ver components/ui/botao-excluir). */
+export type EstadoExclusaoCliente = { erro?: string; podeForcar?: boolean } | undefined;
+
+export async function excluirCliente(
+  _estado: EstadoExclusaoCliente,
+  formData: FormData
+): Promise<EstadoExclusaoCliente> {
+  const { perfil } = await exigirPermissao("clientes", "escrita");
+
+  const clienteId = String(formData.get("clienteId") ?? "");
+  // O botão "Excluir tudo mesmo assim" manda cascata=1. Arrastar chamado,
+  // orçamento e obra junto é decisão de administrador — comercial só exclui
+  // cliente que ainda não tem histórico.
+  const cascata = formData.get("cascata") === "1" && perfil === "admin";
+
+  const { data: cliente } = await supabase
+    .from("Cliente")
+    .select("ramo")
+    .eq("id", clienteId)
+    .maybeSingle();
+
+  if (!cliente) return { erro: "Cliente não encontrado." };
+
+  // Chamado, orçamento e oportunidade apontam para o cliente e o banco recusa
+  // a exclusão (RESTRICT). Contar antes troca um erro cru de chave estrangeira
+  // por um aviso que diz o que está no caminho. Unidades e contatos não entram
+  // na conta: esses o banco apaga junto (CASCADE).
+  const [{ count: chamados }, { count: orcamentos }, { count: oportunidades }] =
+    await Promise.all([
+      supabase
+        .from("Chamado")
+        .select("id", { count: "exact", head: true })
+        .eq("clienteId", clienteId),
+      supabase
+        .from("Orcamento")
+        .select("id", { count: "exact", head: true })
+        .eq("clienteId", clienteId),
+      supabase
+        .from("Oportunidade")
+        .select("id", { count: "exact", head: true })
+        .eq("clienteId", clienteId),
+    ]);
+
+  const vinculos = [
+    { rotulo: "chamado(s) no pós-venda", total: chamados ?? 0 },
+    { rotulo: "orçamento(s)", total: orcamentos ?? 0 },
+    { rotulo: "oportunidade(s) no CRM", total: oportunidades ?? 0 },
+  ].filter((v) => v.total > 0);
+
+  if (vinculos.length > 0 && !cascata) {
+    const lista = vinculos.map((v) => `${v.total} ${v.rotulo}`).join(", ");
+    return {
+      erro:
+        perfil === "admin"
+          ? `Cliente não pode ser excluído: tem ${lista}. Exclua esses registros antes — ou use "Excluir tudo mesmo assim" para apagar cliente e histórico de uma vez.`
+          : `Cliente não pode ser excluído: tem ${lista}. Exclua esses registros antes.`,
+      // Só administrador enxerga a saída em cascata.
+      podeForcar: perfil === "admin",
+    };
+  }
+
+  if (cascata) {
+    // Os arquivos dos anexos precisam ser lidos antes: depois da exclusão não
+    // existe mais linha apontando para eles, e ficariam perdidos no bucket.
+    const { data: chamadosDoCliente } = await supabase
+      .from("Chamado")
+      .select("id")
+      .eq("clienteId", clienteId);
+
+    const idsChamados = (chamadosDoCliente ?? []).map((c) => c.id);
+    let caminhos: string[] = [];
+
+    if (idsChamados.length > 0) {
+      const { data: anexos } = await supabase
+        .from("AnexoChamado")
+        .select("caminho")
+        .in("chamadoId", idsChamados);
+      caminhos = (anexos ?? []).map((a) => a.caminho);
+    }
+
+    // Tudo-ou-nada: a função roda os deletes na ordem certa, numa transação só.
+    const { error } = await supabase.rpc("excluir_cliente_cascata", {
+      p_cliente_id: clienteId,
+    });
+
+    if (error) {
+      console.error("Falha na exclusão em cascata:", error);
+      return { erro: `Não foi possível excluir: ${error.message}` };
+    }
+
+    if (caminhos.length > 0) {
+      await supabase.storage.from(BUCKET_ANEXOS_POS_VENDA).remove(caminhos);
+    }
+
+    revalidatePath(`/cadastros/clientes/${SLUG_POR_RAMO[cliente.ramo]}`);
+    revalidatePath("/pos-venda");
+    revalidatePath("/crm");
+    revalidatePath("/orcamentos");
+    revalidatePath("/obras");
+    redirect(`/cadastros/clientes/${SLUG_POR_RAMO[cliente.ramo]}`);
+  }
+
+  const { error } = await supabase.from("Cliente").delete().eq("id", clienteId);
+  if (error) return { erro: "Não foi possível excluir o cliente." };
+
+  revalidatePath(`/cadastros/clientes/${SLUG_POR_RAMO[cliente.ramo]}`);
+  revalidatePath("/pos-venda");
+  redirect(`/cadastros/clientes/${SLUG_POR_RAMO[cliente.ramo]}`);
+}
+
 // --- Unidades geradoras e beneficiárias -----------------------------------
 // Ficam dentro do cadastro do cliente de energia solar, e são também a âncora
 // do pós-venda: é na UC que a concessionária fatura, mede e compensa.

@@ -19,6 +19,9 @@ const orcamentoSchema = z.object({
 
 export type EstadoFormOrcamento = { erro?: string } | undefined;
 
+/** Formato que o BotaoExcluir espera de volta (ver components/ui/botao-excluir). */
+export type EstadoExclusao = { erro?: string } | undefined;
+
 export async function salvarOrcamento(
   orcamentoId: string | null,
   _estado: EstadoFormOrcamento,
@@ -396,4 +399,31 @@ export async function gerarProposta(
   revalidatePath(`/orcamentos/${orcamentoId}`);
 
   return { url };
+}
+
+// Exclui uma emissão do histórico. Não há arquivo para apagar: a proposta é
+// renderizada sob demanda a partir do orçamento (ver gerarProposta), então o
+// registro é tudo o que existe. A oportunidade criada na emissão continua no
+// funil — quem decide o que fazer com ela é o comercial, no CRM.
+export async function excluirProposta(
+  _estado: EstadoExclusao,
+  formData: FormData
+): Promise<EstadoExclusao> {
+  await exigirPermissao("orcamentos", "escrita");
+
+  const propostaId = String(formData.get("propostaId") ?? "");
+
+  const { data: proposta } = await supabase
+    .from("Proposta")
+    .select("orcamentoId")
+    .eq("id", propostaId)
+    .maybeSingle();
+
+  if (!proposta) return { erro: "Proposta não encontrada." };
+
+  const { error } = await supabase.from("Proposta").delete().eq("id", propostaId);
+  if (error) return { erro: "Não foi possível excluir a proposta." };
+
+  revalidatePath(`/orcamentos/${proposta.orcamentoId}`);
+  revalidatePath("/crm");
 }

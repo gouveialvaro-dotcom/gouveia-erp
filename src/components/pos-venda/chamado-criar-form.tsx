@@ -8,6 +8,7 @@ import { ROTULO_PRIORIDADE, hojeIso, somarDias } from "@/lib/pos-venda";
 import { impedimentoDeAbertura, vigenciaManutencao, type RamoCliente } from "@/lib/clientes";
 import { Button } from "@/components/ui/button";
 import { ComboboxCampo } from "@/components/ui/combobox-campo";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
@@ -17,7 +18,6 @@ export type TipoProblemaOpcao = {
   id: string;
   nome: string;
   prazoDias: number;
-  dependeConcessionaria: boolean;
 };
 
 export type UnidadeOpcao = { id: string; clienteId: string; rotulo: string };
@@ -163,7 +163,6 @@ export function ChamadoCriarForm({
             <p className="text-xs text-muted-foreground">
               SLA de {tipo.prazoDias} dias corridos — vence em{" "}
               <strong>{formatarData(somarDias(abertoEm, tipo.prazoDias))}</strong>
-              {tipo.dependeConcessionaria && " · depende da concessionária"}
             </p>
           )}
         </div>
@@ -216,12 +215,11 @@ export function ChamadoCriarForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="abertoEm">Data de abertura</Label>
-          <Input
+          <CampoData
             id="abertoEm"
             name="abertoEm"
-            type="date"
             value={abertoEm}
-            onChange={(e) => setAbertoEm(e.target.value)}
+            aoMudar={setAbertoEm}
             required
           />
         </div>

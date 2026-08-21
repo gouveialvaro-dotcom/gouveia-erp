@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
 
@@ -8,7 +8,6 @@ export type FiltrosPosVenda = {
   cliente?: string;
   tipo?: string;
   responsavel?: string;
-  concessionaria?: string;
   de?: string;
   ate?: string;
 };
@@ -48,18 +47,16 @@ export function BarraFiltros({
   clientes,
   tipos,
   responsaveis,
-  concessionarias,
 }: {
   filtros: FiltrosPosVenda;
   clientes: Opcao[];
   tipos: Opcao[];
   responsaveis: Opcao[];
-  concessionarias: Opcao[];
 }) {
   const algumFiltro = Object.values(filtros).some(Boolean);
 
   return (
-    <form className="grid gap-3 rounded-md border bg-card p-3 md:grid-cols-3 lg:grid-cols-6 lg:items-end">
+    <form className="grid gap-3 rounded-md border bg-card p-3 md:grid-cols-3 lg:grid-cols-5 lg:items-end">
       <CampoSelect
         nome="cliente"
         rotulo="Cliente"
@@ -75,13 +72,6 @@ export function BarraFiltros({
         textoTodos="Todos os tipos"
       />
       <CampoSelect
-        nome="concessionaria"
-        rotulo="Concessionária"
-        opcoes={concessionarias}
-        valor={filtros.concessionaria}
-        textoTodos="Todas"
-      />
-      <CampoSelect
         nome="responsavel"
         rotulo="Responsável"
         opcoes={responsaveis}
@@ -91,11 +81,11 @@ export function BarraFiltros({
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="de">Aberto de</Label>
-          <Input id="de" name="de" type="date" defaultValue={filtros.de ?? ""} />
+          <CampoData id="de" name="de" defaultValue={filtros.de ?? ""} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ate">até</Label>
-          <Input id="ate" name="ate" type="date" defaultValue={filtros.ate ?? ""} />
+          <CampoData id="ate" name="ate" defaultValue={filtros.ate ?? ""} />
         </div>
       </div>
       <div className="flex gap-2">

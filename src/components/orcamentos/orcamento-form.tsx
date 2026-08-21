@@ -83,6 +83,10 @@ export function OrcamentoForm({
             name="tipoProposta"
             value={tipoProposta}
             onValueChange={(valor) => setTipoProposta(valor as "usina_solar" | "redes")}
+            items={[
+              { value: "usina_solar", label: "Usina Solar" },
+              { value: "redes", label: "Redes" },
+            ]}
           >
             <SelectTrigger id="tipoProposta" className="w-full">
               <SelectValue />
@@ -96,7 +100,15 @@ export function OrcamentoForm({
         {orcamento && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="status">Status</Label>
-            <Select name="status" defaultValue={orcamento.status}>
+            <Select
+              name="status"
+              defaultValue={orcamento.status}
+              items={[
+                { value: "em_elaboracao", label: "Em elaboração" },
+                { value: "revisao", label: "Em revisão" },
+                { value: "finalizado", label: "Finalizado" },
+              ]}
+            >
               <SelectTrigger id="status" className="w-full">
                 <SelectValue />
               </SelectTrigger>

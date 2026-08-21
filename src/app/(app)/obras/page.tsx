@@ -6,6 +6,7 @@ import { formatarData, formatarMoeda } from "@/lib/format";
 import { ROTULO_STATUS_OBRA } from "@/lib/obras";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -89,7 +90,7 @@ export default async function PaginaObras() {
                   className="w-40"
                   required
                 />
-                <Input name="dataInicio" type="date" className="w-40" />
+                <CampoData name="dataInicio" className="w-40" />
                 <Button type="submit" variant="secondary">
                   + Iniciar obra
                 </Button>

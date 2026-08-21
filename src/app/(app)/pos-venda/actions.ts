@@ -400,3 +400,42 @@ export async function removerAnexo(chamadoId: string, anexoId: string) {
 
   revalidarChamado(chamadoId);
 }
+
+/** Formato que o BotaoExcluir espera de volta (ver components/ui/botao-excluir). */
+export type EstadoExclusao = { erro?: string } | undefined;
+
+// Apaga o chamado e tudo que pendura nele. Interações, anexos e notificações
+// somem por CASCADE no banco, mas os arquivos no bucket não: sem removê-los
+// aqui, viram lixo invisível no Storage, sem nenhuma linha que os referencie.
+export async function excluirChamado(
+  _estado: EstadoExclusao,
+  formData: FormData
+): Promise<EstadoExclusao> {
+  await exigirPermissao("posVenda", "escrita");
+
+  const chamadoId = String(formData.get("chamadoId") ?? "");
+
+  const { data: chamado } = await supabase
+    .from("Chamado")
+    .select("id")
+    .eq("id", chamadoId)
+    .maybeSingle();
+
+  if (!chamado) return { erro: "Chamado não encontrado." };
+
+  const { data: anexos } = await supabase
+    .from("AnexoChamado")
+    .select("caminho")
+    .eq("chamadoId", chamadoId);
+
+  const { error } = await supabase.from("Chamado").delete().eq("id", chamadoId);
+  if (error) return { erro: "Não foi possível excluir o chamado." };
+
+  const caminhos = (anexos ?? []).map((a) => a.caminho);
+  if (caminhos.length > 0) {
+    await supabase.storage.from(BUCKET_ANEXOS).remove(caminhos);
+  }
+
+  revalidatePath("/pos-venda");
+  redirect("/pos-venda");
+}
