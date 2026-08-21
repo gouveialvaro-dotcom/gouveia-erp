@@ -94,3 +94,62 @@ export async function atualizarObra(
   revalidatePath(`/obras/${obraId}`);
   redirect(`/obras/${obraId}`);
 }
+
+const criarObraAvulsaSchema = z.object({
+  clienteId: z.string().min(1, "Selecione o cliente."),
+  nomeProjeto: z.string().trim().min(1, "Informe o nome do projeto."),
+  custoOrcado: z.coerce.number().nonnegative("Informe o custo orçado."),
+  dataInicio: z.string().optional(),
+  dataPrevistaConclusao: z.string().optional(),
+});
+
+// Obra que não veio do funil comercial — manutenção contratada direto, serviço
+// emergencial, obra herdada de antes do sistema. Nasce com origem 'manual' e
+// com cliente e nome de projeto próprios, porque não tem oportunidade de onde
+// emprestá-los. Os dashboards filtram origem = 'funil' e não enxergam estas.
+export async function criarObraAvulsa(
+  _estado: EstadoFormObra,
+  formData: FormData
+): Promise<EstadoFormObra> {
+  const { usuarioId } = await exigirPermissao("obras", "escrita");
+
+  const dados = criarObraAvulsaSchema.safeParse({
+    clienteId: formData.get("clienteId"),
+    nomeProjeto: formData.get("nomeProjeto"),
+    custoOrcado: formData.get("custoOrcado"),
+    dataInicio: formData.get("dataInicio") || undefined,
+    dataPrevistaConclusao: formData.get("dataPrevistaConclusao") || undefined,
+  });
+
+  if (!dados.success) {
+    return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { data: cliente } = await supabase
+    .from("Cliente")
+    .select("id")
+    .eq("id", dados.data.clienteId)
+    .maybeSingle();
+
+  if (!cliente) return { erro: "Cliente não encontrado." };
+
+  const { data: criada, error } = await supabase
+    .from("Obra")
+    .insert({
+      origem: "manual",
+      oportunidadeId: null,
+      clienteId: dados.data.clienteId,
+      nomeProjeto: dados.data.nomeProjeto,
+      custoOrcado: dados.data.custoOrcado,
+      dataInicio: dados.data.dataInicio ?? null,
+      dataPrevistaConclusao: dados.data.dataPrevistaConclusao ?? null,
+      atualizadoPorId: usuarioId,
+    })
+    .select("id")
+    .single();
+
+  if (error || !criada) return { erro: "Não foi possível criar a obra." };
+
+  revalidatePath("/obras");
+  redirect(`/obras/${criada.id}`);
+}

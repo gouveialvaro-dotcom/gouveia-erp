@@ -4,7 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { formatarData, formatarMoeda } from "@/lib/format";
-import { ROTULO_STATUS_OBRA } from "@/lib/obras";
+import {
+  ROTULO_ORIGEM_OBRA,
+  ROTULO_STATUS_OBRA,
+  clienteDaObra,
+  projetoDaObra,
+} from "@/lib/obras";
 import { ObraForm } from "@/components/obras/obra-form";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,7 +24,7 @@ export default async function PaginaObra({
   const { data: obra } = await supabase
     .from("Obra")
     .select(
-      "*, oportunidade:Oportunidade(id, cliente:Cliente(id, razaoSocial), orcamento:Orcamento(id, nomeProjeto)), atualizadoPor:Usuario(nome)"
+      "*, cliente:Cliente(id, razaoSocial), oportunidade:Oportunidade(id, cliente:Cliente(id, razaoSocial), orcamento:Orcamento(id, nomeProjeto)), atualizadoPor:Usuario(nome)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -38,20 +43,30 @@ export default async function PaginaObra({
         ← Obras
       </Link>
       <div className="flex items-center gap-3 mt-2">
-        <h2 className="text-lg font-semibold">{obra.oportunidade?.cliente?.razaoSocial}</h2>
+        <h2 className="text-lg font-semibold">{clienteDaObra(obra)}</h2>
         <Badge variant={status.variant}>{status.texto}</Badge>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        <Link
-          href={`/orcamentos/${obra.oportunidade?.orcamento?.id}`}
-          className="hover:underline"
-        >
-          {obra.oportunidade?.orcamento?.nomeProjeto}
-        </Link>
-        {" · "}
-        <Link href={`/crm/${obra.oportunidade?.id}`} className="hover:underline">
-          Ver oportunidade
-        </Link>
+        {obra.oportunidade ? (
+          <>
+            <Link
+              href={`/orcamentos/${obra.oportunidade.orcamento?.id}`}
+              className="hover:underline"
+            >
+              {projetoDaObra(obra)}
+            </Link>
+            {" · "}
+            <Link href={`/crm/${obra.oportunidade.id}`} className="hover:underline">
+              Ver oportunidade
+            </Link>
+          </>
+        ) : (
+          <>
+            {projetoDaObra(obra)}
+            {" · "}
+            {ROTULO_ORIGEM_OBRA.manual}
+          </>
+        )}
         {obra.atualizadoPor?.nome && (
           <>
             {" · "}Atualizada por {obra.atualizadoPor.nome} em {formatarData(obra.atualizadoEm)}

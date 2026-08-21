@@ -3,7 +3,12 @@ import { supabase } from "@/lib/supabase";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { formatarData, formatarMoeda } from "@/lib/format";
-import { ROTULO_STATUS_OBRA } from "@/lib/obras";
+import {
+  ROTULO_ORIGEM_OBRA,
+  ROTULO_STATUS_OBRA,
+  clienteDaObra,
+  projetoDaObra,
+} from "@/lib/obras";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CampoData } from "@/components/ui/campo-data";
@@ -26,7 +31,7 @@ export default async function PaginaObras() {
   const { data: obrasData } = await supabase
     .from("Obra")
     .select(
-      "*, oportunidade:Oportunidade(cliente:Cliente(razaoSocial), orcamento:Orcamento(nomeProjeto))"
+      "*, cliente:Cliente(razaoSocial), oportunidade:Oportunidade(cliente:Cliente(razaoSocial), orcamento:Orcamento(nomeProjeto))"
     )
     .order("criadoEm", { ascending: false });
 
@@ -56,11 +61,22 @@ export default async function PaginaObras() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
-        <p className="text-sm text-muted-foreground">
-          Acompanhamento pós-venda — {obras.length} obra(s)
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
+          <p className="text-sm text-muted-foreground">
+            Acompanhamento pós-venda — {obras.length} obra(s)
+          </p>
+        </div>
+        {podeEditar && (
+          <Button
+            render={<Link href="/obras/nova" />}
+            nativeButton={false}
+            variant="outline"
+          >
+            + Nova obra
+          </Button>
+        )}
       </div>
 
       {podeEditar && oportunidadesAguardando.length > 0 && (
@@ -127,10 +143,17 @@ export default async function PaginaObras() {
                 <TableRow key={obra.id}>
                   <TableCell className="font-medium">
                     <Link href={`/obras/${obra.id}`} className="hover:underline">
-                      {obra.oportunidade?.cliente?.razaoSocial ?? "—"}
+                      {clienteDaObra(obra)}
                     </Link>
                   </TableCell>
-                  <TableCell>{obra.oportunidade?.orcamento?.nomeProjeto ?? "—"}</TableCell>
+                  <TableCell>
+                    {projetoDaObra(obra)}
+                    {obra.origem === "manual" && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {ROTULO_ORIGEM_OBRA.manual}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={atrasada ? "destructive" : status.variant}>
                       {atrasada ? "Atrasada" : status.texto}

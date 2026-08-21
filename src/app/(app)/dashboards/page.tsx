@@ -6,6 +6,7 @@ import { podeLer } from "@/lib/permissoes";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ORDEM_ESTAGIO_KANBAN, ROTULO_ESTAGIO } from "@/lib/crm";
+import { clienteDaObra } from "@/lib/obras";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/dashboards/stat-tile";
@@ -34,12 +35,16 @@ export default async function PaginaDashboards() {
             .from("Oportunidade")
             .select("id, estagio, valorEstimado, proximaAcaoData, cliente:Cliente(razaoSocial)")
         : Promise.resolve({ data: null }),
+      // Só obra que veio do funil entra nos dashboards. A obra manual não tem
+      // orçamento por trás, então o custo orçado dela não é comparável com o
+      // resto e sujaria o desvio de custo e a contagem por status.
       acessoObras
         ? supabase
             .from("Obra")
             .select(
               "id, status, custoOrcado, custoRealizado, dataPrevistaConclusao, oportunidade:Oportunidade(cliente:Cliente(razaoSocial), orcamento:Orcamento(nomeProjeto))"
             )
+            .eq("origem", "funil")
         : Promise.resolve({ data: null }),
       acessoOrcamentos
         ? supabase.from("Orcamento").select("id, status")
@@ -96,7 +101,7 @@ export default async function PaginaDashboards() {
     .slice(0, 6)
     .map((o) => ({
       id: o.id,
-      label: o.oportunidade?.cliente?.razaoSocial ?? "—",
+      label: clienteDaObra(o),
       orcado: o.custoOrcado,
       realizado: o.custoRealizado,
     }));
@@ -262,7 +267,7 @@ export default async function PaginaDashboards() {
                     href={`/obras/${o.id}`}
                     className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 -mx-2 text-sm hover:bg-muted"
                   >
-                    <span>{o.oportunidade?.cliente?.razaoSocial ?? "—"}</span>
+                    <span>{clienteDaObra(o)}</span>
                     <Badge variant="destructive">
                       {o.dataPrevistaConclusao ? formatarData(o.dataPrevistaConclusao) : "—"}
                     </Badge>
