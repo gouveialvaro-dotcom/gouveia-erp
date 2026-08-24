@@ -1,15 +1,19 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { atualizarUsuario, type EstadoFormUsuario } from "@/app/(app)/administracao/actions";
+import {
+  atualizarUsuario,
+  excluirUsuario,
+  type EstadoFormUsuario,
+} from "@/app/(app)/administracao/actions";
 import { cn } from "@/lib/utils";
 import { ROTULO_PERFIL, podeLer, type Perfil } from "@/lib/permissoes";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
-
-export const COLUNAS_USUARIO = "md:grid-cols-[1fr_11rem_6rem_9rem_auto]";
+import { COLUNAS_USUARIO } from "@/components/administracao/colunas";
 
 export type UsuarioLinhaValores = {
   id: string;
@@ -20,7 +24,14 @@ export type UsuarioLinhaValores = {
   notificaPosVenda: boolean;
 };
 
-export function UsuarioLinha({ usuario }: { usuario: UsuarioLinhaValores }) {
+export function UsuarioLinha({
+  usuario,
+  ehVoce = false,
+}: {
+  usuario: UsuarioLinhaValores;
+  /** Ninguém apaga o próprio acesso — a action recusa, aqui o botão nem aparece. */
+  ehVoce?: boolean;
+}) {
   const salvar = atualizarUsuario.bind(null, usuario.id);
   const [estado, formAction, pendente] = useActionState<EstadoFormUsuario, FormData>(
     salvar,
@@ -70,6 +81,21 @@ export function UsuarioLinha({ usuario }: { usuario: UsuarioLinhaValores }) {
         <Button type="submit" variant="outline" size="sm" disabled={pendente}>
           {pendente ? "Salvando..." : "Salvar"}
         </Button>
+        {!ehVoce && (
+          <BotaoExcluir
+            acao={excluirUsuario}
+            campos={{ usuarioId: usuario.id }}
+            titulo={`Excluir ${usuario.nome}?`}
+            descricao={
+              <>
+                O acesso de <strong>{usuario.email}</strong> é apagado do sistema. Só dá
+                certo se ele ainda não tiver orçamento, chamado, mensagem ou proposta no
+                nome dele — nesse caso, desmarque &quot;Ativo&quot; para tirar o acesso sem
+                perder o histórico.
+              </>
+            }
+          />
+        )}
       </div>
     </form>
   );
