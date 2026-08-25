@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao, respostaErroApi } from "@/lib/api-auth";
-import { sincronizarVencidos } from "@/lib/notificacoes-pos-venda";
+import {
+  sincronizarConversasSemDono,
+  sincronizarVencidos,
+} from "@/lib/notificacoes-pos-venda";
 import type { NotificacaoItem } from "@/lib/pos-venda";
 
 const LIMITE = 30;
@@ -11,8 +14,25 @@ export async function GET() {
   try {
     const { usuarioId } = await exigirPermissao("posVenda", "leitura");
 
-    // Aproveita a batida do sino para materializar os vencimentos do dia.
-    await sincronizarVencidos(usuarioId);
+    // Aproveita a batida do sino para materializar o que não tem evento de
+
+
+    // escrita: o vencimento do dia e a conversa que estourou as 2h úteis sem
+
+
+    // dono. Em paralelo — um não depende do outro e o sino bate a cada minuto.
+
+
+    await Promise.all([
+
+
+      sincronizarVencidos(usuarioId),
+
+
+      sincronizarConversasSemDono(usuarioId),
+
+
+    ]);
 
     const { data } = await supabase
       .from("NotificacaoPosVenda")

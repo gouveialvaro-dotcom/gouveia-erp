@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
-import { podeLer, type Perfil } from "@/lib/permissoes";
+import { podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
 import type { EstadoExclusao } from "@/components/ui/botao-excluir";
 
 const ROTA = "/administracao";
@@ -18,6 +18,7 @@ const usuarioSchema = z.object({
   perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
   ativo: z.coerce.boolean(),
   notificaPosVenda: z.coerce.boolean(),
+  notificaWhatsappSemDono: z.coerce.boolean(),
 });
 
 export async function atualizarUsuario(
@@ -34,6 +35,7 @@ export async function atualizarUsuario(
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
     notificaPosVenda: marcado("notificaPosVenda"),
+    notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
   });
 
   if (!dados.success) {
@@ -65,6 +67,12 @@ export async function atualizarUsuario(
       // dele — a caixa some da tela, mas a regra tem de valer no servidor.
       notificaPosVenda:
         dados.data.notificaPosVenda && podeLer(dados.data.perfil as Perfil, "posVenda"),
+      // Só faz sentido para quem responde: o aviso é sobre fila de atendimento.
+
+      notificaWhatsappSemDono:
+        dados.data.notificaWhatsappSemDono &&
+
+        podeEscrever(dados.data.perfil as Perfil, "posVenda"),
     })
     .eq("id", usuarioId);
 
@@ -83,6 +91,7 @@ const novoUsuarioSchema = z.object({
   perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
   ativo: z.coerce.boolean(),
   notificaPosVenda: z.coerce.boolean(),
+  notificaWhatsappSemDono: z.coerce.boolean(),
 });
 
 export async function criarUsuario(
@@ -101,6 +110,7 @@ export async function criarUsuario(
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
     notificaPosVenda: marcado("notificaPosVenda"),
+    notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
   });
 
   if (!dados.success) {
@@ -118,6 +128,12 @@ export async function criarUsuario(
     // Mesma regra da edição: só fica marcado quem enxerga o módulo.
     notificaPosVenda:
       dados.data.notificaPosVenda && podeLer(dados.data.perfil as Perfil, "posVenda"),
+    // Só faz sentido para quem responde: o aviso é sobre fila de atendimento.
+
+    notificaWhatsappSemDono:
+      dados.data.notificaWhatsappSemDono &&
+
+      podeEscrever(dados.data.perfil as Perfil, "posVenda"),
   });
 
   if (error) {

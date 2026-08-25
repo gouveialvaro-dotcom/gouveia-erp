@@ -8,6 +8,8 @@ import { BUCKET_ANEXOS, TAMANHO_MAXIMO_ANEXO, nomeSeguro } from "@/lib/pos-venda
 import { chamadoCorrente, telefoneParaEnvio } from "@/lib/pos-venda-whatsapp";
 import { enviarTexto } from "@/lib/uazapi";
 import { donoDoTelefone, gravarTelefoneNaFicha } from "@/lib/whatsapp-cadastro";
+import { notificarConversa } from "@/lib/notificacoes-pos-venda";
+import { podeEscrever, type Perfil } from "@/lib/permissoes";
 
 const BUCKET_MIDIA = "whatsapp";
 
@@ -439,6 +441,77 @@ export async function exibirMensagem(conversaId: string, mensagemId: string) {
     .from("MensagemWhatsapp")
     .update({ ocultaEm: null, ocultaPorId: null })
     .eq("id", mensagemId);
+
+  revalidar();
+}
+
+// --- Distribuição pelo admin ---------------------------------------------
+
+export type EstadoAtribuicao = { erro?: string } | undefined;
+
+const atribuicaoSchema = z.object({
+  donoId: z.string().min(1, "Selecione o atendente."),
+  conversaIds: z.array(z.string().min(1)).min(1, "Selecione ao menos uma conversa."),
+});
+
+/**
+ * Atribui conversas sem dono a um atendente. Restrita ao admin — é a única
+ * forma de dono que alguém recebe sem ter pedido.
+ *
+ * Não substitui a regra geral: qualquer atendente continua podendo assumir a
+ * conversa de outro sem passar por aqui. Esta ação existe para o começo do dia,
+ * quando a fila chegou e ninguém puxou nada.
+ */
+export async function atribuirConversas(
+  _estado: EstadoAtribuicao,
+  formData: FormData
+): Promise<EstadoAtribuicao> {
+  const { usuarioId } = await exigirAdmin("posVenda");
+
+  const dados = atribuicaoSchema.safeParse({
+    donoId: formData.get("donoId"),
+    conversaIds: formData.getAll("conversaIds").map(String),
+  });
+
+  if (!dados.success) {
+    return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { data: destinatario } = await supabase
+    .from("Usuario")
+    .select("id, nome, perfil, ativo")
+    .eq("id", dados.data.donoId)
+    .maybeSingle();
+
+  if (!destinatario?.ativo) return { erro: "Atendente não encontrado ou inativo." };
+
+  // Atribuir a quem não pode responder deixaria a conversa parada com dono —
+  // pior que sem dono, porque some da caixa "Sem dono" e ninguém mais olha.
+  if (!podeEscrever(destinatario.perfil as Perfil, "posVenda")) {
+    return { erro: `${destinatario.nome} não tem permissão para responder no pós-venda.` };
+  }
+
+  const { data: atribuidas, error } = await supabase
+    .from("ConversaWhatsapp")
+    .update({ donoId: destinatario.id, atualizadoEm: new Date().toISOString() })
+    .in("id", dados.data.conversaIds)
+    .select("id, telefoneExibicao, cliente:Cliente(razaoSocial)");
+
+  if (error) return { erro: "Não foi possível atribuir as conversas." };
+
+  // O atendente precisa saber que passou a ser dono de algo — senão a
+  // atribuição é só uma coluna trocada no banco.
+  for (const conversa of atribuidas ?? []) {
+    await notificarConversa({
+      usuarioId: destinatario.id,
+      conversaId: conversa.id,
+      tipo: "conversa_atribuida",
+      titulo: "Conversa atribuída a você",
+      detalhe: conversa.cliente?.razaoSocial ?? conversa.telefoneExibicao,
+      referencia: new Date().toISOString(),
+      autorId: usuarioId,
+    });
+  }
 
   revalidar();
 }

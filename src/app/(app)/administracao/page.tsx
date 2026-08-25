@@ -17,7 +17,7 @@ export default async function PaginaAdministracao() {
 
   const { data } = await supabase
     .from("Usuario")
-    .select("id, nome, email, perfil, ativo, notificaPosVenda")
+    .select("id, nome, email, perfil, ativo, notificaPosVenda, notificaWhatsappSemDono")
     .order("nome");
 
   const usuarios = data ?? [];
@@ -54,7 +54,7 @@ export default async function PaginaAdministracao() {
             // Remonta a linha quando o servidor devolve valores novos: os
             // campos são não controlados e o Base UI reclama de defaultChecked
             // trocando depois da montagem.
-            key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaPosVenda}`}
+            key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaPosVenda}|${u.notificaWhatsappSemDono}`}
             ehVoce={u.id === meuId}
             usuario={{
               id: u.id,
@@ -63,6 +63,7 @@ export default async function PaginaAdministracao() {
               perfil: u.perfil as Perfil,
               ativo: u.ativo,
               notificaPosVenda: u.notificaPosVenda,
+              notificaWhatsappSemDono: u.notificaWhatsappSemDono,
             }}
           />
         ))}

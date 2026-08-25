@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { reconciliarConversasSemCliente } from "@/lib/whatsapp-cadastro";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { exigirPermissao } from "@/lib/api-auth";
-import { podeEscrever } from "@/lib/permissoes";
+import { podeEscrever, type Perfil } from "@/lib/permissoes";
 import { formatarData } from "@/lib/format";
 import { ROTULO_COLUNA, colunaDoChamado, hojeIso, textoPrazo } from "@/lib/pos-venda";
 import {
@@ -18,6 +18,7 @@ import {
   caixaMostraArquivadas,
   caixaValida,
   chamadoCorrente,
+  chaveTelefone,
   diaBrasilia,
   formatarDataHoraBrasilia,
   formatarHoraBrasilia,
@@ -29,7 +30,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AncoraMensagem } from "@/components/pos-venda/whatsapp/ancora-mensagem";
+import { AtribuirConversas } from "@/components/pos-venda/whatsapp/atribuir-conversas";
 import { AtualizacaoAutomatica } from "@/components/pos-venda/whatsapp/atualizacao-automatica";
+import { BuscaConversas } from "@/components/pos-venda/whatsapp/busca-conversas";
 import { BotaoOcultar } from "@/components/pos-venda/whatsapp/botao-ocultar";
 import { BotaoPromover } from "@/components/pos-venda/whatsapp/botao-promover";
 import { FaixaChamado } from "@/components/pos-venda/whatsapp/faixa-chamado";
@@ -40,7 +44,15 @@ import { arquivarConversa, assumirConversa, marcarPendencia, reabrirConversa } f
 const SELECT_CONVERSA =
   "id, telefone, telefoneExibicao, nomePerfil, clienteId, donoId, pendente, ultimaMensagemEm, ultimaMensagemDirecao, chamadoAtivoId, arquivadaEm, cliente:Cliente(id, razaoSocial), dono:Usuario!ConversaWhatsapp_donoId_fkey(id, nome), chamadoAtivo:Chamado(id, numero, titulo, estagio)";
 
-type Busca = { caixa?: string; conversa?: string; ocultas?: string };
+type Busca = {
+  caixa?: string;
+  conversa?: string;
+  ocultas?: string;
+  q?: string;
+  de?: string;
+  ate?: string;
+  msg?: string;
+};
 
 export default async function PaginaWhatsapp({
   searchParams,
@@ -109,8 +121,60 @@ export default async function PaginaWhatsapp({
       ? [...daCaixa].sort((a, b) => (a.ultimaMensagemEm ?? "").localeCompare(b.ultimaMensagemEm ?? ""))
       : daCaixa;
 
+  // A busca alcança conversa arquivada e mensagem antiga — é o único lugar da
+  // tela onde o que foi arquivado reaparece sem precisar trocar de caixa.
+  const termo = (busca.q ?? "").trim();
+  const chaveBuscada = chaveTelefone(termo);
+  const buscando = Boolean(termo || busca.de || busca.ate);
+
+  const porCliente = buscando
+    ? conversas.filter((c) => {
+        const casaTexto =
+          !termo ||
+          (c.cliente?.razaoSocial ?? "").toLowerCase().includes(termo.toLowerCase()) ||
+          c.telefoneExibicao.includes(termo) ||
+          (chaveBuscada !== null && c.telefone === chaveBuscada);
+        const casaDe = !busca.de || (c.ultimaMensagemEm ?? "") >= busca.de;
+        const casaAte = !busca.ate || (c.ultimaMensagemEm ?? "") <= `${busca.ate}T23:59:59Z`;
+        return casaTexto && casaDe && casaAte;
+      })
+    : [];
+
+  let porMensagem: {
+    id: string;
+    conversaId: string;
+    conteudo: string | null;
+    recebidoEm: string;
+  }[] = [];
+
+  if (termo) {
+    let consulta = supabase
+      .from("MensagemWhatsapp")
+      .select("id, conversaId, conteudo, recebidoEm")
+      .is("ocultaEm", null)
+      .order("recebidoEm", { ascending: false })
+      .limit(30);
+
+    // websearch aceita a sintaxe que a pessoa já conhece de buscador (aspas,
+    // "ou", exclusão com -), em vez de exigir operadores de tsquery.
+    consulta = consulta.textSearch("busca", termo, {
+      type: "websearch",
+      config: "portuguese",
+    });
+    if (busca.de) consulta = consulta.gte("recebidoEm", busca.de);
+    if (busca.ate) consulta = consulta.lte("recebidoEm", `${busca.ate}T23:59:59Z`);
+
+    porMensagem = (await consulta).data ?? [];
+  }
+
+  const totalResultados = buscando ? porCliente.length + porMensagem.length : null;
+  const porId = new Map(conversas.map((c) => [c.id, c]));
+
   const selecionada =
-    conversas.find((c) => c.id === busca.conversa) ?? lista[0] ?? null;
+    conversas.find((c) => c.id === busca.conversa) ??
+    (buscando ? (porCliente[0] ?? porId.get(porMensagem[0]?.conversaId ?? "") ?? null) : null) ??
+    lista[0] ??
+    null;
 
   const [
     { data: mensagensData },
@@ -160,6 +224,17 @@ export default async function PaginaWhatsapp({
       : null
     : null;
 
+  // Só quem tem escrita em posVenda pode ser dono: atribuir a quem não responde
+  // deixaria a conversa parada COM dono, que é pior que sem — ela sai da caixa
+  // "Sem dono" e ninguém mais olha. A action recusa de novo no servidor.
+  const { data: usuariosAtivos } = ehAdmin
+    ? await supabase.from("Usuario").select("id, nome, perfil").eq("ativo", true).order("nome")
+    : { data: [] };
+
+  const atendentes = (usuariosAtivos ?? [])
+    .filter((u) => podeEscrever(u.perfil as Perfil, "posVenda"))
+    .map((u) => ({ id: u.id, nome: u.nome }));
+
   const situacao = clienteDetalhe
     ? ROTULO_SITUACAO_MANUTENCAO[situacaoManutencao(clienteDetalhe, hoje)]
     : null;
@@ -189,6 +264,7 @@ export default async function PaginaWhatsapp({
   return (
     <div className="flex flex-col gap-4">
       <AtualizacaoAutomatica />
+      {busca.msg && <AncoraMensagem mensagemId={busca.msg} />}
 
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
@@ -212,6 +288,34 @@ export default async function PaginaWhatsapp({
       <div className="grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)_19rem]">
         {/* --- Lista de conversas --- */}
         <div className="flex flex-col gap-2">
+          <BuscaConversas filtros={busca} caixa={caixa} total={totalResultados} />
+
+
+          {ehAdmin && (
+
+            <AtribuirConversas
+
+              conversas={ativas
+
+                .filter((c) => c.donoId === null && c.pendente)
+
+                .map((c) => ({
+
+                  id: c.id,
+
+                  rotulo: c.cliente?.razaoSocial ?? c.telefoneExibicao,
+
+                  espera: tempoEspera(c.ultimaMensagemEm),
+
+                }))}
+
+              atendentes={atendentes}
+
+            />
+
+          )}
+
+
           <div className="flex flex-wrap gap-1">
             {CAIXAS.map((opcao) => (
               <Button
@@ -229,42 +333,128 @@ export default async function PaginaWhatsapp({
             ))}
           </div>
 
+          {buscando && porMensagem.length > 0 && (
+
+
+            <div className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border bg-muted/30 p-1">
+
+
+              <p className="px-1 text-xs font-medium">Mensagens encontradas</p>
+
+
+              {porMensagem.map((m) => {
+
+
+                const dona = porId.get(m.conversaId);
+
+
+                return (
+
+
+                  <Link
+
+
+                    key={m.id}
+
+
+                    href={`/pos-venda/whatsapp?caixa=${caixa}&conversa=${m.conversaId}&msg=${m.id}`}
+
+
+                    className="rounded-md bg-card p-1.5 text-xs hover:bg-accent/50"
+
+
+                  >
+
+
+                    <span className="block truncate font-medium">
+
+
+                      {dona?.cliente?.razaoSocial ?? dona?.telefoneExibicao ?? "Conversa"}
+
+
+                      {dona?.arquivadaEm && " · arquivada"}
+
+
+                    </span>
+
+
+                    <span className="block truncate text-muted-foreground">{m.conteudo}</span>
+
+
+                    <span className="block text-muted-foreground">
+
+
+                      {formatarDataHoraBrasilia(m.recebidoEm)}
+
+
+                    </span>
+
+
+                  </Link>
+
+
+                );
+
+
+              })}
+
+
+            </div>
+
+
+          )}
+
+
+
           <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto pr-1">
             {lista.map((conversa) => (
-              <Link
+              <div
                 key={conversa.id}
-                href={linkConversa(conversa.id)}
                 className={
                   conversa.id === selecionada?.id
                     ? "rounded-md border border-primary/50 bg-accent p-2"
                     : "rounded-md border bg-card p-2 hover:bg-accent/50"
                 }
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium">
-                    {conversa.cliente?.razaoSocial ?? conversa.telefoneExibicao}
+                <Link href={linkConversa(conversa.id)} className="block">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium">
+                      {conversa.cliente?.razaoSocial ?? conversa.telefoneExibicao}
+                    </span>
+                    {conversa.pendente && (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-destructive"
+                        title="Aguardando resposta"
+                      />
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      {conversa.cliente
+                        ? conversa.telefoneExibicao
+                        : (conversa.nomePerfil ?? "Sem cliente")}
+                    </span>
+                    <span className="shrink-0">{tempoEspera(conversa.ultimaMensagemEm)}</span>
+                  </div>
+                </Link>
+
+                {/* A ação de assumir fica na LISTA, e não só dentro da conversa
+                    aberta: em produção 8 de 8 conversas estavam sem dono, o que
+                    é sintoma de interface antes de ser de processo. Fora do
+                    <Link> porque form dentro de <a> é HTML inválido. */}
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="truncate text-xs text-muted-foreground">
+                    {conversa.dono?.nome ?? "Sem dono"}
                   </span>
-                  {conversa.pendente && (
-                    <span
-                      className="size-2 shrink-0 rounded-full bg-destructive"
-                      title="Aguardando resposta"
-                    />
+                  {podeEditar && conversa.donoId !== usuarioId && (
+                    <form action={assumirConversa.bind(null, conversa.id)}>
+                      <Button type="submit" size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                        {conversa.donoId ? "Assumir de" : "Assumir"}
+                      </Button>
+                    </form>
                   )}
                 </div>
-                <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">
-                    {conversa.cliente
-                      ? conversa.telefoneExibicao
-                      : (conversa.nomePerfil ?? "Sem cliente")}
-                  </span>
-                  <span className="shrink-0">{tempoEspera(conversa.ultimaMensagemEm)}</span>
-                </div>
-                {conversa.dono && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {conversa.dono.nome}
-                  </p>
-                )}
-              </Link>
+              </div>
             ))}
             {lista.length === 0 && (
               <p className="px-1 py-6 text-center text-xs text-muted-foreground">
@@ -355,7 +545,10 @@ export default async function PaginaWhatsapp({
                       {novoDia && (
                         <p className="my-1 text-center text-xs text-muted-foreground">{dia}</p>
                       )}
-                      <div className={daEmpresa ? "flex justify-end" : "flex justify-start"}>
+                      <div
+                        id={`mensagem-${mensagem.id}`}
+                        className={daEmpresa ? "flex justify-end" : "flex justify-start"}
+                      >
                         <div
                           className={[
                             "max-w-[85%] rounded-lg px-3 py-2 text-sm",

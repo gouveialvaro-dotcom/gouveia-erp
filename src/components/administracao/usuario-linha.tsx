@@ -7,7 +7,7 @@ import {
   type EstadoFormUsuario,
 } from "@/app/(app)/administracao/actions";
 import { cn } from "@/lib/utils";
-import { ROTULO_PERFIL, podeLer, type Perfil } from "@/lib/permissoes";
+import { ROTULO_PERFIL, podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
 import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,6 +22,7 @@ export type UsuarioLinhaValores = {
   perfil: Perfil;
   ativo: boolean;
   notificaPosVenda: boolean;
+  notificaWhatsappSemDono: boolean;
 };
 
 export function UsuarioLinha({
@@ -41,6 +42,7 @@ export function UsuarioLinha({
 
   // Trocar o perfil aqui muda na hora se a caixa de notificação faz sentido.
   const vePosVenda = podeLer(perfil, "posVenda");
+  const escrevePosVenda = podeEscrever(perfil, "posVenda");
 
   return (
     <form action={formAction} className={cn("grid gap-3 px-3 py-2 items-center", COLUNAS_USUARIO)}>
@@ -74,6 +76,22 @@ export function UsuarioLinha({
         </Label>
       ) : (
         <span className="text-xs text-muted-foreground">Sem acesso ao pós-venda</span>
+      )}
+
+      {/* O aviso de conversa parada vai para todo mundo com escrita em
+          posVenda, sem depender do flag acima — fila parada é problema do time.
+          Este é o desligamento por usuário, para o canal não virar um aviso que
+          ninguém consegue silenciar. */}
+      {escrevePosVenda ? (
+        <Label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            name="notificaWhatsappSemDono"
+            defaultChecked={usuario.notificaWhatsappSemDono}
+          />
+          Conversa sem dono
+        </Label>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
       )}
 
       <div className="flex items-center justify-end gap-2">
