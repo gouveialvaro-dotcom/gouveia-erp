@@ -81,7 +81,11 @@ export function SinoNotificacoes() {
     // Sem router.refresh() depois do push: recarregar a rota atual concorre
     // com a navegação e o usuário fica onde estava. A tela de destino já é
     // renderizada nova no servidor.
-    router.push(`/pos-venda/${item.chamadoId}`);
+    // Nem todo aviso nasce de chamado: o de conversa parada aponta para a
+    // página do WhatsApp, já com a conversa aberta.
+    if (item.chamadoId) router.push(`/pos-venda/${item.chamadoId}`);
+    else if (item.conversaId)
+      router.push(`/pos-venda/whatsapp?caixa=todas&conversa=${item.conversaId}`);
   }
 
   return (

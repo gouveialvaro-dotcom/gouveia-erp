@@ -14,6 +14,7 @@ import {
 import {
   CAIXAS,
   ROTULO_CAIXA,
+  caixaMostraArquivadas,
   caixaValida,
   chamadoCorrente,
   diaBrasilia,
@@ -28,16 +29,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AtualizacaoAutomatica } from "@/components/pos-venda/whatsapp/atualizacao-automatica";
+import { BotaoOcultar } from "@/components/pos-venda/whatsapp/botao-ocultar";
 import { BotaoPromover } from "@/components/pos-venda/whatsapp/botao-promover";
 import { FaixaChamado } from "@/components/pos-venda/whatsapp/faixa-chamado";
 import { FormEnvio } from "@/components/pos-venda/whatsapp/form-envio";
 import { VinculoCliente } from "@/components/pos-venda/whatsapp/vinculo-cliente";
-import { assumirConversa, marcarPendencia } from "./actions";
+import { arquivarConversa, assumirConversa, marcarPendencia, reabrirConversa } from "./actions";
 
 const SELECT_CONVERSA =
-  "id, telefone, telefoneExibicao, nomePerfil, clienteId, donoId, pendente, ultimaMensagemEm, ultimaMensagemDirecao, chamadoAtivoId, cliente:Cliente(id, razaoSocial), dono:Usuario(id, nome), chamadoAtivo:Chamado(id, numero, titulo, estagio)";
+  "id, telefone, telefoneExibicao, nomePerfil, clienteId, donoId, pendente, ultimaMensagemEm, ultimaMensagemDirecao, chamadoAtivoId, arquivadaEm, cliente:Cliente(id, razaoSocial), dono:Usuario!ConversaWhatsapp_donoId_fkey(id, nome), chamadoAtivo:Chamado(id, numero, titulo, estagio)";
 
-type Busca = { caixa?: string; conversa?: string };
+type Busca = { caixa?: string; conversa?: string; ocultas?: string };
 
 export default async function PaginaWhatsapp({
   searchParams,
@@ -60,6 +62,8 @@ export default async function PaginaWhatsapp({
   const busca = await searchParams;
   const caixa = caixaValida(busca.caixa);
   const podeEditar = podeEscrever(perfil, "posVenda");
+  const ehAdmin = perfil === "admin";
+  const mostrarOcultas = ehAdmin && busca.ocultas === "1";
   const hoje = hojeIso();
 
   const { data: conversasData } = await supabase
@@ -69,15 +73,21 @@ export default async function PaginaWhatsapp({
 
   const conversas = conversasData ?? [];
 
+  // Arquivada não conta em nenhuma caixa de trabalho — nem em "Todas", que
+  // significa "todas as ativas".
+  const ativas = conversas.filter((c) => c.arquivadaEm === null);
+
   const contadores: Record<Caixa, number> = {
-    pendentes: conversas.filter((c) => c.pendente).length,
-    minhas: conversas.filter((c) => c.donoId === usuarioId).length,
-    sem_dono: conversas.filter((c) => c.donoId === null).length,
-    sem_cliente: conversas.filter((c) => c.clienteId === null).length,
-    todas: conversas.length,
+    pendentes: ativas.filter((c) => c.pendente).length,
+    minhas: ativas.filter((c) => c.donoId === usuarioId).length,
+    sem_dono: ativas.filter((c) => c.donoId === null).length,
+    sem_cliente: ativas.filter((c) => c.clienteId === null).length,
+    todas: ativas.length,
+    arquivadas: conversas.length - ativas.length,
   };
 
-  const daCaixa = conversas.filter((c) => {
+  const daCaixa = (caixaMostraArquivadas(caixa) ? conversas : ativas).filter((c) => {
+    if (caixa === "arquivadas") return c.arquivadaEm !== null;
     if (caixa === "pendentes") return c.pendente;
     if (caixa === "minhas") return c.donoId === usuarioId;
     if (caixa === "sem_dono") return c.donoId === null;
@@ -105,7 +115,7 @@ export default async function PaginaWhatsapp({
     selecionada
       ? supabase
           .from("MensagemWhatsapp")
-          .select("*, autor:Usuario(id, nome), chamado:Chamado(id, numero)")
+          .select("*, autor:Usuario!MensagemWhatsapp_enviadoPorId_fkey(id, nome), chamado:Chamado(id, numero)")
           .eq("conversaId", selecionada.id)
           .order("recebidoEm")
       : Promise.resolve({ data: [] }),
@@ -131,7 +141,11 @@ export default async function PaginaWhatsapp({
       : Promise.resolve({ data: null }),
   ]);
 
-  const mensagens = mensagensData ?? [];
+  const todasMensagens = mensagensData ?? [];
+  const ocultas = todasMensagens.filter((m) => m.ocultaEm !== null).length;
+  const mensagens = mostrarOcultas
+    ? todasMensagens
+    : todasMensagens.filter((m) => m.ocultaEm === null);
   const chamadosAbertos = chamadosData ?? [];
   const chamadoAtivo = selecionada
     ? chamadoCorrente(selecionada, selecionada.chamadoAtivo)
@@ -149,6 +163,12 @@ export default async function PaginaWhatsapp({
 
   function linkConversa(id: string) {
     return `/pos-venda/whatsapp?caixa=${caixa}&conversa=${id}`;
+  }
+
+  function linkOcultas(ligar: boolean) {
+    const base = `/pos-venda/whatsapp?caixa=${caixa}`;
+    const comConversa = selecionada ? `${base}&conversa=${selecionada.id}` : base;
+    return ligar ? `${comConversa}&ocultas=1` : comConversa;
   }
 
   // Separador de dia calculado antes da renderização: comparar com o item
@@ -297,6 +317,25 @@ export default async function PaginaWhatsapp({
                       </Button>
                     </form>
                   )}
+                  {podeEditar &&
+                    (selecionada.arquivadaEm === null ? (
+                      <form action={arquivarConversa.bind(null, selecionada.id)}>
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="sm"
+                          title="Sai da lista. Volta sozinha se o cliente escrever de novo."
+                        >
+                          Arquivar
+                        </Button>
+                      </form>
+                    ) : (
+                      <form action={reabrirConversa.bind(null, selecionada.id)}>
+                        <Button type="submit" variant="secondary" size="sm">
+                          Reabrir
+                        </Button>
+                      </form>
+                    ))}
                 </span>
               </div>
 
@@ -344,6 +383,14 @@ export default async function PaginaWhatsapp({
                                 não entregue
                               </Badge>
                             )}
+                            {mensagem.ocultaEm && <Badge variant="secondary">oculta</Badge>}
+                            {ehAdmin && (
+                              <BotaoOcultar
+                                conversaId={selecionada.id}
+                                mensagemId={mensagem.id}
+                                oculta={mensagem.ocultaEm !== null}
+                              />
+                            )}
                           </div>
 
                           {mensagem.caminhoStorage && (
@@ -387,6 +434,14 @@ export default async function PaginaWhatsapp({
                 {mensagens.length === 0 && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     Nenhuma mensagem nesta conversa.
+                  </p>
+                )}
+                {ehAdmin && ocultas > 0 && (
+                  <p className="py-2 text-center text-xs text-muted-foreground">
+                    {ocultas} mensagem(ns) oculta(s) nesta conversa ·{" "}
+                    <Link href={linkOcultas(!mostrarOcultas)} className="underline">
+                      {mostrarOcultas ? "esconder de novo" : "mostrar"}
+                    </Link>
                   </p>
                 )}
               </div>

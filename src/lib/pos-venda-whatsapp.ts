@@ -19,7 +19,14 @@ export const ROTULO_TIPO_MENSAGEM: Record<TipoMensagem, string> = {
 
 // --- Caixas da lista de conversas ----------------------------------------
 
-export const CAIXAS = ["pendentes", "minhas", "sem_dono", "sem_cliente", "todas"] as const;
+export const CAIXAS = [
+  "pendentes",
+  "minhas",
+  "sem_dono",
+  "sem_cliente",
+  "todas",
+  "arquivadas",
+] as const;
 export type Caixa = (typeof CAIXAS)[number];
 
 export const ROTULO_CAIXA: Record<Caixa, string> = {
@@ -28,7 +35,15 @@ export const ROTULO_CAIXA: Record<Caixa, string> = {
   sem_dono: "Sem dono",
   sem_cliente: "Sem cliente",
   todas: "Todas",
+  arquivadas: "Arquivadas",
 };
+
+// Conversa arquivada some de todas as outras caixas — inclusive de "Todas",
+// que significa "todas as ativas". Só a caixa "Arquivadas" e a busca a
+// alcançam: arquivar é tirar da fila de trabalho, não do registro.
+export function caixaMostraArquivadas(caixa: Caixa) {
+  return caixa === "arquivadas";
+}
 
 export function caixaValida(valor: string | undefined): Caixa {
   return CAIXAS.includes(valor as Caixa) ? (valor as Caixa) : "pendentes";
@@ -194,4 +209,94 @@ export function formatarTamanho(bytes: number | null) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// --- Horário comercial ----------------------------------------------------
+// Existe para medir "2 horas úteis" de conversa parada. A jornada vem de
+// ParametroGeral e nunca é fixada aqui: quem muda o horário da empresa é o
+// cadastro, não um deploy.
+
+export type HorarioComercial = {
+  horaInicioComercial: string; // "HH:MM[:SS]"
+  horaFimComercial: string;
+  diasSemanaComercial: number[]; // ISO-8601: 1 = segunda … 7 = domingo
+};
+
+const FUSO_COMERCIAL = "America/Sao_Paulo";
+
+/** Minutos desde a meia-noite de uma coluna `time` do Postgres. */
+function minutosDoDia(hora: string) {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+// O expediente é contado no fuso de Brasília, não no do servidor: a Vercel roda
+// em UTC e, sem isso, o expediente das 8h começaria às 5h da manhã para o time.
+function partesEmBrasilia(data: Date) {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO_COMERCIAL,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(data);
+
+  const pegar = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
+  const diaIso =
+    { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7 }[
+      pegar("weekday").toLowerCase().slice(0, 3)
+    ] ?? 1;
+
+  return { diaIso, minutos: Number(pegar("hour")) * 60 + Number(pegar("minute")) };
+}
+
+/**
+ * Minutos de expediente entre dois instantes.
+ *
+ * Percorre em passos de 15 minutos em vez de calcular por fórmula fechada. O
+ * intervalo aqui é sempre curto — a verificação roda sobre conversas do dia,
+ * comparando contra um limite de 2 horas — e a fórmula fechada precisaria
+ * tratar virada de dia, fim de semana e jornada partida, que é onde esse tipo
+ * de conta costuma errar em silêncio.
+ */
+export function minutosUteisEntre(de: Date, ate: Date, horario: HorarioComercial) {
+  if (ate <= de) return 0;
+
+  const inicio = minutosDoDia(horario.horaInicioComercial);
+  const fim = minutosDoDia(horario.horaFimComercial);
+  const dias = new Set(horario.diasSemanaComercial);
+
+  const PASSO = 15;
+  let uteis = 0;
+  let cursor = de.getTime();
+  const limite = ate.getTime();
+
+  // Teto de segurança: 60 dias de varredura. Uma conversa esquecida por mais
+  // tempo que isso já estourou qualquer limite que se queira medir.
+  const tetoIteracoes = (60 * 24 * 60) / PASSO;
+
+  for (let i = 0; cursor < limite && i < tetoIteracoes; i++) {
+    const { diaIso, minutos } = partesEmBrasilia(new Date(cursor));
+    if (dias.has(diaIso) && minutos >= inicio && minutos < fim) {
+      uteis += Math.min(PASSO, (limite - cursor) / 60_000);
+    }
+    cursor += PASSO * 60_000;
+  }
+
+  return Math.round(uteis);
+}
+
+/** Limite a partir do qual a conversa pendente sem dono vira aviso. */
+export const MINUTOS_UTEIS_SEM_DONO = 120;
+
+// --- Envio ativo ----------------------------------------------------------
+
+// Escrever para quem não fala com a empresa há mais de um dia é envio ativo, e
+// é o comportamento que mais leva ao bloqueio do número pela Meta. A tela avisa
+// antes; a trava dura é o teto diário de ParametroGeral.
+export const HORAS_SILENCIO_PARA_AVISO = 24;
+
+export function ehEnvioAtivo(ultimaEntradaEm: string | null, agora = Date.now()) {
+  if (!ultimaEntradaEm) return true;
+  return agora - new Date(ultimaEntradaEm).getTime() > HORAS_SILENCIO_PARA_AVISO * 3_600_000;
 }

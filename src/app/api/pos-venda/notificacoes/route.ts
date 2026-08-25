@@ -24,6 +24,7 @@ export async function GET() {
     const itens: NotificacaoItem[] = (data ?? []).map((n) => ({
       id: n.id,
       chamadoId: n.chamadoId,
+      conversaId: n.conversaId,
       tipo: n.tipo,
       titulo: n.titulo,
       detalhe: n.detalhe,

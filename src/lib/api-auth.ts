@@ -66,6 +66,23 @@ export async function exigirAlgumaPermissao(
   return { session, perfil, usuarioId };
 }
 
+// Algumas ações são só do admin dentro de um módulo em que o atendimento
+// também escreve — atribuir conversa a outro atendente, ocultar mensagem,
+// silenciar aviso de alguém. A matriz de permissoes.ts não faz essa distinção
+// (posVenda é "escrita" tanto para atendimento quanto para admin) e não deve
+// fazer: ela descreve acesso a módulo, não hierarquia dentro dele. Por isso a
+// checagem de perfil mora aqui, num lugar só, em vez de espalhar comparações
+// soltas de string pelas actions.
+export async function exigirAdmin(modulo: Modulo) {
+  const contexto = await exigirPermissao(modulo, "escrita");
+
+  if (contexto.perfil !== "admin") {
+    throw new ApiAuthError(403, "Esta ação é restrita ao administrador.");
+  }
+
+  return contexto;
+}
+
 export function respostaErroApi(erro: unknown) {
   if (erro instanceof ApiAuthError) {
     return NextResponse.json({ erro: erro.message }, { status: erro.status });

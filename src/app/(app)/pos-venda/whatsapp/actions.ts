@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
-import { exigirPermissao } from "@/lib/api-auth";
+import { exigirAdmin, exigirPermissao } from "@/lib/api-auth";
 import { BUCKET_ANEXOS, TAMANHO_MAXIMO_ANEXO, nomeSeguro } from "@/lib/pos-venda";
 import { chamadoCorrente, telefoneParaEnvio } from "@/lib/pos-venda-whatsapp";
 import { enviarTexto } from "@/lib/uazapi";
@@ -318,5 +318,99 @@ export async function promoverParaAnexo(
   }
 
   revalidatePath(`/pos-venda/${chamadoId}`);
+  revalidar();
+}
+
+// --- Arquivar e reabrir ---------------------------------------------------
+
+/**
+ * Arquivar tira a conversa da fila de trabalho — nunca do registro. Não existe
+ * exclusão em nenhum caminho desta tela: preservar o que foi combinado com o
+ * cliente é a razão de a página existir.
+ *
+ * Qualquer usuário com escrita em posVenda arquiva, não só o dono: conversa
+ * encerrada esperando o dono voltar de férias é fila entupida sem motivo.
+ */
+export async function arquivarConversa(conversaId: string) {
+  const { usuarioId } = await exigirPermissao("posVenda", "escrita");
+
+  await supabase
+    .from("ConversaWhatsapp")
+    .update({
+      arquivadaEm: new Date().toISOString(),
+      arquivadaPorId: usuarioId,
+      // Arquivar encerra o assunto corrente. Deixar a marcação de pé faria a
+      // próxima mensagem, meses depois, cair num chamado que ninguém lembra.
+      chamadoAtivoId: null,
+      atualizadoEm: new Date().toISOString(),
+    })
+    .eq("id", conversaId);
+
+  revalidar();
+}
+
+/** Traz a conversa de volta para a lista. Também acontece sozinho no webhook,
+ *  quando o cliente escreve de novo (ver api/whatsapp/webhook). */
+export async function reabrirConversa(conversaId: string) {
+  await exigirPermissao("posVenda", "escrita");
+
+  await supabase
+    .from("ConversaWhatsapp")
+    .update({
+      arquivadaEm: null,
+      arquivadaPorId: null,
+      atualizadoEm: new Date().toISOString(),
+    })
+    .eq("id", conversaId);
+
+  revalidar();
+}
+
+// --- Higiene: ocultar mensagem -------------------------------------------
+
+export type EstadoOcultacao = { erro?: string } | undefined;
+
+/**
+ * Tira da vista mensagem que não é atendimento — teste técnico, número interno.
+ * Restrita ao admin, e reversível: a linha continua no banco com o registro de
+ * quem ocultou.
+ *
+ * Mensagem já vinculada a chamado nunca é ocultada. Ela é prova do que foi
+ * combinado dentro de um atendimento formal; sumir com ela da conversa deixaria
+ * o histórico do chamado mentindo por omissão.
+ */
+export async function ocultarMensagem(
+  conversaId: string,
+  mensagemId: string
+): Promise<EstadoOcultacao> {
+  const { usuarioId } = await exigirAdmin("posVenda");
+
+  const { data: mensagem } = await supabase
+    .from("MensagemWhatsapp")
+    .select("id, chamadoId")
+    .eq("id", mensagemId)
+    .maybeSingle();
+
+  if (!mensagem) return { erro: "Mensagem não encontrada." };
+  if (mensagem.chamadoId) {
+    return { erro: "Mensagem vinculada a chamado não pode ser ocultada." };
+  }
+
+  await supabase
+    .from("MensagemWhatsapp")
+    .update({ ocultaEm: new Date().toISOString(), ocultaPorId: usuarioId })
+    .eq("id", mensagemId);
+
+  revalidar();
+}
+
+export async function exibirMensagem(conversaId: string, mensagemId: string) {
+  await exigirAdmin("posVenda");
+
+  await supabase
+    .from("MensagemWhatsapp")
+    .update({ ocultaEm: null, ocultaPorId: null })
+    .eq("id", mensagemId);
+
   revalidar();
 }

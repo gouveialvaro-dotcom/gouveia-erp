@@ -160,7 +160,7 @@ async function casarCliente(chave: string) {
 }
 
 const SELECT_CONVERSA =
-  "id, clienteId, chamadoAtivoId, nomePerfil, chamadoAtivo:Chamado(id, estagio)";
+  "id, clienteId, chamadoAtivoId, nomePerfil, arquivadaEm, chamadoAtivo:Chamado(id, estagio)";
 
 async function conversaDoTelefone(chave: string, telefoneExibicao: string) {
   const { data: existente } = await supabase
@@ -314,6 +314,11 @@ export async function POST(request: Request) {
       // Pendente é "a última mensagem é do cliente". Responder — pela tela ou
       // pelo celular — tira a conversa da fila.
       pendente: direcao === "entrada",
+      // Conversa arquivada volta sozinha quando o cliente escreve de novo: ele
+      // não tem como saber que o assunto foi encerrado do lado de cá, e uma
+      // mensagem caindo numa caixa que ninguém abre é o mesmo que perdê-la.
+      arquivadaEm: direcao === "entrada" ? null : conversa.arquivadaEm,
+      arquivadaPorId: direcao === "entrada" ? null : undefined,
       ultimaMensagemEm: recebidoEm,
       ultimaMensagemDirecao: direcao,
       nomePerfil: dados.nomePerfil ?? conversa.nomePerfil,

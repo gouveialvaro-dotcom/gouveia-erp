@@ -157,11 +157,16 @@ export const ROTULO_NOTIFICACAO: Record<Enums["TipoNotificacaoPosVenda"], string
   chamado_vencido: "Prazo vencido",
   chamado_atualizado: "Chamado atualizado",
   interacao_registrada: "Nova interação",
+  conversa_sem_dono: "Conversa sem dono",
+  conversa_atribuida: "Conversa atribuída a você",
 };
 
 export type NotificacaoItem = {
   id: string;
-  chamadoId: string;
+  // Nulo no aviso que não nasce de chamado — conversa de WhatsApp parada sem
+  // dono, por exemplo. Quem consome decide para onde levar o usuário.
+  chamadoId: string | null;
+  conversaId: string | null;
   tipo: Enums["TipoNotificacaoPosVenda"];
   titulo: string;
   detalhe: string | null;

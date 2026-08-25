@@ -425,6 +425,8 @@ export type Database = {
       }
       ConversaWhatsapp: {
         Row: {
+          arquivadaEm: string | null
+          arquivadaPorId: string | null
           atualizadoEm: string
           chamadoAtivoId: string | null
           clienteId: string | null
@@ -442,6 +444,8 @@ export type Database = {
           ultimaMensagemEm: string | null
         }
         Insert: {
+          arquivadaEm?: string | null
+          arquivadaPorId?: string | null
           atualizadoEm?: string
           chamadoAtivoId?: string | null
           clienteId?: string | null
@@ -459,6 +463,8 @@ export type Database = {
           ultimaMensagemEm?: string | null
         }
         Update: {
+          arquivadaEm?: string | null
+          arquivadaPorId?: string | null
           atualizadoEm?: string
           chamadoAtivoId?: string | null
           clienteId?: string | null
@@ -476,6 +482,13 @@ export type Database = {
           ultimaMensagemEm?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ConversaWhatsapp_arquivadaPorId_fkey"
+            columns: ["arquivadaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ConversaWhatsapp_chamadoAtivoId_fkey"
             columns: ["chamadoAtivoId"]
@@ -907,6 +920,7 @@ export type Database = {
       }
       MensagemWhatsapp: {
         Row: {
+          busca: unknown
           caminhoStorage: string | null
           chamadoId: string | null
           conteudo: string | null
@@ -920,12 +934,15 @@ export type Database = {
           mensagemExternaId: string | null
           mime: string | null
           nomeArquivo: string | null
+          ocultaEm: string | null
+          ocultaPorId: string | null
           payload: Json | null
           recebidoEm: string
           tamanho: number | null
           tipo: Database["public"]["Enums"]["TipoMensagemWhatsapp"]
         }
         Insert: {
+          busca?: unknown
           caminhoStorage?: string | null
           chamadoId?: string | null
           conteudo?: string | null
@@ -939,12 +956,15 @@ export type Database = {
           mensagemExternaId?: string | null
           mime?: string | null
           nomeArquivo?: string | null
+          ocultaEm?: string | null
+          ocultaPorId?: string | null
           payload?: Json | null
           recebidoEm?: string
           tamanho?: number | null
           tipo?: Database["public"]["Enums"]["TipoMensagemWhatsapp"]
         }
         Update: {
+          busca?: unknown
           caminhoStorage?: string | null
           chamadoId?: string | null
           conteudo?: string | null
@@ -958,6 +978,8 @@ export type Database = {
           mensagemExternaId?: string | null
           mime?: string | null
           nomeArquivo?: string | null
+          ocultaEm?: string | null
+          ocultaPorId?: string | null
           payload?: Json | null
           recebidoEm?: string
           tamanho?: number | null
@@ -985,11 +1007,19 @@ export type Database = {
             referencedRelation: "Usuario"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "MensagemWhatsapp_ocultaPorId_fkey"
+            columns: ["ocultaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
         ]
       }
       NotificacaoPosVenda: {
         Row: {
-          chamadoId: string
+          chamadoId: string | null
+          conversaId: string | null
           criadoEm: string
           detalhe: string | null
           geradaPorId: string | null
@@ -1001,7 +1031,8 @@ export type Database = {
           usuarioId: string
         }
         Insert: {
-          chamadoId: string
+          chamadoId?: string | null
+          conversaId?: string | null
           criadoEm?: string
           detalhe?: string | null
           geradaPorId?: string | null
@@ -1013,7 +1044,8 @@ export type Database = {
           usuarioId: string
         }
         Update: {
-          chamadoId?: string
+          chamadoId?: string | null
+          conversaId?: string | null
           criadoEm?: string
           detalhe?: string | null
           geradaPorId?: string | null
@@ -1030,6 +1062,13 @@ export type Database = {
             columns: ["chamadoId"]
             isOneToOne: false
             referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoPosVenda_conversaId_fkey"
+            columns: ["conversaId"]
+            isOneToOne: false
+            referencedRelation: "ConversaWhatsapp"
             referencedColumns: ["id"]
           },
           {
@@ -1353,11 +1392,15 @@ export type Database = {
           atualizadoEm: string
           atualizadoPorId: string | null
           bdiPadrao: number
+          diasSemanaComercial: number[]
           diasUteisMes: number
           encargosSociais: number
+          horaFimComercial: string
+          horaInicioComercial: string
           id: string
           impostos: number
           margemMinima: number
+          tetoDiarioConversasNovas: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
         }
@@ -1365,11 +1408,15 @@ export type Database = {
           atualizadoEm?: string
           atualizadoPorId?: string | null
           bdiPadrao: number
+          diasSemanaComercial?: number[]
           diasUteisMes?: number
           encargosSociais: number
+          horaFimComercial?: string
+          horaInicioComercial?: string
           id?: string
           impostos: number
           margemMinima: number
+          tetoDiarioConversasNovas?: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
         }
@@ -1377,11 +1424,15 @@ export type Database = {
           atualizadoEm?: string
           atualizadoPorId?: string | null
           bdiPadrao?: number
+          diasSemanaComercial?: number[]
           diasUteisMes?: number
           encargosSociais?: number
+          horaFimComercial?: string
+          horaInicioComercial?: string
           id?: string
           impostos?: number
           margemMinima?: number
+          tetoDiarioConversasNovas?: number
           textoImpostosPadrao?: string
           validadePropostaPadraoDias?: number
         }
@@ -1770,6 +1821,7 @@ export type Database = {
           id: string
           nome: string
           notificaPosVenda: boolean
+          notificaWhatsappSemDono: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash: string
         }
@@ -1780,6 +1832,7 @@ export type Database = {
           id?: string
           nome: string
           notificaPosVenda?: boolean
+          notificaWhatsappSemDono?: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash: string
         }
@@ -1790,6 +1843,7 @@ export type Database = {
           id?: string
           nome?: string
           notificaPosVenda?: boolean
+          notificaWhatsappSemDono?: boolean
           perfil?: Database["public"]["Enums"]["PerfilUsuario"]
           senhaHash?: string
         }
@@ -1860,6 +1914,8 @@ export type Database = {
         | "chamado_vencido"
         | "chamado_atualizado"
         | "interacao_registrada"
+        | "conversa_sem_dono"
+        | "conversa_atribuida"
       TipoOrcamentoItem: "material" | "kit"
       TipoProposta: "usina_solar" | "redes"
       TipoUnidadeConsumidora: "geradora" | "beneficiaria"
@@ -2036,6 +2092,8 @@ export const Constants = {
         "chamado_vencido",
         "chamado_atualizado",
         "interacao_registrada",
+        "conversa_sem_dono",
+        "conversa_atribuida",
       ],
       TipoOrcamentoItem: ["material", "kit"],
       TipoProposta: ["usina_solar", "redes"],
