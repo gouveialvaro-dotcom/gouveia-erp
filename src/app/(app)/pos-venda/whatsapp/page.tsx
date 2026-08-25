@@ -19,6 +19,7 @@ import {
   caixaValida,
   chamadoCorrente,
   chaveTelefone,
+  ehEnvioAtivo,
   diaBrasilia,
   formatarDataHoraBrasilia,
   formatarHoraBrasilia,
@@ -38,6 +39,7 @@ import { BotaoOcultar } from "@/components/pos-venda/whatsapp/botao-ocultar";
 import { BotaoPromover } from "@/components/pos-venda/whatsapp/botao-promover";
 import { FaixaChamado } from "@/components/pos-venda/whatsapp/faixa-chamado";
 import { FormEnvio } from "@/components/pos-venda/whatsapp/form-envio";
+import { IniciarConversa } from "@/components/pos-venda/whatsapp/iniciar-conversa";
 import { VinculoCliente } from "@/components/pos-venda/whatsapp/vinculo-cliente";
 import { arquivarConversa, assumirConversa, marcarPendencia, reabrirConversa } from "./actions";
 
@@ -235,6 +237,25 @@ export default async function PaginaWhatsapp({
     .filter((u) => podeEscrever(u.perfil as Perfil, "posVenda"))
     .map((u) => ({ id: u.id, nome: u.nome }));
 
+  // Teto de envio ativo do dia. O recorte é o dia em Brasília, não em UTC:
+  // depois das 21h a virada de dia em UTC zeraria a contagem no meio do
+  // expediente seguinte.
+  const inicioDoDia = `${new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  })}T00:00:00-03:00`;
+
+  const [{ data: parametros }, { count: iniciadasHoje }] = await Promise.all([
+    supabase.from("ParametroGeral").select("tetoDiarioConversasNovas").limit(1).maybeSingle(),
+    supabase
+      .from("ConversaWhatsapp")
+      .select("id", { count: "exact", head: true })
+      .gte("iniciadaAtivamenteEm", inicioDoDia),
+  ]);
+
+  // Última mensagem RECEBIDA da conversa aberta: é o que define se responder
+  // ainda é resposta ou já é abordagem ativa.
+  const ultimaEntrada = mensagens.filter((m) => m.direcao === "entrada").at(-1);
+
   const situacao = clienteDetalhe
     ? ROTULO_SITUACAO_MANUTENCAO[situacaoManutencao(clienteDetalhe, hoje)]
     : null;
@@ -289,6 +310,22 @@ export default async function PaginaWhatsapp({
         {/* --- Lista de conversas --- */}
         <div className="flex flex-col gap-2">
           <BuscaConversas filtros={busca} caixa={caixa} total={totalResultados} />
+
+
+          {podeEditar && (
+
+            <IniciarConversa
+
+              iniciadasHoje={iniciadasHoje ?? 0}
+
+              teto={parametros?.tetoDiarioConversasNovas ?? 0}
+
+            />
+
+
+
+          )}
+
 
 
           {ehAdmin && (
@@ -646,7 +683,12 @@ export default async function PaginaWhatsapp({
                 )}
               </div>
 
-              {podeEditar && <FormEnvio conversaId={selecionada.id} />}
+              {podeEditar && (
+                <FormEnvio
+                  conversaId={selecionada.id}
+                  envioAtivo={ehEnvioAtivo(ultimaEntrada?.recebidoEm ?? null)}
+                />
+              )}
             </>
           ) : (
             <p className="p-8 text-center text-sm text-muted-foreground">

@@ -434,6 +434,7 @@ export type Database = {
           criadoEm: string
           donoId: string | null
           id: string
+          iniciadaAtivamenteEm: string | null
           nomePerfil: string | null
           pendente: boolean
           telefone: string
@@ -453,6 +454,7 @@ export type Database = {
           criadoEm?: string
           donoId?: string | null
           id?: string
+          iniciadaAtivamenteEm?: string | null
           nomePerfil?: string | null
           pendente?: boolean
           telefone: string
@@ -472,6 +474,7 @@ export type Database = {
           criadoEm?: string
           donoId?: string | null
           id?: string
+          iniciadaAtivamenteEm?: string | null
           nomePerfil?: string | null
           pendente?: boolean
           telefone?: string

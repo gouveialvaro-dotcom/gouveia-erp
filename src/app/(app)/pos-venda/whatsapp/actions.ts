@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirAdmin, exigirPermissao } from "@/lib/api-auth";
 import { BUCKET_ANEXOS, TAMANHO_MAXIMO_ANEXO, nomeSeguro } from "@/lib/pos-venda";
-import { chamadoCorrente, telefoneParaEnvio } from "@/lib/pos-venda-whatsapp";
+import {
+  chamadoCorrente,
+  chaveTelefone,
+  formatarTelefone,
+  telefoneParaEnvio,
+} from "@/lib/pos-venda-whatsapp";
 import { enviarTexto } from "@/lib/uazapi";
 import { donoDoTelefone, gravarTelefoneNaFicha } from "@/lib/whatsapp-cadastro";
 import { notificarConversa } from "@/lib/notificacoes-pos-venda";
@@ -514,4 +519,157 @@ export async function atribuirConversas(
   }
 
   revalidar();
+}
+
+// --- Envio ativo ----------------------------------------------------------
+
+export type EstadoIniciar = { erro?: string } | undefined;
+
+const iniciarSchema = z.object({
+  telefone: z.string().trim().min(10, "Informe o telefone com DDD."),
+  texto: z.string().trim().min(1, "Escreva a mensagem.").max(4096, "Mensagem longa demais."),
+});
+
+/** Início do dia de hoje no fuso de Brasília, em ISO — recorte do teto diário. */
+function inicioDoDiaBrasilia() {
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  // -03:00 é o offset de Brasília, que não tem horário de verão desde 2019.
+  return `${hoje}T00:00:00-03:00`;
+}
+
+/**
+ * Inicia conversa com quem não escreveu — envio ativo.
+ *
+ * Liberado por decisão do sócio-diretor, com o risco assumido. O risco é
+ * concreto: a conexão é por API não oficial sobre o número corporativo, e
+ * mandar mensagem para quem não falou com a empresa recentemente é o
+ * comportamento que mais leva ao bloqueio permanente do número pela Meta, sem
+ * aviso e sem recurso.
+ *
+ * Por isso o teto diário, que é barato e removível. Ele NÃO é uma regra de
+ * negócio da empresa — é contenção técnica de um risco de infraestrutura, e
+ * mora em ParametroGeral para poder ser afrouxado sem deploy depois de ver o
+ * número aguentar.
+ *
+ * Continua fora de questão, e não existe caminho para isso no código: disparo
+ * em massa, campanha, lista de transmissão e mensagem automática.
+ */
+export async function iniciarConversa(
+  _estado: EstadoIniciar,
+  formData: FormData
+): Promise<EstadoIniciar> {
+  const { usuarioId } = await exigirPermissao("posVenda", "escrita");
+
+  const dados = iniciarSchema.safeParse({
+    telefone: formData.get("telefone"),
+    texto: formData.get("texto"),
+  });
+
+  if (!dados.success) {
+    return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const chave = chaveTelefone(dados.data.telefone);
+  if (!chave) return { erro: "Telefone não reconhecido. Use DDD + número." };
+
+  const { data: existente } = await supabase
+    .from("ConversaWhatsapp")
+    .select("id")
+    .eq("telefone", chave)
+    .maybeSingle();
+
+  // Conversa que já existe não conta contra o teto e não é recriada: o teto
+  // protege contra abordar desconhecido, não contra responder quem já fala com
+  // a empresa. Quem chegar aqui com número conhecido é mandado para a conversa.
+  if (existente) {
+    return {
+      erro:
+        "Já existe conversa com este número — abra-a na lista para continuar o atendimento.",
+    };
+  }
+
+  const { data: parametros } = await supabase
+    .from("ParametroGeral")
+    .select("tetoDiarioConversasNovas")
+    .limit(1)
+    .maybeSingle();
+
+  const teto = parametros?.tetoDiarioConversasNovas ?? 0;
+
+  const { count } = await supabase
+    .from("ConversaWhatsapp")
+    .select("id", { count: "exact", head: true })
+    .gte("iniciadaAtivamenteEm", inicioDoDiaBrasilia());
+
+  if ((count ?? 0) >= teto) {
+    return {
+      erro:
+        `Teto diário atingido: ${count} de ${teto} conversas iniciadas hoje. ` +
+        "O limite existe porque abordar quem não escreveu é o que mais leva ao " +
+        "bloqueio do número pela Meta. Continue amanhã ou ajuste o teto em Parâmetros.",
+    };
+  }
+
+  const agora = new Date().toISOString();
+  const dono = await donoDoTelefone(dados.data.telefone);
+
+  const { data: conversa, error: erroConversa } = await supabase
+    .from("ConversaWhatsapp")
+    .insert({
+      telefone: chave,
+      telefoneExibicao: formatarTelefone(dados.data.telefone),
+      clienteId: dono?.clienteId ?? null,
+      contatoClienteId: dono?.contatoClienteId ?? null,
+      donoId: usuarioId,
+      iniciadaAtivamenteEm: agora,
+      pendente: false,
+    })
+    .select("id, telefoneExibicao")
+    .single();
+
+  if (erroConversa || !conversa) return { erro: "Não foi possível criar a conversa." };
+
+  // Mesma ordem do envio comum: grava antes de sair, porque o registro do que
+  // foi dito ao cliente não pode depender de o número estar no ar.
+  const { data: gravada } = await supabase
+    .from("MensagemWhatsapp")
+    .insert({
+      conversaId: conversa.id,
+      direcao: "saida",
+      tipo: "texto",
+      conteudo: dados.data.texto,
+      enviadoPorId: usuarioId,
+      entregue: false,
+      recebidoEm: agora,
+    })
+    .select("id")
+    .single();
+
+  const envio = await enviarTexto(telefoneParaEnvio(conversa.telefoneExibicao), dados.data.texto);
+
+  if (gravada) {
+    await supabase
+      .from("MensagemWhatsapp")
+      .update({
+        entregue: envio.ok,
+        erroEnvio: envio.ok ? null : envio.erro,
+        mensagemExternaId: envio.ok ? envio.idExterno : null,
+      })
+      .eq("id", gravada.id);
+  }
+
+  await supabase
+    .from("ConversaWhatsapp")
+    .update({
+      ultimaMensagemEm: agora,
+      ultimaMensagemDirecao: "saida",
+      atualizadoEm: agora,
+    })
+    .eq("id", conversa.id);
+
+  revalidar();
+
+  if (!envio.ok) {
+    return { erro: `Conversa criada e mensagem registrada, mas o envio falhou: ${envio.erro}` };
+  }
 }
