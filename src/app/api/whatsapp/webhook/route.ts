@@ -5,11 +5,11 @@ import { supabase } from "@/lib/supabase";
 import type { Json } from "@/lib/database.types";
 import { urlDaMidia, baixarArquivo } from "@/lib/uazapi";
 import { nomeSeguro } from "@/lib/pos-venda";
+import { donoDoTelefone } from "@/lib/whatsapp-cadastro";
 import {
   chamadoCorrente,
   chaveTelefone,
   formatarTelefone,
-  mesmoTelefone,
   tipoPorMime,
   type DirecaoMensagem,
   type TipoMensagem,
@@ -129,36 +129,6 @@ function tipoDaMensagem(tipoBruto: string | null, mime: string | null): TipoMens
   return "texto";
 }
 
-/**
- * Casa o telefone com o cadastro. Roda só quando a conversa ainda não tem
- * cliente: o vínculo feito à mão por um atendente vale mais que qualquer
- * casamento automático e não pode ser desfeito por ele.
- *
- * A comparação é em memória, e não no SQL, porque o telefone do cadastro é
- * texto livre com máscara — não existe forma de comparar no banco sem antes
- * normalizar os dois lados (ver chaveTelefone). A base de clientes é pequena;
- * se um dia deixar de ser, o caminho é uma coluna normalizada com índice.
- */
-async function casarCliente(chave: string) {
-  const [{ data: clientes }, { data: contatos }] = await Promise.all([
-    supabase.from("Cliente").select("id, telefone").not("telefone", "is", null),
-    supabase
-      .from("ContatoCliente")
-      .select("id, clienteId, telefone")
-      .not("telefone", "is", null),
-  ]);
-
-  const contato = (contatos ?? []).find((c) => mesmoTelefone(chave, c.telefone));
-  if (contato) return { clienteId: contato.clienteId, contatoClienteId: contato.id };
-
-  const cliente = (clientes ?? []).find((c) => mesmoTelefone(chave, c.telefone));
-  if (cliente) return { clienteId: cliente.id, contatoClienteId: null };
-
-  // Sem casamento a conversa cai na caixa "Sem cliente". Ela não some e não é
-  // descartada: fica lá até alguém do atendimento fazer o vínculo.
-  return { clienteId: null, contatoClienteId: null };
-}
-
 const SELECT_CONVERSA =
   "id, clienteId, chamadoAtivoId, nomePerfil, arquivadaEm, chamadoAtivo:Chamado(id, estagio)";
 
@@ -171,7 +141,14 @@ async function conversaDoTelefone(chave: string, telefoneExibicao: string) {
 
   if (existente) return existente;
 
-  const vinculo = await casarCliente(chave);
+  // Sem casamento a conversa cai na caixa "Sem cliente". Ela não some e não é
+  // descartada: fica lá até alguém do atendimento vincular — e o vínculo grava
+  // o telefone na ficha, então a próxima já chega identificada.
+  const dono = await donoDoTelefone(telefoneExibicao);
+  const vinculo = {
+    clienteId: dono?.clienteId ?? null,
+    contatoClienteId: dono?.contatoClienteId ?? null,
+  };
   const { data: criada } = await supabase
     .from("ConversaWhatsapp")
     .insert({ telefone: chave, telefoneExibicao, ...vinculo })

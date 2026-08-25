@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { reconciliarConversasSemCliente } from "@/lib/whatsapp-cadastro";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { exigirPermissao } from "@/lib/api-auth";
 import { podeEscrever } from "@/lib/permissoes";
@@ -65,6 +66,12 @@ export default async function PaginaWhatsapp({
   const ehAdmin = perfil === "admin";
   const mostrarOcultas = ehAdmin && busca.ocultas === "1";
   const hoje = hojeIso();
+
+  // Cadastrar telefone na ficha do cliente não é evento do módulo de WhatsApp,
+  // então não há escrita aqui para reagir a ele: as conversas órfãs são
+  // reconciliadas quando alguém abre a página, mesmo desenho de
+  // sincronizarVencidos. Só preenche o que está nulo.
+  await reconciliarConversasSemCliente();
 
   const { data: conversasData } = await supabase
     .from("ConversaWhatsapp")
@@ -504,6 +511,7 @@ export default async function PaginaWhatsapp({
                         label: c.razaoSocial,
                       }))}
                       contatos={contatosData ?? []}
+                      nomePerfil={selecionada.nomePerfil}
                       clienteAtual={
                         selecionada.cliente
                           ? {

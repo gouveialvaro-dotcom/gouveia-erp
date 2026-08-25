@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { vincularCliente, type EstadoVinculo } from "@/app/(app)/pos-venda/whatsapp/actions";
 import { Button } from "@/components/ui/button";
 import { ComboboxCampo, type OpcaoCombobox } from "@/components/ui/combobox-campo";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
 
@@ -20,11 +21,13 @@ export function VinculoCliente({
   clientes,
   contatos,
   clienteAtual,
+  nomePerfil,
 }: {
   conversaId: string;
   clientes: OpcaoCombobox[];
   contatos: ContatoOpcao[];
   clienteAtual: OpcaoCombobox | null;
+  nomePerfil: string | null;
 }) {
   const [clienteId, setClienteId] = useState(clienteAtual?.value ?? "");
   const vincularComId = vincularCliente.bind(null, conversaId);
@@ -64,6 +67,20 @@ export function VinculoCliente({
           </SelectNativo>
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="nomeContato">Quem fala por este número</Label>
+        <Input
+          id="nomeContato"
+          name="nomeContato"
+          defaultValue={nomePerfil ?? ""}
+          placeholder="Nome do contato"
+        />
+        <p className="text-xs text-muted-foreground">
+          O telefone é gravado na ficha do cliente — não existe lista separada
+          aqui. Se o cliente já tem telefone principal, este entra como contato.
+        </p>
+      </div>
 
       <Button type="submit" size="sm" variant="secondary" disabled={pendente}>
         {pendente ? "Vinculando..." : clienteAtual ? "Trocar cliente" : "Vincular cliente"}

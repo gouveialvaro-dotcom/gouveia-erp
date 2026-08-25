@@ -7,6 +7,7 @@ import { exigirAdmin, exigirPermissao } from "@/lib/api-auth";
 import { BUCKET_ANEXOS, TAMANHO_MAXIMO_ANEXO, nomeSeguro } from "@/lib/pos-venda";
 import { chamadoCorrente, telefoneParaEnvio } from "@/lib/pos-venda-whatsapp";
 import { enviarTexto } from "@/lib/uazapi";
+import { donoDoTelefone, gravarTelefoneNaFicha } from "@/lib/whatsapp-cadastro";
 
 const BUCKET_MIDIA = "whatsapp";
 
@@ -141,6 +142,9 @@ export async function marcarPendencia(conversaId: string, pendente: boolean) {
 const vinculoSchema = z.object({
   clienteId: z.string().min(1, "Selecione o cliente."),
   contatoClienteId: z.string().optional(),
+  // Nome de quem fala por este número. Vira um ContatoCliente quando o cliente
+  // já tem telefone principal preenchido.
+  nomeContato: z.string().trim().max(120).optional(),
 });
 
 export type EstadoVinculo = { erro?: string } | undefined;
@@ -170,13 +174,37 @@ export async function vincularCliente(
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const conversa = await carregarConversa(conversaId);
+  if (!conversa) return { erro: "Conversa não encontrada." };
+
   const { data: cliente } = await supabase
     .from("Cliente")
-    .select("id")
+    .select("id, razaoSocial")
     .eq("id", dados.data.clienteId)
     .maybeSingle();
 
   if (!cliente) return { erro: "Cliente não encontrado." };
+
+  // Número já cadastrado para outra empresa é quase sempre engano de digitação.
+  // Sobrescrever em silêncio faria a conversa de um cliente aparecer no
+  // histórico de outro — avisa e bloqueia.
+  const dono = await donoDoTelefone(conversa.telefoneExibicao);
+  if (dono && dono.clienteId !== dados.data.clienteId) {
+    return {
+      erro:
+        `Este telefone já está cadastrado para ${dono.clienteNome}` +
+        `${dono.contatoNome ? ` (contato ${dono.contatoNome})` : ""}. ` +
+        "Corrija a ficha do cliente antes de vincular.",
+    };
+  }
+
+  // Armazenamento único: vincular pela tela do WhatsApp grava o telefone na
+  // ficha do cliente. Não existe segunda lista de números dentro do módulo.
+  const contatoCriadoId = await gravarTelefoneNaFicha(
+    dados.data.clienteId,
+    conversa.telefoneExibicao,
+    dados.data.nomeContato || "Contato do WhatsApp"
+  );
 
   // Trocar de cliente com um chamado marcado deixaria a conversa apontando para
   // o chamado de outra empresa; a marcação cai junto.
@@ -184,7 +212,7 @@ export async function vincularCliente(
     .from("ConversaWhatsapp")
     .update({
       clienteId: dados.data.clienteId,
-      contatoClienteId: dados.data.contatoClienteId ?? null,
+      contatoClienteId: dados.data.contatoClienteId || contatoCriadoId || null,
       chamadoAtivoId: null,
       atualizadoEm: new Date().toISOString(),
     })
