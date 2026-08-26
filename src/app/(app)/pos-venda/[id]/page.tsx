@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { clienteIdDaObra, projetoDaObra } from "@/lib/obras";
-import { acessoModulo } from "@/lib/pagina-auth";
-import { podeEscrever } from "@/lib/permissoes";
+import { acessoModulo, usuarioIdAtual } from "@/lib/pagina-auth";
+import { ROTULO_PERFIL, podeEscrever, type Perfil } from "@/lib/permissoes";
 import { formatarData } from "@/lib/format";
 import {
   MESES_JANELA_RECORRENCIA,
@@ -14,11 +14,17 @@ import {
   ROTULO_PRIORIDADE,
   ROTULO_TIPO_INTERACAO,
   ROTULO_TIPO_UC,
+  DIAS_SEM_MOVIMENTO_PADRAO,
+  PERFIS_RESPONSAVEL_CHAMADO,
   colunaDoChamado,
+  diasSemMovimento,
   diferencaEmDias,
   hojeIso,
   mesesAtras,
+  podeTrocarResponsavel,
+  semMovimento,
   textoPrazo,
+  ultimaMovimentacao,
 } from "@/lib/pos-venda";
 import {
   ROTULO_RAMO,
@@ -46,10 +52,11 @@ import {
 import { ChamadoEditarForm } from "@/components/pos-venda/chamado-editar-form";
 import { AnexoUpload } from "@/components/pos-venda/anexo-upload";
 import { MarcarLido } from "@/components/pos-venda/marcar-lido";
+import { TrocarResponsavel } from "@/components/pos-venda/trocar-responsavel";
 import { adicionarInteracao, excluirChamado, removerInteracao, removerAnexo } from "../actions";
 
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, nomeProjeto, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
+  "*, cliente:Cliente(id, razaoSocial, ramo, cnpj, contato, telefone, email, endereco, observacoes, manutencaoInicio, manutencaoFim), tipo:TipoProblemaPosVenda(id, nome, descricao, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), criador:Usuario!Chamado_criadoPorId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, endereco, tipo, percentualRateio, titular, potenciaKwp, geradoraId, concessionaria:Concessionaria(id, nome, sigla)), obra:Obra(id, status, avancoFisicoPercent, nomeProjeto, oportunidade:Oportunidade(orcamento:Orcamento(nomeProjeto))), interacoes:InteracaoChamado(*, responsavel:Usuario(id, nome)), anexos:AnexoChamado(*)";
 
 function formatarTamanho(bytes: number | null) {
   if (bytes === null) return "—";
@@ -64,6 +71,9 @@ export default async function PaginaChamado({
   params: Promise<{ id: string }>;
 }) {
   const { perfil } = await acessoModulo("posVenda");
+  // Id conferido no banco, não o do JWT: é ele que a action compara para saber
+  // se quem está olhando é o dono, e a tela precisa aplicar o mesmo critério.
+  const meuId = await usuarioIdAtual();
   const { id } = await params;
   const hoje = hojeIso();
 
@@ -92,6 +102,7 @@ export default async function PaginaChamado({
     { data: obras },
     { data: tipos },
     { data: usuarios },
+    { data: parametros },
     { data: geradora },
     { count: ocorrencias },
   ] = await Promise.all([
@@ -113,7 +124,17 @@ export default async function PaginaChamado({
       .select("id, nome, prazoDias")
       .eq("ativo", true)
       .order("ordem"),
-    supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),
+    supabase
+      .from("Usuario")
+      .select("id, nome, perfil")
+      .eq("ativo", true)
+      .in("perfil", PERFIS_RESPONSAVEL_CHAMADO)
+      .order("nome"),
+    supabase
+      .from("ParametroGeral")
+      .select("diasSemMovimentoChamado")
+      .limit(1)
+      .maybeSingle(),
     chamado.uc?.geradoraId
       ? supabase
           .from("UnidadeConsumidora")
@@ -130,6 +151,34 @@ export default async function PaginaChamado({
   ]);
 
   const recorrente = (ocorrencias ?? 0) >= MIN_OCORRENCIAS_RECORRENCIA;
+
+  // "Sem movimento" é estado derivado, como "a_vencer" e "vencido": nada é
+  // gravado, a conta sai da própria linha do tempo a cada carregamento.
+  const diasLimiteParado =
+    parametros?.diasSemMovimentoChamado ?? DIAS_SEM_MOVIMENTO_PADRAO;
+  const movimento = {
+    estagio: chamado.estagio,
+    abertoEm: chamado.abertoEm,
+    ultimaInteracaoEm:
+      chamado.interacoes.map((i) => i.data.slice(0, 10)).sort().at(-1) ?? null,
+  };
+  const parado = semMovimento(movimento, diasLimiteParado, hoje);
+
+  const elegiveis = (usuarios ?? []).map((u) => ({
+    id: u.id,
+    nome: u.nome,
+    perfil: ROTULO_PERFIL[u.perfil as Perfil],
+  }));
+  const podeRepassar =
+    podeEditar &&
+    chamado.responsavel !== null &&
+    podeTrocarResponsavel({
+      perfil,
+      usuarioId: meuId,
+      responsavelId: chamado.responsavelId,
+      estagio: chamado.estagio,
+    });
+
   // Situação do contrato de manutenção do cliente hoje — é o que autoriza (ou
   // não) novos chamados deste cliente.
   const situacaoCliente = chamado.cliente
@@ -165,6 +214,14 @@ export default async function PaginaChamado({
         <Badge variant={vencido ? "destructive" : "outline"}>{ROTULO_COLUNA[coluna]}</Badge>
         <Badge variant={prioridade.variant}>{prioridade.texto}</Badge>
         {recorrente && <Badge variant="destructive">Recorrente</Badge>}
+        {parado && (
+          <Badge
+            variant="secondary"
+            title={`Sem registro novo desde ${formatarData(ultimaMovimentacao(movimento))}`}
+          >
+            Parado há {diasSemMovimento(movimento, hoje)}d
+          </Badge>
+        )}
         {podeEditar && (
           <div className="ml-auto">
             <BotaoExcluir
@@ -190,9 +247,30 @@ export default async function PaginaChamado({
         </Link>
         {chamado.cliente?.contato && ` · ${chamado.cliente.contato}`}
         {chamado.cliente?.telefone && ` · ${chamado.cliente.telefone}`}
-        {" · "}Aberto em {formatarData(chamado.abertoEm)} por{" "}
-        {chamado.responsavel?.nome ?? "—"}
+        {" · "}Aberto em {formatarData(chamado.abertoEm)}
+        {chamado.criador && ` por ${chamado.criador.nome}`}
       </p>
+
+      {/* O dono fica em destaque, e não perdido no formulário: é a informação
+          que responde "quem está com isso" antes de qualquer outra. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border bg-card p-3">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Responsável</p>
+          <p className="font-medium truncate">{chamado.responsavel?.nome ?? "—"}</p>
+        </div>
+        {podeRepassar && chamado.responsavel && (
+          <div className="ml-auto">
+            <TrocarResponsavel
+              chamadoId={chamado.id}
+              responsavelAtual={{
+                id: chamado.responsavel.id,
+                nome: chamado.responsavel.nome,
+              }}
+              elegiveis={elegiveis}
+            />
+          </div>
+        )}
+      </div>
 
       {recorrente && (
         <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
@@ -344,7 +422,6 @@ export default async function PaginaChamado({
             id: chamado.id,
             estagio: chamado.estagio,
             tipoProblemaId: chamado.tipoProblemaId,
-            responsavelId: chamado.responsavelId,
             prioridade: chamado.prioridade,
             unidadeConsumidoraId: chamado.unidadeConsumidoraId,
             obraId: chamado.obraId,
@@ -356,22 +433,17 @@ export default async function PaginaChamado({
           unidades={opcoesUnidades}
           obras={opcoesObras}
           tipos={tipos ?? []}
-          usuarios={usuarios ?? []}
         />
       ) : (
-        <dl className="grid grid-cols-2 gap-3 max-w-2xl text-sm">
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 max-w-2xl text-sm">
           <div>
             <dt className="text-muted-foreground">Estágio</dt>
             <dd>
               <Badge variant="outline">{ROTULO_ESTAGIO[chamado.estagio]}</Badge>
             </dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Responsável</dt>
-            <dd>{chamado.responsavel?.nome ?? "—"}</dd>
-          </div>
           {chamado.solucao && (
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <dt className="text-muted-foreground">Solução</dt>
               <dd className="whitespace-pre-wrap">{chamado.solucao}</dd>
             </div>
@@ -419,7 +491,7 @@ export default async function PaginaChamado({
       {podeEditar && (
         <form
           action={adicionarInteracaoComId}
-          className="grid grid-cols-4 gap-3 max-w-3xl items-end mb-8"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 max-w-3xl items-end mb-8"
         >
           <SelectNativo name="tipo" defaultValue="ligacao" aria-label="Tipo de interação">
             {Object.entries(ROTULO_TIPO_INTERACAO).map(([valor, texto]) => (
@@ -437,7 +509,7 @@ export default async function PaginaChamado({
           </SelectNativo>
           <CampoData name="data" defaultValue={hoje} required />
           <Input name="protocolo" placeholder="Protocolo (opcional)" />
-          <div className="col-span-4 flex gap-2">
+          <div className="sm:col-span-2 lg:col-span-4 flex flex-col gap-2 sm:flex-row">
             <Textarea
               name="descricao"
               placeholder="O que foi tratado com o cliente ou com a concessionária"

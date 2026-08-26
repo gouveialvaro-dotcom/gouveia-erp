@@ -8,16 +8,25 @@ import { exigirPermissao } from "@/lib/api-auth";
 import {
   BUCKET_ANEXOS,
   ORDEM_ESTAGIO_FLUXO,
+  PERFIS_RESPONSAVEL_CHAMADO,
   ROTULO_ESTAGIO,
   TAMANHO_MAXIMO_ANEXO,
   hojeIso,
   nomeSeguro,
+  podeSerResponsavel,
+  podeTrocarResponsavel,
   somarDias,
 } from "@/lib/pos-venda";
+import { ROTULO_PERFIL, type Perfil } from "@/lib/permissoes";
 import { impedimentoDeAbertura } from "@/lib/clientes";
 import { notificarPosVenda } from "@/lib/notificacoes-pos-venda";
 
 export type EstadoFormChamado = { erro?: string } | undefined;
+
+// A troca de responsável não redireciona — a pessoa continua na mesma tela, com
+// o diálogo aberto. O `ok` é o que diz ao diálogo que ele pode se fechar; sem
+// ele, sucesso e estado inicial seriam ambos `undefined` e indistinguíveis.
+export type EstadoTrocaResponsavel = { erro?: string; ok?: boolean } | undefined;
 
 function revalidarChamado(chamadoId: string) {
   revalidatePath("/pos-venda");
@@ -54,6 +63,27 @@ async function soltarConversasDoChamado(chamadoId: string) {
 
   if (data?.length) revalidatePath("/pos-venda/whatsapp");
 }
+
+// A tela só oferece quem é elegível, mas a action é alcançável por POST direto:
+// aqui é a trava de fato. A regra em si mora em lib/pos-venda.ts, porque é a
+// MESMA que monta o combobox — duas cópias divergiriam no primeiro ajuste.
+// Devolve o nome, que os avisos e a nota do histórico precisam de qualquer jeito.
+async function responsavelElegivel(usuarioId: string) {
+  const { data } = await supabase
+    .from("Usuario")
+    .select("id, nome, perfil, ativo")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!data || !podeSerResponsavel({ ativo: data.ativo, perfil: data.perfil as Perfil })) {
+    return null;
+  }
+  return { id: data.id, nome: data.nome };
+}
+
+const ERRO_ELEGIVEL = `O responsável precisa ser um usuário ativo com perfil ${PERFIS_RESPONSAVEL_CHAMADO.map(
+  (perfil) => ROTULO_PERFIL[perfil]
+).join(" ou ")}.`;
 
 // O prazo do SLA nasce do tipo de problema, não da digitação: cada tipo tem
 // prazoDias cadastrado (ver /cadastros/tipos-problema) e o limite é a data de
@@ -119,6 +149,9 @@ export async function criarChamado(
   const impedimento = impedimentoDeAbertura(cliente, dados.data.abertoEm);
   if (impedimento) return { erro: impedimento };
 
+  const responsavel = await responsavelElegivel(dados.data.responsavelId);
+  if (!responsavel) return { erro: ERRO_ELEGIVEL };
+
   const prazoLimite = await prazoDoTipo(dados.data.tipoProblemaId, dados.data.abertoEm);
   if (!prazoLimite) return { erro: "Tipo de problema não encontrado." };
 
@@ -143,13 +176,18 @@ export async function criarChamado(
 
   if (error || !criado) return { erro: "Não foi possível abrir o chamado." };
 
+  // Abertura não é mais notícia para uma lista: é uma atribuição a UMA pessoa,
+  // que fica sabendo que o chamado é dela. Por isso "chamado_direcionado" no
+  // lugar de "chamado_novo" e alcance restrito ao dono — os admins não são
+  // avisados de cada abertura, só do que sai do trilho depois.
   const resumo = await resumoChamado(criado.id);
   await notificarPosVenda({
     chamadoId: criado.id,
-    tipo: "chamado_novo",
-    titulo: `Chamado #${resumo?.numero} aberto`,
+    tipo: "chamado_direcionado",
+    titulo: `Chamado #${resumo?.numero} é seu`,
     detalhe: `${resumo?.cliente} · ${dados.data.titulo}`,
     referencia: criado.id,
+    alcance: "somente_dono",
     autorId: usuarioId,
   });
 
@@ -157,10 +195,14 @@ export async function criarChamado(
   redirect(`/pos-venda/${criado.id}`);
 }
 
+// O responsável NÃO entra aqui de propósito: trocar de dono tem autorização
+// própria (dono atual ou admin), não vale para chamado concluído e precisa
+// virar registro no histórico. Tudo isso mora em trocarResponsavel(); aceitar
+// o campo também neste formulário abriria um segundo caminho sem nenhuma
+// dessas travas.
 const atualizarChamadoSchema = z.object({
   estagio: z.enum(["aberto", "em_analise", "aguardando_concessionaria", "concluido"]),
   tipoProblemaId: z.string().min(1, "Selecione o tipo de problema."),
-  responsavelId: z.string().min(1, "Selecione o responsável."),
   prioridade: z.enum(["baixa", "media", "alta", "critica"]),
   unidadeConsumidoraId: z.string().optional(),
   obraId: z.string().optional(),
@@ -179,7 +221,6 @@ export async function atualizarChamado(
   const dados = atualizarChamadoSchema.safeParse({
     estagio: formData.get("estagio"),
     tipoProblemaId: formData.get("tipoProblemaId"),
-    responsavelId: formData.get("responsavelId"),
     prioridade: formData.get("prioridade"),
     unidadeConsumidoraId: formData.get("unidadeConsumidoraId") || undefined,
     obraId: formData.get("obraId") || undefined,
@@ -210,7 +251,6 @@ export async function atualizarChamado(
     .update({
       estagio: dados.data.estagio,
       tipoProblemaId: dados.data.tipoProblemaId,
-      responsavelId: dados.data.responsavelId,
       prioridade: dados.data.prioridade,
       unidadeConsumidoraId: dados.data.unidadeConsumidoraId ?? null,
       obraId: dados.data.obraId ?? null,
@@ -243,6 +283,94 @@ export async function atualizarChamado(
 
   revalidarChamado(chamadoId);
   redirect(`/pos-venda/${chamadoId}`);
+}
+
+/**
+ * Repasse do chamado. Não existe "devolver para a fila": o chamado nunca fica
+ * sem dono, então a troca é sempre de uma pessoa elegível para outra.
+ */
+export async function trocarResponsavel(
+  chamadoId: string,
+  _estado: EstadoTrocaResponsavel,
+  formData: FormData
+): Promise<EstadoTrocaResponsavel> {
+  const { perfil, usuarioId } = await exigirPermissao("posVenda", "escrita");
+
+  const novoId = String(formData.get("responsavelId") ?? "");
+  if (!novoId) return { erro: "Selecione o novo responsável." };
+
+  const { data: chamado } = await supabase
+    .from("Chamado")
+    .select("id, numero, estagio, responsavelId, responsavel:Usuario!Chamado_responsavelId_fkey(nome)")
+    .eq("id", chamadoId)
+    .maybeSingle();
+
+  if (!chamado) return { erro: "Chamado não encontrado." };
+
+  // Esconder o botão não substitui o bloqueio: perfil atendimento que não é o
+  // dono chega aqui por POST direto se quiser.
+  const autorizado = podeTrocarResponsavel({
+    perfil: perfil as Perfil,
+    usuarioId,
+    responsavelId: chamado.responsavelId,
+    estagio: chamado.estagio,
+  });
+
+  if (!autorizado) {
+    return {
+      erro:
+        chamado.estagio === "concluido"
+          ? "Chamado concluído não troca de responsável."
+          : "Só o responsável atual ou um administrador pode repassar este chamado.",
+    };
+  }
+
+  if (novoId === chamado.responsavelId) {
+    return { erro: "Este já é o responsável do chamado." };
+  }
+
+  const novo = await responsavelElegivel(novoId);
+  if (!novo) return { erro: ERRO_ELEGIVEL };
+
+  const anteriorId = chamado.responsavelId;
+  const anteriorNome = chamado.responsavel?.nome ?? "—";
+
+  const { error } = await supabase
+    .from("Chamado")
+    .update({ responsavelId: novo.id, atualizadoEm: new Date().toISOString() })
+    .eq("id", chamadoId);
+
+  if (error) return { erro: "Não foi possível trocar o responsável." };
+
+  // O repasse vira uma linha da própria linha do tempo, e não uma tabela de
+  // histórico à parte: quem lê o chamado precisa ver a troca na mesma sequência
+  // das ligações e dos protocolos, senão a passagem de bastão fica invisível.
+  await supabase.from("InteracaoChamado").insert({
+    chamadoId,
+    tipo: "nota_interna",
+    direcao: "interno",
+    data: hojeIso(),
+    descricao: `Responsável alterado de ${anteriorNome} para ${novo.nome}.`,
+    responsavelId: usuarioId,
+  });
+
+  const resumo = await resumoChamado(chamadoId);
+  await notificarPosVenda({
+    chamadoId,
+    tipo: "responsavel_alterado",
+    titulo: `Chamado #${resumo?.numero} passou para ${novo.nome}`,
+    detalhe: `${resumo?.cliente} · de ${anteriorNome} para ${novo.nome}`,
+    // A referência é o id do NOVO dono, não o do chamado: trocas sucessivas são
+    // eventos distintos e cada uma precisa gerar o seu aviso.
+    referencia: novo.id,
+    // O dono anterior sai da regra assim que a coluna é gravada — sem entrar
+    // como extra, ele não saberia que largou o chamado.
+    extras: [anteriorId],
+    autorId: usuarioId,
+  });
+
+  revalidarChamado(chamadoId);
+  return { ok: true };
 }
 
 async function moverEstagio(chamadoId: string, estagioAtual: string, passo: 1 | -1) {

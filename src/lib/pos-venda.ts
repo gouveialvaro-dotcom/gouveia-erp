@@ -2,6 +2,7 @@
 // porque um arquivo "use server" só pode exportar funções async.
 
 import type { Database } from "@/lib/database.types";
+import type { Perfil } from "@/lib/permissoes";
 
 type Enums = Database["public"]["Enums"];
 export type EstagioChamado = Enums["EstagioChamado"];
@@ -88,6 +89,42 @@ export const ROTULO_TIPO_UC: Record<Enums["TipoUnidadeConsumidora"], string> = {
 export const MESES_JANELA_RECORRENCIA = 6;
 export const MIN_OCORRENCIAS_RECORRENCIA = 3;
 
+// --- Responsável ---------------------------------------------------------
+// Todo chamado nasce com dono. O aviso de abertura é dirigido a essa pessoa, e
+// não distribuído em lista — sem dono, o chamado é de todos e de ninguém.
+
+// Comercial e engenharia só têm leitura em posVenda e obra não tem acesso
+// nenhum: seriam responsáveis incapazes de registrar interação ou de concluir o
+// próprio chamado. Por isso a lista de elegíveis é restrita — a matriz de
+// permissoes.ts NÃO é afrouxada para acomodar o direcionamento.
+export const PERFIS_RESPONSAVEL_CHAMADO: Perfil[] = ["atendimento", "admin"];
+
+export type UsuarioElegivel = { ativo: boolean; perfil: Perfil };
+
+/** Critério único de elegibilidade: monta o combobox da tela e revalida no
+ *  servidor. Como em impedimentoDeAbertura(), a tela não é a garantia. */
+export function podeSerResponsavel(usuario: UsuarioElegivel) {
+  return usuario.ativo && PERFIS_RESPONSAVEL_CHAMADO.includes(usuario.perfil);
+}
+
+/** Repassar o chamado é do dono atual ou do admin. Atendimento que não é dono
+ *  não mexe em chamado alheio, e chamado concluído não troca de mãos — não há
+ *  mais trabalho a repassar. */
+export function podeTrocarResponsavel({
+  perfil,
+  usuarioId,
+  responsavelId,
+  estagio,
+}: {
+  perfil: Perfil;
+  usuarioId: string;
+  responsavelId: string;
+  estagio: EstagioChamado;
+}) {
+  if (estagio === "concluido") return false;
+  return perfil === "admin" || usuarioId === responsavelId;
+}
+
 // --- Datas ---------------------------------------------------------------
 // O SLA corre em dias corridos e nunca pausa, inclusive enquanto se aguarda a
 // concessionária. Tudo é feito sobre strings "YYYY-MM-DD" em UTC: converter
@@ -150,10 +187,59 @@ export function textoPrazo(chamado: ChamadoSla, hoje = hojeIso()) {
   return `${restantes}d restantes`;
 }
 
+// --- Sem movimento -------------------------------------------------------
+// Chamado parado é diferente de chamado atrasado: o prazo pode estar longe e o
+// atendimento ter esfriado mesmo assim — são estados ortogonais, e um chamado
+// pode estar nos dois. Como "a_vencer" e "vencido", este é um estado DERIVADO e
+// não uma coluna gravada: uma coluna precisaria de um job para ser mantida e
+// mentiria entre uma passada e outra, enquanto a data da última movimentação já
+// está no banco e responde sozinha a qualquer momento.
+
+export const DIAS_SEM_MOVIMENTO_PADRAO = 2;
+
+export type ChamadoMovimento = {
+  estagio: EstagioChamado;
+  abertoEm: string;
+  /** Data ("YYYY-MM-DD") da interação mais recente, se houver alguma. */
+  ultimaInteracaoEm: string | null;
+};
+
+/** A mais recente entre a última interação e a abertura: sem esse piso, um
+ *  chamado recém-aberto e ainda sem interação nenhuma contaria como parado
+ *  desde a origem dos tempos. */
+export function ultimaMovimentacao(chamado: ChamadoMovimento) {
+  const abertura = chamado.abertoEm.slice(0, 10);
+  const interacao = chamado.ultimaInteracaoEm?.slice(0, 10);
+  if (!interacao) return abertura;
+  return interacao > abertura ? interacao : abertura;
+}
+
+/** Dias corridos parados. A conta é sobre strings "YYYY-MM-DD" em UTC, como o
+ *  resto do módulo: converter para Date local desloca o dia em fuso negativo e
+ *  o destaque acenderia (ou apagaria) um dia fora da hora. */
+export function diasSemMovimento(chamado: ChamadoMovimento, hoje = hojeIso()) {
+  return diferencaEmDias(ultimaMovimentacao(chamado), hoje);
+}
+
+/** Concluído nunca entra no destaque: parar é o desfecho esperado dele. */
+export function semMovimento(
+  chamado: ChamadoMovimento,
+  diasLimite = DIAS_SEM_MOVIMENTO_PADRAO,
+  hoje = hojeIso()
+) {
+  if (chamado.estagio === "concluido") return false;
+  return diasSemMovimento(chamado, hoje) >= diasLimite;
+}
+
 // --- Notificações --------------------------------------------------------
 
 export const ROTULO_NOTIFICACAO: Record<Enums["TipoNotificacaoPosVenda"], string> = {
+  // Emitido até a mudança para chamado direcionado. Continua no enum e no
+  // rótulo por causa dos registros históricos, que ainda apontam para ele.
   chamado_novo: "Novo chamado",
+  chamado_direcionado: "Chamado direcionado a você",
+  responsavel_alterado: "Responsável alterado",
+  chamado_sem_movimento: "Chamado parado",
   chamado_vencido: "Prazo vencido",
   chamado_atualizado: "Chamado atualizado",
   interacao_registrada: "Nova interação",

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatarData } from "@/lib/format";
@@ -19,6 +21,8 @@ import { avancarEstagio, voltarEstagio } from "@/app/(app)/pos-venda/actions";
 export type ChamadoCard = {
   id: string;
   numero: number;
+  /** Usado pelo filtro "Meus chamados" do quadro. */
+  responsavelId: string;
   titulo: string;
   estagio: EstagioChamado;
   prioridade: PrioridadeChamado;
@@ -37,6 +41,8 @@ export function CardChamado({
   hoje,
   recorrente,
   novidade,
+  parado,
+  diasParado,
   podeEditar,
 }: {
   chamado: ChamadoCard;
@@ -45,6 +51,9 @@ export function CardChamado({
   recorrente: boolean;
   /** Alguém mexeu no chamado e este usuário ainda não abriu para ver. */
   novidade: boolean;
+  /** Sem registro novo há tempo demais — estado derivado, ver lib/pos-venda.ts. */
+  parado: boolean;
+  diasParado: number;
   podeEditar: boolean;
 }) {
   const vencido = coluna === "vencido";
@@ -61,6 +70,9 @@ export function CardChamado({
       className={cn(
         vencido && "bg-destructive/5 ring-destructive/40",
         aVencer && "ring-amber-500/40",
+        // O tracejado é deliberado: parada é ortogonal ao prazo, então precisa
+        // de uma marca que não brigue com o anel de vencido/a vencer.
+        parado && !concluido && "border-dashed border-amber-500/60",
         concluido && "opacity-60"
       )}
     >
@@ -77,6 +89,14 @@ export function CardChamado({
           </span>
           <div className="flex items-center gap-1">
             {novidade && <Badge variant="secondary">Atualizado</Badge>}
+            {parado && (
+              <Badge
+                variant="secondary"
+                title={`Sem registro novo há ${diasParado} dia(s) corridos`}
+              >
+                Parado {diasParado}d
+              </Badge>
+            )}
             {recorrente && (
               <Badge variant="destructive" title="3+ chamados do mesmo tipo em 6 meses">
                 Recorrente
@@ -98,7 +118,9 @@ export function CardChamado({
         <p className="text-xs text-muted-foreground line-clamp-1">{chamado.tipo}</p>
 
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-muted-foreground line-clamp-1">{chamado.responsavel}</span>
+          <span className="text-muted-foreground line-clamp-1" title="Responsável">
+            {chamado.responsavel}
+          </span>
           {concluido ? (
             <Badge variant="outline">
               {chamado.concluidoEm ? formatarData(chamado.concluidoEm) : "Concluído"}

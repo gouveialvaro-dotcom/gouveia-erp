@@ -23,6 +23,10 @@ export type TipoProblemaOpcao = {
 export type UnidadeOpcao = { id: string; clienteId: string; rotulo: string };
 export type ObraOpcao = { id: string; clienteId: string; rotulo: string };
 
+/** Usuário elegível a dono do chamado. O perfil vem junto para desempatar
+ *  homônimos na busca. */
+export type ResponsavelOpcao = { id: string; nome: string; perfil: string };
+
 export type ClienteOpcao = {
   id: string;
   nome: string;
@@ -36,15 +40,13 @@ export function ChamadoCriarForm({
   unidades,
   obras,
   tipos,
-  usuarios,
-  responsavelPadraoId,
+  responsaveis,
 }: {
   clientes: ClienteOpcao[];
   unidades: UnidadeOpcao[];
   obras: ObraOpcao[];
   tipos: TipoProblemaOpcao[];
-  usuarios: { id: string; nome: string }[];
-  responsavelPadraoId: string;
+  responsaveis: ResponsavelOpcao[];
 }) {
   const [estado, formAction, pendente] = useActionState<EstadoFormChamado, FormData>(
     criarChamado,
@@ -54,6 +56,9 @@ export function ChamadoCriarForm({
   const [clienteId, setClienteId] = useState("");
   const [tipoId, setTipoId] = useState("");
   const [abertoEm, setAbertoEm] = useState(hojeIso());
+  // Sem valor padrão: escolher o dono é decisão consciente de quem abre. Um
+  // padrão pré-preenchido faria todo chamado nascer no nome de quem digitou.
+  const [responsavelId, setResponsavelId] = useState("");
 
   // UC e obra só fazem sentido dentro do cliente escolhido — a base do
   // pós-venda é a mesma dos clientes já cadastrados.
@@ -70,8 +75,8 @@ export function ChamadoCriarForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 max-w-2xl">
-        <div className="col-span-2 flex flex-col gap-1.5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-2xl">
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="clienteId">Cliente</Label>
           <ComboboxCampo
             id="clienteId"
@@ -89,7 +94,7 @@ export function ChamadoCriarForm({
         </div>
 
         {impedimento && (
-          <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <div className="sm:col-span-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
             <strong>{impedimento}</strong>
             <span className="block mt-1 text-muted-foreground">
               Ajuste o período do contrato no{" "}
@@ -144,7 +149,7 @@ export function ChamadoCriarForm({
           </SelectNativo>
         </div>
 
-        <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="tipoProblemaId">Tipo de problema</Label>
           <SelectNativo
             id="tipoProblemaId"
@@ -167,7 +172,27 @@ export function ChamadoCriarForm({
           )}
         </div>
 
-        <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
+          <Label htmlFor="responsavelId">
+            Responsável <span className="text-destructive">*</span>
+          </Label>
+          <ComboboxCampo
+            id="responsavelId"
+            name="responsavelId"
+            itens={responsaveis.map((r) => ({
+              value: r.id,
+              label: `${r.nome} · ${r.perfil}`,
+            }))}
+            placeholder="Buscar responsável..."
+            textoVazio="Nenhum usuário elegível encontrado."
+            aoSelecionar={(opcao) => setResponsavelId(opcao?.value ?? "")}
+          />
+          <p className="text-xs text-muted-foreground">
+            O chamado nasce com dono, e é essa pessoa que recebe o aviso de abertura.
+          </p>
+        </div>
+
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="titulo">Título</Label>
           <Input
             id="titulo"
@@ -177,7 +202,7 @@ export function ChamadoCriarForm({
           />
         </div>
 
-        <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="descricao">Descrição</Label>
           <Textarea
             id="descricao"
@@ -185,21 +210,6 @@ export function ChamadoCriarForm({
             rows={3}
             placeholder="O que o cliente relatou, o que já foi verificado..."
           />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="responsavelId">Responsável</Label>
-          <SelectNativo
-            id="responsavelId"
-            name="responsavelId"
-            defaultValue={responsavelPadraoId}
-          >
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nome}
-              </option>
-            ))}
-          </SelectNativo>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -239,7 +249,9 @@ export function ChamadoCriarForm({
       <div>
         <Button
           type="submit"
-          disabled={pendente || tipos.length === 0 || Boolean(impedimento)}
+          disabled={
+            pendente || tipos.length === 0 || !responsavelId || Boolean(impedimento)
+          }
         >
           {pendente ? "Abrindo..." : "Abrir chamado"}
         </Button>

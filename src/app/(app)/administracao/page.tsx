@@ -17,11 +17,10 @@ export default async function PaginaAdministracao() {
 
   const { data } = await supabase
     .from("Usuario")
-    .select("id, nome, email, perfil, ativo, notificaPosVenda, notificaWhatsappSemDono")
+    .select("id, nome, email, perfil, ativo, notificaWhatsappSemDono")
     .order("nome");
 
   const usuarios = data ?? [];
-  const recebemAvisos = usuarios.filter((u) => u.ativo && u.notificaPosVenda);
 
   return (
     <div className="flex flex-col gap-4">
@@ -29,7 +28,7 @@ export default async function PaginaAdministracao() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Administração</h1>
           <p className="text-sm text-muted-foreground">
-            Perfil de acesso e destinatários das notificações — {usuarios.length} usuário(s).
+            Perfil de acesso e situação — {usuarios.length} usuário(s).
           </p>
         </div>
         <NovoUsuarioDialog />
@@ -45,7 +44,7 @@ export default async function PaginaAdministracao() {
           <span>Usuário</span>
           <span>Perfil</span>
           <span>Situação</span>
-          <span>Notificações do pós-venda</span>
+          <span>Aviso de WhatsApp</span>
           <span />
         </div>
 
@@ -54,7 +53,7 @@ export default async function PaginaAdministracao() {
             // Remonta a linha quando o servidor devolve valores novos: os
             // campos são não controlados e o Base UI reclama de defaultChecked
             // trocando depois da montagem.
-            key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaPosVenda}|${u.notificaWhatsappSemDono}`}
+            key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaWhatsappSemDono}`}
             ehVoce={u.id === meuId}
             usuario={{
               id: u.id,
@@ -62,7 +61,6 @@ export default async function PaginaAdministracao() {
               email: u.email,
               perfil: u.perfil as Perfil,
               ativo: u.ativo,
-              notificaPosVenda: u.notificaPosVenda,
               notificaWhatsappSemDono: u.notificaWhatsappSemDono,
             }}
           />
@@ -70,17 +68,12 @@ export default async function PaginaAdministracao() {
       </div>
 
       <div className="rounded-md border bg-card p-3 text-sm">
-        <p className="font-medium mb-1">Quem recebe aviso do pós-venda hoje</p>
-        {recebemAvisos.length > 0 ? (
-          <p className="text-muted-foreground">
-            {recebemAvisos.map((u) => u.nome).join(", ")}
-          </p>
-        ) : (
-          <p className="text-destructive">
-            Ninguém. Chamados vencidos e atualizações não vão avisar nenhum usuário até
-            alguém ser marcado acima.
-          </p>
-        )}
+        <p className="font-medium mb-1">Quem recebe aviso do pós-venda</p>
+        <p className="text-muted-foreground">
+          Não se marca mais aqui. O aviso de cada chamado vai para o responsável dele —
+          apontado na abertura — e, quando o caso vence, para e é atualizado, também para
+          os administradores ativos. Trocar o dono é feito na tela do próprio chamado.
+        </p>
       </div>
 
       <p className="text-xs text-muted-foreground">

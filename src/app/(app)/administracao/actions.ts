@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
-import { podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
+import { podeEscrever, type Perfil } from "@/lib/permissoes";
 import type { EstadoExclusao } from "@/components/ui/botao-excluir";
 
 const ROTA = "/administracao";
@@ -14,10 +14,13 @@ const ROTA = "/administracao";
 // action não redireciona, só revalida a lista no lugar.
 export type EstadoFormUsuario = { erro?: string; ok?: boolean } | undefined;
 
+// notificaPosVenda saiu daqui: o destinatário do aviso de pós-venda deixou de
+// ser escolhido usuário a usuário e passou a ser derivado do próprio chamado —
+// o responsável, mais os admins ativos. A coluna continua no banco, inativa
+// (ver scripts/sql/010-chamado-responsavel.sql).
 const usuarioSchema = z.object({
   perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
   ativo: z.coerce.boolean(),
-  notificaPosVenda: z.coerce.boolean(),
   notificaWhatsappSemDono: z.coerce.boolean(),
 });
 
@@ -34,7 +37,6 @@ export async function atualizarUsuario(
   const dados = usuarioSchema.safeParse({
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
-    notificaPosVenda: marcado("notificaPosVenda"),
     notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
   });
 
@@ -63,15 +65,9 @@ export async function atualizarUsuario(
     .update({
       perfil: dados.data.perfil,
       ativo: dados.data.ativo,
-      // Quem não enxerga o módulo não pode ficar marcado para receber avisos
-      // dele — a caixa some da tela, mas a regra tem de valer no servidor.
-      notificaPosVenda:
-        dados.data.notificaPosVenda && podeLer(dados.data.perfil as Perfil, "posVenda"),
       // Só faz sentido para quem responde: o aviso é sobre fila de atendimento.
-
       notificaWhatsappSemDono:
         dados.data.notificaWhatsappSemDono &&
-
         podeEscrever(dados.data.perfil as Perfil, "posVenda"),
     })
     .eq("id", usuarioId);
@@ -90,7 +86,6 @@ const novoUsuarioSchema = z.object({
   senha: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
   perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
   ativo: z.coerce.boolean(),
-  notificaPosVenda: z.coerce.boolean(),
   notificaWhatsappSemDono: z.coerce.boolean(),
 });
 
@@ -109,7 +104,6 @@ export async function criarUsuario(
     senha: formData.get("senha"),
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
-    notificaPosVenda: marcado("notificaPosVenda"),
     notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
   });
 
@@ -125,14 +119,9 @@ export async function criarUsuario(
     senhaHash,
     perfil: dados.data.perfil,
     ativo: dados.data.ativo,
-    // Mesma regra da edição: só fica marcado quem enxerga o módulo.
-    notificaPosVenda:
-      dados.data.notificaPosVenda && podeLer(dados.data.perfil as Perfil, "posVenda"),
     // Só faz sentido para quem responde: o aviso é sobre fila de atendimento.
-
     notificaWhatsappSemDono:
       dados.data.notificaWhatsappSemDono &&
-
       podeEscrever(dados.data.perfil as Perfil, "posVenda"),
   });
 

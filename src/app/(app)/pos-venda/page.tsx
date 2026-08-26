@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { acessoModulo } from "@/lib/pagina-auth";
+import { acessoModulo, usuarioIdAtual } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import {
+  DIAS_SEM_MOVIMENTO_PADRAO,
   MESES_JANELA_RECORRENCIA,
   MIN_OCORRENCIAS_RECORRENCIA,
-  ORDEM_COLUNA_KANBAN,
-  ROTULO_COLUNA,
+  PERFIS_RESPONSAVEL_CHAMADO,
   colunaDoChamado,
+  diasSemMovimento,
   diferencaEmDias,
   hojeIso,
   mesesAtras,
-  type ColunaKanban,
+  semMovimento,
 } from "@/lib/pos-venda";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,19 +25,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatTile } from "@/components/dashboards/stat-tile";
-import { CardChamado, type ChamadoCard } from "@/components/pos-venda/card-chamado";
+import type { ChamadoCard } from "@/components/pos-venda/card-chamado";
+import { QuadroChamados, type ItemQuadro } from "@/components/pos-venda/quadro-chamados";
 import { BarraFiltros, type FiltrosPosVenda } from "@/components/pos-venda/filtros";
 import { chamadosComNovidade } from "@/lib/notificacoes-pos-venda";
 
+// interacoes(data) vem junto porque "sem movimento" é estado derivado: a data
+// da última movimentação não fica gravada em Chamado, sai da linha do tempo.
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial), tipo:TipoProblemaPosVenda(id, nome, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, concessionaria:Concessionaria(id, nome, sigla))";
+  "*, cliente:Cliente(id, razaoSocial), tipo:TipoProblemaPosVenda(id, nome, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, concessionaria:Concessionaria(id, nome, sigla)), interacoes:InteracaoChamado(data)";
 
 export default async function PaginaPosVenda({
   searchParams,
 }: {
   searchParams: Promise<FiltrosPosVenda>;
 }) {
-  const { perfil, userId } = await acessoModulo("posVenda");
+  const { perfil } = await acessoModulo("posVenda");
+  // Id conferido no banco, não o do JWT: é ele que responde pelo dono do chamado
+  // e pelas notificações, então é ele que o filtro "Meus chamados" compara.
+  const meuId = await usuarioIdAtual();
   const filtros = await searchParams;
   const podeEditar = podeEscrever(perfil, "posVenda");
   const hoje = hojeIso();
@@ -56,6 +62,7 @@ export default async function PaginaPosVenda({
     { data: tiposData },
     { data: usuariosData },
     { data: janelaData },
+    { data: parametros },
     novidades,
   ] = await Promise.all([
     query,
@@ -71,15 +78,27 @@ export default async function PaginaPosVenda({
       .select("id, nome, prazoDias, diasAlerta")
       .eq("ativo", true)
       .order("ordem"),
-    supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),
+    // Mesmo recorte do campo Responsável na abertura: o filtro não oferece
+    // quem nem pode ser dono de chamado.
+    supabase
+      .from("Usuario")
+      .select("id, nome")
+      .eq("ativo", true)
+      .in("perfil", PERFIS_RESPONSAVEL_CHAMADO)
+      .order("nome"),
     // Janela de recorrência deliberadamente fora dos filtros da tela: a marca
     // "Recorrente" descreve o histórico do cliente, não o recorte visível.
     supabase
       .from("Chamado")
       .select("clienteId, tipoProblemaId")
       .gte("abertoEm", mesesAtras(MESES_JANELA_RECORRENCIA, hoje)),
+    supabase
+      .from("ParametroGeral")
+      .select("diasSemMovimentoChamado")
+      .limit(1)
+      .maybeSingle(),
     // Marca no card o que mudou desde a última vez que este usuário olhou.
-    chamadosComNovidade(userId),
+    chamadosComNovidade(meuId),
   ]);
 
   const chamados = chamadosData ?? [];
@@ -98,15 +117,29 @@ export default async function PaginaPosVenda({
     [...chavesRecorrentes].map((chave) => chave.split("|")[0])
   );
 
+  // Prazo do destaque de parada, calibrável em ParametroGeral — nunca cravado
+  // no código.
+  const diasLimiteParado =
+    parametros?.diasSemMovimentoChamado ?? DIAS_SEM_MOVIMENTO_PADRAO;
+
   const itens = chamados.map((c) => {
     const coluna = colunaDoChamado(
       { estagio: c.estagio, prazoLimite: c.prazoLimite },
       c.tipo?.diasAlerta ?? 0,
       hoje
     );
+    // A última interação sai em memória: a lista já veio no mesmo select, e um
+    // order/limit por chamado seria uma consulta por card.
+    const movimento = {
+      estagio: c.estagio,
+      abertoEm: c.abertoEm,
+      ultimaInteracaoEm:
+        (c.interacoes ?? []).map((i) => i.data.slice(0, 10)).sort().at(-1) ?? null,
+    };
     const card: ChamadoCard = {
       id: c.id,
       numero: c.numero,
+      responsavelId: c.responsavelId,
       titulo: c.titulo,
       estagio: c.estagio,
       prioridade: c.prioridade,
@@ -123,6 +156,8 @@ export default async function PaginaPosVenda({
       coluna,
       recorrente: chavesRecorrentes.has(`${c.clienteId}|${c.tipoProblemaId}`),
       novidade: novidades.has(c.id),
+      parado: semMovimento(movimento, diasLimiteParado, hoje),
+      diasParado: diasSemMovimento(movimento, hoje),
       diasResolucao:
         c.concluidoEm ? diferencaEmDias(c.abertoEm, c.concluidoEm) : null,
       dentroDoPrazo: c.concluidoEm ? c.concluidoEm <= c.prazoLimite : null,
@@ -133,6 +168,7 @@ export default async function PaginaPosVenda({
 
   const abertos = itens.filter((i) => i.card.estagio !== "concluido").length;
   const vencidos = itens.filter((i) => i.coluna === "vencido").length;
+  const parados = itens.filter((i) => i.parado).length;
   const resolvidos = itens.filter((i) => i.diasResolucao !== null);
   const tempoMedio =
     resolvidos.length > 0
@@ -177,13 +213,21 @@ export default async function PaginaPosVenda({
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Cinco indicadores agora: em telas médias eles quebram em três por
+          linha em vez de espremer todos, que era o que empurrava a largura. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatTile label="Chamados abertos" value={String(abertos)} hint="fora de Concluído" />
         <StatTile
           label="Vencidos"
           value={String(vencidos)}
           tone={vencidos > 0 ? "destructive" : "default"}
           hint="prazo do SLA estourado"
+        />
+        <StatTile
+          label="Parados"
+          value={String(parados)}
+          tone={parados > 0 ? "destructive" : "default"}
+          hint={`${diasLimiteParado}+ dias sem registro novo`}
         />
         <StatTile
           label="Tempo médio de resolução"
@@ -209,40 +253,23 @@ export default async function PaginaPosVenda({
         responsaveis={usuariosData ?? []}
       />
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {ORDEM_COLUNA_KANBAN.map((coluna: ColunaKanban) => {
-          const daColuna = itens.filter((i) => i.coluna === coluna);
-          return (
-            <div key={coluna} className="flex w-64 shrink-0 flex-col gap-3">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-sm font-semibold">{ROTULO_COLUNA[coluna]}</h2>
-                <Badge variant={coluna === "vencido" && daColuna.length > 0 ? "destructive" : "outline"}>
-                  {daColuna.length}
-                </Badge>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {daColuna.map((item) => (
-                  <CardChamado
-                    key={item.card.id}
-                    chamado={item.card}
-                    coluna={coluna}
-                    hoje={hoje}
-                    recorrente={item.recorrente}
-                    novidade={item.novidade}
-                    podeEditar={podeEditar}
-                  />
-                ))}
-                {daColuna.length === 0 && (
-                  <p className="text-xs text-muted-foreground px-1 py-4 text-center">
-                    Nenhum chamado
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* O quadro é componente de cliente por causa do filtro "Meus chamados":
+          é recorte de leitura, resolvido na hora e sem ida ao servidor. */}
+      <QuadroChamados
+        itens={itens.map(
+          ({ card, coluna, recorrente, novidade, parado, diasParado }): ItemQuadro => ({
+            card,
+            coluna,
+            recorrente,
+            novidade,
+            parado,
+            diasParado,
+          })
+        )}
+        hoje={hoje}
+        podeEditar={podeEditar}
+        meuId={meuId}
+      />
 
       <Card>
         <CardHeader>

@@ -23,7 +23,6 @@ type ChamadoFormValues = {
   id: string;
   estagio: EstagioChamado;
   tipoProblemaId: string;
-  responsavelId: string;
   prioridade: PrioridadeChamado;
   unidadeConsumidoraId: string | null;
   obraId: string | null;
@@ -38,13 +37,11 @@ export function ChamadoEditarForm({
   unidades,
   obras,
   tipos,
-  usuarios,
 }: {
   chamado: ChamadoFormValues;
   unidades: UnidadeOpcao[];
   obras: ObraOpcao[];
   tipos: TipoProblemaOpcao[];
-  usuarios: { id: string; nome: string }[];
 }) {
   const atualizarComId = atualizarChamado.bind(null, chamado.id);
   const [estado, formAction, pendente] = useActionState<EstadoFormChamado, FormData>(
@@ -64,7 +61,7 @@ export function ChamadoEditarForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 max-w-3xl">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-3xl">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="estagio">Estágio</Label>
           <SelectNativo
@@ -108,20 +105,9 @@ export function ChamadoEditarForm({
           </SelectNativo>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="responsavelId">Responsável</Label>
-          <SelectNativo
-            id="responsavelId"
-            name="responsavelId"
-            defaultValue={chamado.responsavelId}
-          >
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nome}
-              </option>
-            ))}
-          </SelectNativo>
-        </div>
+        {/* O responsável não é editado aqui: repassar o chamado é ação
+            separada, no cabeçalho, com autorização própria (dono ou admin) e
+            registro na linha do tempo. */}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="unidadeConsumidoraId">Unidade consumidora</Label>
@@ -187,7 +173,7 @@ export function ChamadoEditarForm({
           />
         </div>
 
-        <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="solucao">
             Solução {estagio === "concluido" && <span className="text-destructive">*</span>}
           </Label>

@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { clienteIdDaObra, projetoDaObra } from "@/lib/obras";
 import { acessoModulo } from "@/lib/pagina-auth";
-import { podeEscrever } from "@/lib/permissoes";
+import { ROTULO_PERFIL, podeEscrever, type Perfil } from "@/lib/permissoes";
+import { PERFIS_RESPONSAVEL_CHAMADO } from "@/lib/pos-venda";
 import { ChamadoCriarForm } from "@/components/pos-venda/chamado-criar-form";
 
 export default async function PaginaNovoChamado() {
-  const { perfil, userId } = await acessoModulo("posVenda");
+  const { perfil } = await acessoModulo("posVenda");
   if (!podeEscrever(perfil, "posVenda")) redirect("/pos-venda");
 
   const [
@@ -40,7 +41,15 @@ export default async function PaginaNovoChamado() {
       .select("id, nome, prazoDias")
       .eq("ativo", true)
       .order("ordem"),
-    supabase.from("Usuario").select("id, nome").eq("ativo", true).order("nome"),
+    // Só quem consegue trabalhar o chamado pode ser apontado como dono dele —
+    // o mesmo critério de podeSerResponsavel(), aplicado já na consulta para
+    // não trazer nome que a tela teria de descartar depois.
+    supabase
+      .from("Usuario")
+      .select("id, nome, perfil")
+      .eq("ativo", true)
+      .in("perfil", PERFIS_RESPONSAVEL_CHAMADO)
+      .order("nome"),
   ]);
 
   return (
@@ -60,6 +69,16 @@ export default async function PaginaNovoChamado() {
             Cadastre os tipos e seus prazos
           </Link>{" "}
           antes de abrir chamados.
+        </p>
+      )}
+
+      {(usuarios ?? []).length === 0 && (
+        <p className="text-sm text-destructive mb-4">
+          Nenhum usuário ativo pode ser responsável por chamado.{" "}
+          <Link href="/administracao" className="underline">
+            Ative alguém com perfil de atendimento ou administrador
+          </Link>{" "}
+          antes de abrir chamados — todo chamado precisa de um dono.
         </p>
       )}
 
@@ -85,8 +104,13 @@ export default async function PaginaNovoChamado() {
           return clienteId ? [{ id: o.id, clienteId, rotulo: projetoDaObra(o) }] : [];
         })}
         tipos={tipos ?? []}
-        usuarios={usuarios ?? []}
-        responsavelPadraoId={userId}
+        responsaveis={(usuarios ?? []).map((u) => ({
+          id: u.id,
+          nome: u.nome,
+          // O perfil vai junto no rótulo para desempatar homônimo: dois "Ana"
+          // no combobox seriam uma escolha às cegas.
+          perfil: ROTULO_PERFIL[u.perfil as Perfil],
+        }))}
       />
     </div>
   );

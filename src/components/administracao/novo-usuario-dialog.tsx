@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { criarUsuario, type EstadoFormUsuario } from "@/app/(app)/administracao/actions";
-import { ROTULO_PERFIL, podeLer, type Perfil } from "@/lib/permissoes";
+import { ROTULO_PERFIL, type Perfil } from "@/lib/permissoes";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -46,10 +46,6 @@ function FormNovoUsuario({ aoCriar }: { aoCriar: () => void }) {
     undefined
   );
   const [perfil, setPerfil] = useState<Perfil>("comercial");
-
-  // Mesma regra da linha da lista: a caixa de aviso só faz sentido para quem
-  // enxerga o pós-venda, e o perfil escolhido muda isso na hora.
-  const vePosVenda = podeLer(perfil, "posVenda");
 
   useEffect(() => {
     if (estado?.ok) aoCriar();
@@ -100,13 +96,6 @@ function FormNovoUsuario({ aoCriar }: { aoCriar: () => void }) {
         <Checkbox name="ativo" defaultChecked />
         Ativo (pode entrar no sistema)
       </Label>
-
-      {vePosVenda && (
-        <Label className="flex items-center gap-2 font-normal">
-          <Checkbox name="notificaPosVenda" />
-          Recebe avisos do pós-venda
-        </Label>
-      )}
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
 

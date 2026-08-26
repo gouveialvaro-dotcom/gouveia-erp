@@ -7,7 +7,7 @@ import {
   type EstadoFormUsuario,
 } from "@/app/(app)/administracao/actions";
 import { cn } from "@/lib/utils";
-import { ROTULO_PERFIL, podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
+import { ROTULO_PERFIL, podeEscrever, type Perfil } from "@/lib/permissoes";
 import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,7 +21,6 @@ export type UsuarioLinhaValores = {
   email: string;
   perfil: Perfil;
   ativo: boolean;
-  notificaPosVenda: boolean;
   notificaWhatsappSemDono: boolean;
 };
 
@@ -41,7 +40,6 @@ export function UsuarioLinha({
   const [perfil, setPerfil] = useState<Perfil>(usuario.perfil);
 
   // Trocar o perfil aqui muda na hora se a caixa de notificação faz sentido.
-  const vePosVenda = podeLer(perfil, "posVenda");
   const escrevePosVenda = podeEscrever(perfil, "posVenda");
 
   return (
@@ -68,15 +66,6 @@ export function UsuarioLinha({
         <Checkbox name="ativo" defaultChecked={usuario.ativo} />
         Ativo
       </Label>
-
-      {vePosVenda ? (
-        <Label className="flex items-center gap-2 text-sm">
-          <Checkbox name="notificaPosVenda" defaultChecked={usuario.notificaPosVenda} />
-          Recebe avisos
-        </Label>
-      ) : (
-        <span className="text-xs text-muted-foreground">Sem acesso ao pós-venda</span>
-      )}
 
       {/* O aviso de conversa parada vai para todo mundo com escrita em
           posVenda, sem depender do flag acima — fila parada é problema do time.

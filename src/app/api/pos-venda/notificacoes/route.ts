@@ -3,8 +3,8 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao, respostaErroApi } from "@/lib/api-auth";
 import {
+  sincronizarChamados,
   sincronizarConversasSemDono,
-  sincronizarVencidos,
 } from "@/lib/notificacoes-pos-venda";
 import type { NotificacaoItem } from "@/lib/pos-venda";
 
@@ -15,23 +15,12 @@ export async function GET() {
     const { usuarioId } = await exigirPermissao("posVenda", "leitura");
 
     // Aproveita a batida do sino para materializar o que não tem evento de
-
-
-    // escrita: o vencimento do dia e a conversa que estourou as 2h úteis sem
-
-
-    // dono. Em paralelo — um não depende do outro e o sino bate a cada minuto.
-
-
+    // escrita: o chamado que venceu ou parou, e a conversa que estourou as 2h
+    // úteis sem dono. Em paralelo — um não depende do outro e o sino bate a
+    // cada minuto.
     await Promise.all([
-
-
-      sincronizarVencidos(usuarioId),
-
-
+      sincronizarChamados(usuarioId),
       sincronizarConversasSemDono(usuarioId),
-
-
     ]);
 
     const { data } = await supabase

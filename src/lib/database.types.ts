@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1396,6 +1396,7 @@ export type Database = {
           atualizadoPorId: string | null
           bdiPadrao: number
           diasSemanaComercial: number[]
+          diasSemMovimentoChamado: number
           diasUteisMes: number
           encargosSociais: number
           horaFimComercial: string
@@ -1412,6 +1413,7 @@ export type Database = {
           atualizadoPorId?: string | null
           bdiPadrao: number
           diasSemanaComercial?: number[]
+          diasSemMovimentoChamado?: number
           diasUteisMes?: number
           encargosSociais: number
           horaFimComercial?: string
@@ -1428,6 +1430,7 @@ export type Database = {
           atualizadoPorId?: string | null
           bdiPadrao?: number
           diasSemanaComercial?: number[]
+          diasSemMovimentoChamado?: number
           diasUteisMes?: number
           encargosSociais?: number
           horaFimComercial?: string
@@ -1919,6 +1922,9 @@ export type Database = {
         | "interacao_registrada"
         | "conversa_sem_dono"
         | "conversa_atribuida"
+        | "chamado_direcionado"
+        | "responsavel_alterado"
+        | "chamado_sem_movimento"
       TipoOrcamentoItem: "material" | "kit"
       TipoProposta: "usina_solar" | "redes"
       TipoUnidadeConsumidora: "geradora" | "beneficiaria"
@@ -2097,6 +2103,9 @@ export const Constants = {
         "interacao_registrada",
         "conversa_sem_dono",
         "conversa_atribuida",
+        "chamado_direcionado",
+        "responsavel_alterado",
+        "chamado_sem_movimento",
       ],
       TipoOrcamentoItem: ["material", "kit"],
       TipoProposta: ["usina_solar", "redes"],

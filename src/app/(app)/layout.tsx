@@ -25,10 +25,13 @@ export default async function AppLayout({
           nome={session.user.name ?? session.user.email ?? ""}
           perfil={perfil}
           // O sino só existe para quem enxerga o módulo; entre esses, quem
-          // recebe de fato é definido em /administracao.
+          // recebe de fato é derivado do chamado — o responsável e, conforme o
+          // aviso, os administradores ativos.
           mostrarNotificacoes={podeLer(perfil, "posVenda")}
         />
-        <main className="flex-1 p-6">{children}</main>
+        {/* min-w-0 pelo mesmo motivo do SidebarInset, e padding menor no
+            estreito: com p-6 fixo, metade da largura do celular ia em margem. */}
+        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
