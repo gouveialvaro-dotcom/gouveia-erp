@@ -6,12 +6,15 @@ import { supabase } from "@/lib/supabase";
 import { exigirAdmin, exigirPermissao } from "@/lib/api-auth";
 import { BUCKET_ANEXOS, TAMANHO_MAXIMO_ANEXO, nomeSeguro } from "@/lib/pos-venda";
 import {
+  TAMANHO_MAXIMO_ENVIO,
   chamadoCorrente,
   chaveTelefone,
   formatarTelefone,
   telefoneParaEnvio,
+  tipoParaGateway,
+  tipoPorMime,
 } from "@/lib/pos-venda-whatsapp";
-import { enviarTexto } from "@/lib/uazapi";
+import { enviarMidia, enviarTexto } from "@/lib/uazapi";
 import { donoDoTelefone, gravarTelefoneNaFicha } from "@/lib/whatsapp-cadastro";
 import { notificarConversa } from "@/lib/notificacoes-pos-venda";
 import { podeEscrever, type Perfil } from "@/lib/permissoes";
@@ -671,5 +674,123 @@ export async function iniciarConversa(
 
   if (!envio.ok) {
     return { erro: `Conversa criada e mensagem registrada, mas o envio falhou: ${envio.erro}` };
+  }
+}
+
+// --- Envio de arquivo e de voz -------------------------------------------
+
+export type EstadoArquivo = { erro?: string } | undefined;
+
+/** Segundos de vida da URL assinada entregue ao gateway. Curta porque a URL é
+ *  a única coisa que abre um bucket privado; longa o bastante para o gateway
+ *  baixar o arquivo antes de expirar mesmo com fila. */
+const VALIDADE_URL_GATEWAY = 300;
+
+/**
+ * Envia arquivo ou gravação de voz ao cliente.
+ *
+ * Mesma disciplina do envio de texto e pelo mesmo motivo: o arquivo sobe para o
+ * Storage e a mensagem é gravada ANTES de a mídia sair pelo gateway. Se o
+ * número cair no meio, a empresa perde a entrega, não o registro do que tentou
+ * mandar — e o atendente vê a mensagem marcada como não entregue em vez de
+ * ficar sem saber se foi.
+ */
+export async function enviarArquivo(
+  conversaId: string,
+  _estado: EstadoArquivo,
+  formData: FormData
+): Promise<EstadoArquivo> {
+  const { usuarioId } = await exigirPermissao("posVenda", "escrita");
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erro: "Selecione um arquivo." };
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_ENVIO) {
+    return { erro: "Arquivo maior que 10MB." };
+  }
+
+  const conversa = await carregarConversa(conversaId);
+  if (!conversa) return { erro: "Conversa não encontrada." };
+
+  const ehVoz = formData.get("voz") === "1";
+  const legenda = String(formData.get("legenda") ?? "").trim() || null;
+  const tipo = ehVoz ? ("audio" as const) : tipoPorMime(arquivo.type);
+  const nome = ehVoz ? `voz-${Date.now()}.ogg` : arquivo.name;
+
+  const caminho = `${conversaId}/${crypto.randomUUID()}-${nomeSeguro(nome)}`;
+  const { error: erroUpload } = await supabase.storage
+    .from(BUCKET_MIDIA)
+    .upload(caminho, arquivo, { contentType: arquivo.type || undefined });
+
+  if (erroUpload) return { erro: "Falha ao subir o arquivo." };
+
+  const agora = new Date().toISOString();
+
+  const { data: gravada, error: erroGravacao } = await supabase
+    .from("MensagemWhatsapp")
+    .insert({
+      conversaId,
+      direcao: "saida",
+      tipo,
+      conteudo: legenda,
+      enviadoPorId: usuarioId,
+      chamadoId: chamadoCorrente(conversa, conversa.chamadoAtivo),
+      caminhoStorage: caminho,
+      nomeArquivo: nome,
+      tamanho: arquivo.size,
+      mime: arquivo.type || null,
+      entregue: false,
+      recebidoEm: agora,
+    })
+    .select("id")
+    .single();
+
+  // Sem o registro no banco o objeto vira lixo invisível no bucket.
+  if (erroGravacao || !gravada) {
+    await supabase.storage.from(BUCKET_MIDIA).remove([caminho]);
+    return { erro: "Não foi possível registrar a mensagem." };
+  }
+
+  const { data: assinada } = await supabase.storage
+    .from(BUCKET_MIDIA)
+    .createSignedUrl(caminho, VALIDADE_URL_GATEWAY);
+
+  let envio: { ok: boolean; idExterno?: string | null; erro?: string };
+  if (!assinada?.signedUrl) {
+    envio = { ok: false, erro: "Falha ao gerar o link temporário do arquivo." };
+  } else {
+    envio = await enviarMidia(
+      telefoneParaEnvio(conversa.telefoneExibicao),
+      tipoParaGateway(tipo, ehVoz),
+      assinada.signedUrl,
+      legenda,
+      nome
+    );
+  }
+
+  await supabase
+    .from("MensagemWhatsapp")
+    .update({
+      entregue: envio.ok,
+      erroEnvio: envio.ok ? null : (envio.erro ?? "Falha desconhecida no envio."),
+      mensagemExternaId: envio.ok ? (envio.idExterno ?? null) : null,
+    })
+    .eq("id", gravada.id);
+
+  await supabase
+    .from("ConversaWhatsapp")
+    .update({
+      pendente: false,
+      ultimaMensagemEm: agora,
+      ultimaMensagemDirecao: "saida",
+      atualizadoEm: agora,
+    })
+    .eq("id", conversaId);
+
+  revalidar();
+
+  if (!envio.ok) {
+    return { erro: `Arquivo registrado, mas o envio falhou: ${envio.erro}` };
   }
 }

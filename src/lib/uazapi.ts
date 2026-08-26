@@ -130,3 +130,43 @@ export async function baixarArquivo(url: string) {
     return null;
   }
 }
+
+/** Tipos que a uazapi aceita em /send/media. "ptt" é o áudio que o WhatsApp
+ *  mostra como mensagem de voz, com a onda e o play — diferente de "audio",
+ *  que chega como arquivo anexado. */
+export type TipoMidiaUazapi = "image" | "video" | "audio" | "document" | "ptt";
+
+export type EnvioMidia = { ok: true; idExterno: string | null } | { ok: false; erro: string };
+
+/**
+ * POST /send/media.
+ *
+ * O arquivo vai por URL, e não por base64: base64 cresce o corpo em ~33% e a
+ * Server Action que recebe o upload já opera perto do limite de 11 MB
+ * configurado em next.config. A URL é assinada e de vida curta — o bucket
+ * "whatsapp" é privado, e é o gateway que precisa alcançar o arquivo, não o
+ * público.
+ */
+export async function enviarMidia(
+  numero: string,
+  tipo: TipoMidiaUazapi,
+  urlArquivo: string,
+  legenda?: string | null,
+  nomeArquivo?: string | null
+): Promise<EnvioMidia> {
+  const corpo: Record<string, unknown> = {
+    number: apenasDigitos(numero),
+    type: tipo,
+    file: urlArquivo,
+  };
+
+  if (legenda) corpo.caption = legenda;
+  // O nome só faz sentido em documento: é o que o cliente vê no anexo. Em
+  // imagem e áudio o WhatsApp ignora e mostra a mídia.
+  if (nomeArquivo && tipo === "document") corpo.docName = nomeArquivo;
+
+  const resposta = await chamar("/send/media", corpo);
+
+  if (!resposta.ok) return { ok: false, erro: resposta.erro };
+  return { ok: true, idExterno: idExterno(resposta.dados) };
+}

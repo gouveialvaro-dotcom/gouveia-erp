@@ -300,3 +300,35 @@ export function ehEnvioAtivo(ultimaEntradaEm: string | null, agora = Date.now())
   if (!ultimaEntradaEm) return true;
   return agora - new Date(ultimaEntradaEm).getTime() > HORAS_SILENCIO_PARA_AVISO * 3_600_000;
 }
+
+// --- Envio de arquivo -----------------------------------------------------
+
+/**
+ * Teto do arquivo que sai pela tela.
+ *
+ * Não é limite do WhatsApp (que aceita mais), e sim do caminho: o upload sobe
+ * por Server Action, e next.config fixa serverActions.bodySizeLimit em 11 MB
+ * para cobrir o overhead do multipart. Passar disso derruba a requisição antes
+ * de qualquer validação nossa rodar, com erro que não diz nada ao usuário.
+ */
+export const TAMANHO_MAXIMO_ENVIO = 10 * 1024 * 1024;
+
+/** O que o campo de arquivo oferece. Vídeo fica de fora da Fase 3: o limite de
+ *  10 MB do caminho tornaria quase todo vídeo de celular inviável, e prometer
+ *  na interface o que falha na hora é pior que não oferecer. */
+export const TIPOS_ACEITOS_ENVIO =
+  "image/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt";
+
+/**
+ * Traduz o nosso tipo para o da uazapi.
+ *
+ * `ehVoz` separa a gravação feita na tela do arquivo de áudio anexado: a
+ * primeira vira "ptt" e chega como mensagem de voz, com onda e play; a segunda
+ * vira "audio" e chega como arquivo. Para o cliente são coisas visivelmente
+ * diferentes.
+ */
+export function tipoParaGateway(tipo: TipoMensagem, ehVoz = false) {
+  if (tipo === "imagem") return "image" as const;
+  if (tipo === "audio") return ehVoz ? ("ptt" as const) : ("audio" as const);
+  return "document" as const;
+}
