@@ -422,6 +422,7 @@ const interacaoSchema = z.object({
     "whatsapp",
     "reuniao",
     "visita",
+    "agencia_cosern",
     "protocolo",
     "nota_interna",
   ]),

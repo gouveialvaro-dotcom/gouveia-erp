@@ -68,6 +68,7 @@ export const ROTULO_TIPO_INTERACAO: Record<Enums["TipoInteracaoChamado"], string
   whatsapp: "WhatsApp",
   reuniao: "Reunião",
   visita: "Visita técnica",
+  agencia_cosern: "Agência Cosern",
   protocolo: "Protocolo",
   nota_interna: "Nota interna",
 };

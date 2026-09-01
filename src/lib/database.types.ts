@@ -1912,6 +1912,7 @@ export type Database = {
         | "whatsapp"
         | "reuniao"
         | "visita"
+        | "agencia_cosern"
         | "protocolo"
         | "nota_interna"
       TipoMensagemWhatsapp: "texto" | "imagem" | "documento" | "audio"
@@ -2092,6 +2093,7 @@ export const Constants = {
         "whatsapp",
         "reuniao",
         "visita",
+        "agencia_cosern",
         "protocolo",
         "nota_interna",
       ],
