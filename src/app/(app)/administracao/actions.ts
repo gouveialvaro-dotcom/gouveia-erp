@@ -191,3 +191,127 @@ export async function excluirUsuario(
 
   revalidatePath(ROTA);
 }
+
+// --- Senha ---------------------------------------------------------------
+// Dois caminhos, de propósito diferentes:
+//
+//   alterarMinhaSenha    — qualquer pessoa logada, sobre a própria conta,
+//                          provando que sabe a senha atual;
+//   redefinirSenhaUsuario — administrador sobre a conta de outra pessoa, sem
+//                          a senha antiga (é o caso de quem esqueceu), o que
+//                          antes só existia rodando `npm run seed`.
+//
+// Em nenhum dos dois a senha nova volta para a tela: quem redefine combina a
+// provisória com a pessoa por fora e ela troca depois pelo primeiro caminho.
+export type EstadoSenha = { erro?: string; ok?: boolean } | undefined;
+
+const minhaSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1, "Informe a senha atual."),
+    novaSenha: z.string().min(8, "A nova senha precisa ter pelo menos 8 caracteres."),
+    confirmacao: z.string().min(1, "Repita a nova senha."),
+  })
+  .refine((d) => d.novaSenha === d.confirmacao, {
+    message: "A confirmação não confere com a nova senha.",
+    path: ["confirmacao"],
+  })
+  .refine((d) => d.novaSenha !== d.senhaAtual, {
+    message: "A nova senha precisa ser diferente da atual.",
+    path: ["novaSenha"],
+  });
+
+export async function alterarMinhaSenha(
+  _estado: EstadoSenha,
+  formData: FormData
+): Promise<EstadoSenha> {
+  // "conta", e não "administracao": esta action é o único ponto de
+  // /administracao que os demais perfis alcançam.
+  const { usuarioId } = await exigirPermissao("conta", "escrita");
+
+  const dados = minhaSenhaSchema.safeParse({
+    senhaAtual: formData.get("senhaAtual"),
+    novaSenha: formData.get("novaSenha"),
+    confirmacao: formData.get("confirmacao"),
+  });
+
+  if (!dados.success) {
+    return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  // O id vem de exigirPermissao (conferido no banco), nunca do formulário:
+  // é o que impede alguém de mandar o id de outra pessoa no envio.
+  const { data: usuario } = await supabase
+    .from("Usuario")
+    .select("senhaHash")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!usuario) return { erro: "Usuário não encontrado." };
+
+  const confere = await bcrypt.compare(dados.data.senhaAtual, usuario.senhaHash);
+  if (!confere) return { erro: "A senha atual não confere." };
+
+  const senhaHash = await bcrypt.hash(dados.data.novaSenha, 10);
+
+  const { error } = await supabase
+    .from("Usuario")
+    .update({ senhaHash })
+    .eq("id", usuarioId);
+
+  if (error) return { erro: "Não foi possível alterar a senha." };
+
+  return { ok: true };
+}
+
+const redefinirSenhaSchema = z
+  .object({
+    novaSenha: z.string().min(8, "A nova senha precisa ter pelo menos 8 caracteres."),
+    confirmacao: z.string().min(1, "Repita a nova senha."),
+  })
+  .refine((d) => d.novaSenha === d.confirmacao, {
+    message: "A confirmação não confere com a nova senha.",
+    path: ["confirmacao"],
+  });
+
+export async function redefinirSenhaUsuario(
+  usuarioId: string,
+  _estado: EstadoSenha,
+  formData: FormData
+): Promise<EstadoSenha> {
+  const { usuarioId: eu } = await exigirPermissao("administracao", "escrita");
+
+  // A própria senha se troca pelo cartão "Minha senha", que exige a atual.
+  // Aceitar o atalho aqui seria abrir mão dessa prova sem ganhar nada: quem
+  // está logado já tem a tela na frente.
+  if (usuarioId === eu) {
+    return { erro: 'Para trocar a sua própria senha, use o cartão "Minha senha".' };
+  }
+
+  const dados = redefinirSenhaSchema.safeParse({
+    novaSenha: formData.get("novaSenha"),
+    confirmacao: formData.get("confirmacao"),
+  });
+
+  if (!dados.success) {
+    return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { data: alvo } = await supabase
+    .from("Usuario")
+    .select("id")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!alvo) return { erro: "Usuário não encontrado." };
+
+  const senhaHash = await bcrypt.hash(dados.data.novaSenha, 10);
+
+  const { error } = await supabase
+    .from("Usuario")
+    .update({ senhaHash })
+    .eq("id", usuarioId);
+
+  if (error) return { erro: "Não foi possível redefinir a senha." };
+
+  return { ok: true };
+}

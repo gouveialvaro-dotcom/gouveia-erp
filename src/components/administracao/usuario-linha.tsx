@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
 import { COLUNAS_USUARIO } from "@/components/administracao/colunas";
+import { RedefinirSenhaDialog } from "@/components/administracao/redefinir-senha-dialog";
 
 export type UsuarioLinhaValores = {
   id: string;
@@ -29,7 +30,8 @@ export function UsuarioLinha({
   ehVoce = false,
 }: {
   usuario: UsuarioLinhaValores;
-  /** Ninguém apaga o próprio acesso — a action recusa, aqui o botão nem aparece. */
+  /** Na sua própria linha não aparecem "Senha" nem "Excluir": a action recusa
+   *  os dois, e a troca da sua senha é no cartão "Minha senha" logo acima. */
   ehVoce?: boolean;
 }) {
   const salvar = atualizarUsuario.bind(null, usuario.id);
@@ -88,6 +90,13 @@ export function UsuarioLinha({
         <Button type="submit" variant="outline" size="sm" disabled={pendente}>
           {pendente ? "Salvando..." : "Salvar"}
         </Button>
+        {!ehVoce && (
+          <RedefinirSenhaDialog
+            usuarioId={usuario.id}
+            nome={usuario.nome}
+            email={usuario.email}
+          />
+        )}
         {!ehVoce && (
           <BotaoExcluir
             acao={excluirUsuario}

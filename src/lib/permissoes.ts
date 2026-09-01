@@ -9,7 +9,8 @@ export type Modulo =
   | "obras"
   | "dashboards"
   | "chat"
-  | "administracao";
+  | "administracao"
+  | "conta"; // a própria conta do usuário logado: hoje, só a troca de senha
 
 export type NivelAcesso = "nenhum" | "leitura" | "escrita";
 
@@ -95,6 +96,17 @@ const MATRIZ: Record<Modulo, Record<Perfil, NivelAcesso>> = {
     engenharia: "nenhum",
     obra: "nenhum",
     atendimento: "nenhum",
+    admin: "escrita",
+  },
+  // Toda pessoa logada manda na própria senha, inclusive quem não enxerga
+  // nenhum outro canto de /administracao. A linha existe para que a troca de
+  // senha seja negada num lugar só, caso um dia precise ser desligada para
+  // algum perfil — e não com um `if (perfil === ...)` solto na action.
+  conta: {
+    comercial: "escrita",
+    engenharia: "escrita",
+    obra: "escrita",
+    atendimento: "escrita",
     admin: "escrita",
   },
 };

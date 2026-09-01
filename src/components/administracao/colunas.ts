@@ -4,6 +4,6 @@
 // sem grade nenhuma e as legendas empilhavam.
 // A trilha das ações tem largura fixa em vez de `auto` porque cabeçalho e
 // linhas são grids independentes: dimensionada pelo conteúdo, ela mede
-// diferente em cada linha (a sua própria não tem "Excluir") e arrasta as
+// diferente em cada linha (a sua própria não tem "Senha" nem "Excluir") e arrasta as
 // colunas seguintes para lados diferentes.
-export const COLUNAS_USUARIO = "md:grid-cols-[minmax(0,1fr)_11rem_6rem_10rem_9rem]";
+export const COLUNAS_USUARIO = "md:grid-cols-[minmax(0,1fr)_11rem_6rem_10rem_15rem]";

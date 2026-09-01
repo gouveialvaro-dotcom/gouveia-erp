@@ -50,7 +50,14 @@ const ITENS: ItemNav[] = [
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
   { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"] },
   { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
-  { titulo: "Administração", href: "/administracao", icone: ShieldCheck, modulos: ["administracao"] },
+  // Visível para todo mundo por causa de "conta": quem não é admin entra só
+  // para trocar a própria senha e não vê a lista de usuários.
+  {
+    titulo: "Administração",
+    href: "/administracao",
+    icone: ShieldCheck,
+    modulos: ["administracao", "conta"],
+  },
 ];
 
 export function AppSidebar({ perfil }: { perfil: Perfil }) {
