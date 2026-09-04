@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { avancarEstagio, voltarEstagio } from "./actions";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function PaginaCrm() {
   const { perfil } = await acessoModulo("crm");
@@ -25,19 +26,18 @@ export default async function PaginaCrm() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">CRM / Propostas</h1>
-          <p className="text-sm text-muted-foreground">
-            Funil de oportunidades comerciais — {oportunidades.length} no total
-          </p>
-        </div>
-        {podeEditar && (
+      <TituloPagina
+        titulo="CRM / Propostas"
+        subtitulo={`Funil de oportunidades comerciais — ${oportunidades.length} no total`}
+      />
+
+      {podeEditar && (
+        <div className="flex justify-end">
           <Button render={<Link href="/crm/novo" />} nativeButton={false}>
             + Nova oportunidade
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex gap-4 overflow-x-auto pb-2">
         {ORDEM_ESTAGIO_KANBAN.map((estagio) => {

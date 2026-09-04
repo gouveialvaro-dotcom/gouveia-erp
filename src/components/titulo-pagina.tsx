@@ -3,17 +3,22 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 /**
- * Slot de título na barra superior.
+ * Título da página — sempre na barra superior.
+ *
+ * O padrão do sistema é este: nenhuma página desenha o próprio H1 no corpo.
+ * Ela publica título (e subtítulo, quando houver) por aqui e a Topbar os
+ * renderiza. Assim o topo fica no mesmo lugar em toda tela, o corpo começa
+ * direto no conteúdo e nenhuma página gasta ~60px de altura repetindo o nome
+ * do módulo.
  *
  * A Topbar mora no layout, acima do `children`, então uma página não consegue
  * simplesmente renderizar dentro dela. O caminho é a página publicar o título
  * num contexto que envolve as duas — daí o provedor ficar no layout, em volta
  * da Topbar E do main.
  *
- * Quem não publica nada não muda: o slot fica vazio e a barra continua como
- * era. Isso importa porque a barra é de todas as páginas, e só o WhatsApp
- * precisou dessa mudança — nas outras o título continua no corpo, onde há
- * espaço vertical de sobra.
+ * Quem publica é a rota mais específica que tem nome próprio: em módulos com
+ * layout de aba (Cadastros, Programação) quem publica é o layout, e as páginas
+ * filhas não publicam nada — duas publicações na mesma rota disputariam o slot.
  */
 type Titulo = { titulo: string; subtitulo?: string | null } | null;
 

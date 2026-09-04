@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
 import { ProgramacaoSubnav } from "@/components/programacao/subnav";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function ProgramacaoLayout({
   children,
@@ -17,10 +18,8 @@ export default async function ProgramacaoLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Programação</h1>
-        <ProgramacaoSubnav perfil={perfil} />
-      </div>
+      <TituloPagina titulo="Programação" />
+      <ProgramacaoSubnav perfil={perfil} />
       {children}
     </div>
   );

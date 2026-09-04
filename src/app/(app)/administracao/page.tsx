@@ -6,6 +6,7 @@ import { COLUNAS_USUARIO } from "@/components/administracao/colunas";
 import { UsuarioLinha } from "@/components/administracao/usuario-linha";
 import { NovoUsuarioDialog } from "@/components/administracao/novo-usuario-dialog";
 import { MinhaSenhaCard } from "@/components/administracao/minha-senha-card";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 // A página tem dois públicos. Todo usuário logado entra para trocar a própria
 // senha ("conta"); só o administrador enxerga a gestão de usuários abaixo — por
@@ -36,17 +37,20 @@ export default async function PaginaAdministracao() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Administração</h1>
-          <p className="text-sm text-muted-foreground">
-            {ehAdmin
-              ? `Perfil de acesso e situação — ${usuarios.length} usuário(s).`
-              : "Sua conta de acesso ao sistema."}
-          </p>
+      <TituloPagina
+        titulo="Administração"
+        subtitulo={
+          ehAdmin
+            ? `Perfil de acesso e situação — ${usuarios.length} usuário(s).`
+            : "Sua conta de acesso ao sistema."
+        }
+      />
+
+      {ehAdmin && (
+        <div className="flex justify-end">
+          <NovoUsuarioDialog />
         </div>
-        {ehAdmin && <NovoUsuarioDialog />}
-      </div>
+      )}
 
       <MinhaSenhaCard email={eu?.email ?? nome} />
 

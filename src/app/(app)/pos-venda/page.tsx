@@ -29,6 +29,7 @@ import type { ChamadoCard } from "@/components/pos-venda/card-chamado";
 import { QuadroChamados, type ItemQuadro } from "@/components/pos-venda/quadro-chamados";
 import { BarraFiltros, type FiltrosPosVenda } from "@/components/pos-venda/filtros";
 import { chamadosComNovidade } from "@/lib/notificacoes-pos-venda";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 // interacoes(data) vem junto porque "sem movimento" é estado derivado: a data
 // da última movimentação não fica gravada em Chamado, sai da linha do tempo.
@@ -199,26 +200,25 @@ export default async function PaginaPosVenda({
 
   return (
     <div className="flex flex-col gap-4">
+      <TituloPagina
+        titulo="Pós-venda"
+        subtitulo={`Chamados de assistência sobre usinas entregues — ${itens.length} no recorte atual`}
+      />
+
       {/* O quadro é componente de cliente por causa do filtro "Meus chamados":
           é recorte de leitura, resolvido na hora e sem ida ao servidor. É ele
           também que gruda o cabeçalho no topo, junto do próprio botão — daí
-          título, indicadores e filtros entrarem por `cabecalho`. */}
+          indicadores e filtros entrarem por `cabecalho`. */}
       <QuadroChamados
         cabecalho={
           <>
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Pós-venda</h1>
-                <p className="text-sm text-muted-foreground">
-                  Chamados de assistência sobre usinas entregues — {itens.length} no recorte atual
-                </p>
-              </div>
-              {podeEditar && (
+            {podeEditar && (
+              <div className="flex justify-end">
                 <Button render={<Link href="/pos-venda/novo" />} nativeButton={false}>
                   + Novo chamado
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Cinco indicadores agora: em telas médias eles quebram em três por
                 linha em vez de espremer todos, que era o que empurrava a largura. */}

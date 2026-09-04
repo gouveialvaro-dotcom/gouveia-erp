@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/dashboards/stat-tile";
 import { GraficoPipeline, type ItemPipeline } from "@/components/dashboards/pipeline-chart";
 import { GraficoCustoObras, type ItemCustoObra } from "@/components/dashboards/custo-obras-chart";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 const ROTULO_STATUS_ORCAMENTO: Record<string, string> = {
   em_elaboracao: "Em elaboração",
@@ -123,10 +124,7 @@ export default async function PaginaDashboards() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboards</h1>
-        <p className="text-sm text-muted-foreground">Indicadores comerciais e de obras</p>
-      </div>
+      <TituloPagina titulo="Dashboards" subtitulo="Indicadores comerciais e de obras" />
 
       {semAcesso && (
         <Card className="max-w-md">

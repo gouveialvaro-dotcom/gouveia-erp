@@ -33,44 +33,37 @@ export function Topbar({
   const tituloPagina = useTituloPagina();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+    // px acompanha o padding do main para o título nascer alinhado com o
+    // conteúdo da página, e não deslocado alguns pixels à esquerda.
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 sm:px-6">
       {/* No desktop o botão de recolher vive dentro da própria sidebar. No
           mobile ela vira um painel deslizante, e um gatilho interno ficaria
           inalcançável com o painel fechado — por isso este permanece aqui. */}
       <SidebarTrigger className="md:hidden" />
-      {/* Título publicado pela página (ver components/titulo-pagina). Quando
 
-          nenhuma publica, o bloco fica vazio e só serve de espaçador — a barra
-
-          continua como era nas demais telas. */}
-
+      {/* H1 de toda página do sistema (ver components/titulo-pagina). Enquanto
+          nenhuma rota publica — no primeiro paint, antes da hidratação — o
+          bloco fica vazio e só serve de espaçador. */}
       <div className="mr-auto flex min-w-0 flex-col leading-tight">
-
         {tituloPagina && (
-
           <>
-
-            <h1 className="truncate text-sm font-semibold">{tituloPagina.titulo}</h1>
-
+            <h1 className="truncate text-base font-semibold tracking-tight">
+              {tituloPagina.titulo}
+            </h1>
             {tituloPagina.subtitulo && (
-
               <span className="truncate text-xs text-muted-foreground">
-
                 {tituloPagina.subtitulo}
-
               </span>
-
             )}
-
           </>
-
         )}
-
       </div>
 
       <div className="flex items-center gap-3">
         {mostrarNotificacoes && <SinoNotificacoes />}
-        <div className="flex flex-col items-end leading-tight">
+        {/* O nome some no estreito: com título na barra, os dois brigam pela
+            mesma linha e o título é que precisa da largura. */}
+        <div className="hidden flex-col items-end leading-tight sm:flex">
           <span className="text-sm font-medium">{nome}</span>
           <span className="text-xs text-muted-foreground">
             {ROTULO_PERFIL[perfil] ?? perfil}

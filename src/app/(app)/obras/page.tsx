@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { criarObra } from "./actions";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function PaginaObras() {
   const { perfil } = await acessoModulo("obras");
@@ -61,14 +62,13 @@ export default async function PaginaObras() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Obras</h1>
-          <p className="text-sm text-muted-foreground">
-            Acompanhamento pós-venda — {obras.length} obra(s)
-          </p>
-        </div>
-        {podeEditar && (
+      <TituloPagina
+        titulo="Obras"
+        subtitulo={`Acompanhamento pós-venda — ${obras.length} obra(s)`}
+      />
+
+      {podeEditar && (
+        <div className="flex justify-end">
           <Button
             render={<Link href="/obras/nova" />}
             nativeButton={false}
@@ -76,8 +76,8 @@ export default async function PaginaObras() {
           >
             + Nova obra
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {podeEditar && oportunidadesAguardando.length > 0 && (
         <Card>

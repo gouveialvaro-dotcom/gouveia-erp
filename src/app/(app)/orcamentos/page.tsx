@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 const ROTULO_STATUS: Record<string, { texto: string; variant: "secondary" | "outline" | "default" }> = {
   em_elaboracao: { texto: "Em elaboração", variant: "secondary" },
@@ -45,16 +46,16 @@ export default async function PaginaOrcamentos({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Orçamentos</h1>
+      <TituloPagina
+        titulo="Orçamentos"
+        subtitulo={`${orcamentos.length} orçamento(s) cadastrado(s)`}
+      />
 
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <p className="text-sm text-muted-foreground">
-          {orcamentos.length} orçamento(s) cadastrado(s)
-        </p>
-        {podeEditar && (
+      {podeEditar && (
+        <div className="flex justify-end">
           <Button render={<Link href="/orcamentos/novo" />} nativeButton={false}>+ Novo orçamento</Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <form className="max-w-sm">
         <Input name="q" defaultValue={q} placeholder="Buscar por nome do projeto..." />

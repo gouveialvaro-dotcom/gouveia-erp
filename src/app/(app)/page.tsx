@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function PaginaInicial() {
   const session = await auth();
@@ -12,14 +13,10 @@ export default async function PaginaInicial() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Olá, {primeiroNome}
-        </h1>
-        <p className="text-muted-foreground">
-          Painel de gestão interna da Gouveia Engenharia.
-        </p>
-      </div>
+      <TituloPagina
+        titulo={`Olá, ${primeiroNome}`}
+        subtitulo="Painel de gestão interna da Gouveia Engenharia."
+      />
 
       <Card className="max-w-xl">
         <CardHeader>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { CadastrosSubnav } from "@/components/cadastros/subnav";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
+import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function CadastrosLayout({
   children,
@@ -20,10 +21,8 @@ export default async function CadastrosLayout({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Cadastros</h1>
-        <CadastrosSubnav perfil={perfil} />
-      </div>
+      <TituloPagina titulo="Cadastros" />
+      <CadastrosSubnav perfil={perfil} />
       {children}
     </div>
   );
