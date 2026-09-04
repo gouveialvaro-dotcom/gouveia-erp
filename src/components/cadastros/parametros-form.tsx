@@ -14,6 +14,7 @@ type ParametrosValues = {
   margemMinima: string;
   validadePropostaPadraoDias: number;
   diasUteisMes: number;
+  tetoDiarioAvisosProgramacao: number;
   textoImpostosPadrao: string;
 };
 
@@ -55,6 +56,28 @@ export function ParametrosForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="diasUteisMes">Dias úteis considerados por mês</Label>
           <Input id="diasUteisMes" name="diasUteisMes" type="number" defaultValue={parametros.diasUteisMes} disabled={somenteLeitura} required />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label htmlFor="tetoDiarioAvisosProgramacao">
+            Teto diário de avisos de programação
+          </Label>
+          <Input
+            id="tetoDiarioAvisosProgramacao"
+            name="tetoDiarioAvisosProgramacao"
+            type="number"
+            min="0"
+            defaultValue={parametros.tetoDiarioAvisosProgramacao}
+            disabled={somenteLeitura}
+            required
+          />
+          {/* Não é regra de negócio da empresa: é contenção técnica. O aviso de
+              programação sai pelo mesmo número corporativo do atendimento, por
+              uma integração não oficial, e volume alto é o que leva ao bloqueio
+              pela Meta. Fica aqui para poder ser afrouxado sem deploy. */}
+          <p className="text-xs text-muted-foreground">
+            Limite de mensagens que a publicação da programação pode disparar por dia. Existe
+            para proteger o número corporativo — a integração do WhatsApp não é oficial.
+          </p>
         </div>
       </div>
       <div className="flex flex-col gap-1.5 max-w-2xl">

@@ -4,6 +4,7 @@ import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { formatarMoeda } from "@/lib/format";
 import { custoDiarioMaoObra, DIAS_UTEIS_MES_PADRAO } from "@/lib/mao-obra";
+import { formatarTelefone } from "@/lib/pos-venda-whatsapp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -51,6 +52,7 @@ export default async function PaginaFuncionarios() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Função/Cargo</TableHead>
+              <TableHead>WhatsApp</TableHead>
               <TableHead className="text-right">Salário mensal</TableHead>
               <TableHead className="text-right">Encargos</TableHead>
               <TableHead className="text-right">Custo/dia (com encargos)</TableHead>
@@ -74,6 +76,16 @@ export default async function PaginaFuncionarios() {
                   {/* Cai para `cargo` porque ele é a foto do nome da função no
                       momento do cadastro — sobrevive a uma função removida. */}
                   <TableCell>{f.funcao?.nome ?? f.cargo}</TableCell>
+                  {/* Sem número a pessoa não pode ser motorista de uma linha
+                      com veículo — o vazio aqui é informação, não decoração. */}
+                  <TableCell className={f.telefone ? "" : "text-muted-foreground"}>
+                    {f.telefone ? formatarTelefone(f.telefone) : "—"}
+                    {f.telefone && !f.recebeProgramacao && (
+                      <Badge variant="outline" className="ml-2">
+                        aviso desligado
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">{formatarMoeda(f.salarioMensal)}</TableCell>
                   <TableCell className="text-right">{f.encargosPercent}%</TableCell>
                   <TableCell className="text-right">{formatarMoeda(custoDia)}</TableCell>
@@ -87,7 +99,7 @@ export default async function PaginaFuncionarios() {
             })}
             {funcionarios.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Nenhum funcionário cadastrado.
                 </TableCell>
               </TableRow>

@@ -13,6 +13,9 @@ const parametrosSchema = z.object({
   margemMinima: z.coerce.number().min(0),
   validadePropostaPadraoDias: z.coerce.number().int().positive(),
   diasUteisMes: z.coerce.number().int().positive(),
+  // Contenção técnica do envio de avisos da programação de logística, não
+  // regra de negócio: mora aqui para ser calibrado sem deploy.
+  tetoDiarioAvisosProgramacao: z.coerce.number().int().min(0),
   textoImpostosPadrao: z.string().min(1),
 });
 
@@ -37,6 +40,7 @@ export async function salvarParametros(
     margemMinima: formData.get("margemMinima"),
     validadePropostaPadraoDias: formData.get("validadePropostaPadraoDias"),
     diasUteisMes: formData.get("diasUteisMes"),
+    tetoDiarioAvisosProgramacao: formData.get("tetoDiarioAvisosProgramacao"),
     textoImpostosPadrao: formData.get("textoImpostosPadrao"),
   });
 

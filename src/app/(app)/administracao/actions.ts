@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
 import { podeEscrever, type Perfil } from "@/lib/permissoes";
+import { chaveTelefone } from "@/lib/pos-venda-whatsapp";
 import type { EstadoExclusao } from "@/components/ui/botao-excluir";
 
 const ROTA = "/administracao";
@@ -19,9 +20,21 @@ export type EstadoFormUsuario = { erro?: string; ok?: boolean } | undefined;
 // o responsável, mais os admins ativos. A coluna continua no banco, inativa
 // (ver scripts/sql/010-chamado-responsavel.sql).
 const usuarioSchema = z.object({
-  perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
+  perfil: z.enum([
+    "comercial",
+    "engenharia",
+    "obra",
+    "atendimento",
+    "logistica",
+    "admin",
+  ]),
   ativo: z.coerce.boolean(),
   notificaWhatsappSemDono: z.coerce.boolean(),
+  // WhatsApp do usuário: é por ele que o responsável recebe o aviso de
+  // alteração da programação. Opcional aqui e obrigatório lá — sem número, a
+  // Server Action da programação recusa salvar a pessoa como responsável.
+  telefone: z.string().trim().optional(),
+  recebeProgramacao: z.coerce.boolean(),
 });
 
 export async function atualizarUsuario(
@@ -38,10 +51,18 @@ export async function atualizarUsuario(
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
     notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
+    telefone: String(formData.get("telefone") ?? "").trim() || undefined,
+    recebeProgramacao: marcado("recebeProgramacao"),
   });
 
   if (!dados.success) {
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  // Número ilegível seria pior que número ausente: passaria pela validação da
+  // programação e a mensagem sairia para lugar nenhum.
+  if (dados.data.telefone && !chaveTelefone(dados.data.telefone)) {
+    return { erro: "WhatsApp inválido. Informe DDD + número." };
   }
 
   // Rebaixar ou desativar o último administrador ativo tranca todo mundo para
@@ -69,6 +90,8 @@ export async function atualizarUsuario(
       notificaWhatsappSemDono:
         dados.data.notificaWhatsappSemDono &&
         podeEscrever(dados.data.perfil as Perfil, "posVenda"),
+      telefone: dados.data.telefone ?? null,
+      recebeProgramacao: dados.data.recebeProgramacao,
     })
     .eq("id", usuarioId);
 
@@ -84,9 +107,17 @@ const novoUsuarioSchema = z.object({
   // maiúsculas ou espaço sobrando viram um usuário que não consegue entrar.
   email: z.email("Informe um e-mail válido.").trim().toLowerCase(),
   senha: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
-  perfil: z.enum(["comercial", "engenharia", "obra", "atendimento", "admin"]),
+  perfil: z.enum([
+    "comercial",
+    "engenharia",
+    "obra",
+    "atendimento",
+    "logistica",
+    "admin",
+  ]),
   ativo: z.coerce.boolean(),
   notificaWhatsappSemDono: z.coerce.boolean(),
+  telefone: z.string().trim().optional(),
 });
 
 export async function criarUsuario(
@@ -105,10 +136,15 @@ export async function criarUsuario(
     perfil: formData.get("perfil"),
     ativo: marcado("ativo"),
     notificaWhatsappSemDono: marcado("notificaWhatsappSemDono"),
+    telefone: String(formData.get("telefone") ?? "").trim() || undefined,
   });
 
   if (!dados.success) {
     return { erro: dados.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  if (dados.data.telefone && !chaveTelefone(dados.data.telefone)) {
+    return { erro: "WhatsApp inválido. Informe DDD + número." };
   }
 
   const senhaHash = await bcrypt.hash(dados.data.senha, 10);
@@ -123,6 +159,7 @@ export async function criarUsuario(
     notificaWhatsappSemDono:
       dados.data.notificaWhatsappSemDono &&
       podeEscrever(dados.data.perfil as Perfil, "posVenda"),
+    telefone: dados.data.telefone ?? null,
   });
 
   if (error) {

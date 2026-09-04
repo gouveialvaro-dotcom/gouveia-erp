@@ -14,6 +14,7 @@ export default async function PaginaParametros() {
     margemMinima: parametros?.margemMinima.toString() ?? "15",
     validadePropostaPadraoDias: parametros?.validadePropostaPadraoDias ?? 15,
     diasUteisMes: parametros?.diasUteisMes ?? 22,
+    tetoDiarioAvisosProgramacao: parametros?.tetoDiarioAvisosProgramacao ?? 60,
     textoImpostosPadrao: parametros?.textoImpostosPadrao ?? "",
   };
 

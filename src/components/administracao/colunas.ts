@@ -6,4 +6,4 @@
 // linhas são grids independentes: dimensionada pelo conteúdo, ela mede
 // diferente em cada linha (a sua própria não tem "Senha" nem "Excluir") e arrasta as
 // colunas seguintes para lados diferentes.
-export const COLUNAS_USUARIO = "md:grid-cols-[minmax(0,1fr)_11rem_6rem_10rem_15rem]";
+export const COLUNAS_USUARIO = "md:grid-cols-[minmax(0,1fr)_11rem_6rem_10rem_12rem_15rem]";

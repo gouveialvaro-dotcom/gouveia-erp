@@ -12,6 +12,7 @@ import {
   MessageCircle,
   ShieldCheck,
   MessagesSquare,
+  Truck,
   Zap,
 } from "lucide-react";
 import {
@@ -48,6 +49,7 @@ const ITENS: ItemNav[] = [
     modulos: ["posVenda"],
   },
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
+  { titulo: "Programação", href: "/programacao", icone: Truck, modulos: ["programacao"] },
   { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"] },
   { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
   // Visível para todo mundo por causa de "conta": quem não é admin entra só

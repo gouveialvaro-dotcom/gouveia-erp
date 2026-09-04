@@ -6,6 +6,7 @@ import type { Json } from "@/lib/database.types";
 import { urlDaMidia, baixarArquivo } from "@/lib/uazapi";
 import { nomeSeguro } from "@/lib/pos-venda";
 import { donoDoTelefone } from "@/lib/whatsapp-cadastro";
+import { telefoneEhInterno } from "@/lib/programacao-servidor";
 import {
   chamadoCorrente,
   chaveTelefone,
@@ -223,6 +224,21 @@ export async function POST(request: Request) {
   const chave = chaveTelefone(dados.jid);
   if (!chave) {
     return NextResponse.json({ ok: true, ignorado: "telefone ilegível" });
+  }
+
+  // NÚMERO INTERNO: descartado antes de qualquer outra coisa.
+  //
+  // O aviso de programação de logística sai por este mesmo número corporativo,
+  // e o escopo decidiu que a resposta do funcionário não é lida — não gera
+  // conversa, não entra na fila e não é armazenada. A verificação tem que vir
+  // ANTES de tentar casar o telefone com cliente: se viesse depois, o
+  // encarregado que responde "beleza" cairia na caixa "Sem cliente" como um
+  // atendimento aberto sem dono, que é exatamente o que a separação de fluxo
+  // existe para impedir.
+  //
+  // Só a saída da mensagem que ele recebeu fica registrada, em EnvioWhatsapp.
+  if (!dados.daEmpresa && (await telefoneEhInterno(dados.jid))) {
+    return NextResponse.json({ ok: true, ignorado: "número interno" });
   }
 
   // O gateway reenvia o evento quando não recebe 2xx a tempo, e a mensagem que

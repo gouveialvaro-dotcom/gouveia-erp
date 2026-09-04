@@ -199,63 +199,68 @@ export default async function PaginaPosVenda({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pós-venda</h1>
-          <p className="text-sm text-muted-foreground">
-            Chamados de assistência sobre usinas entregues — {itens.length} no recorte atual
-          </p>
-        </div>
-        {podeEditar && (
-          <Button render={<Link href="/pos-venda/novo" />} nativeButton={false}>
-            + Novo chamado
-          </Button>
-        )}
-      </div>
-
-      {/* Cinco indicadores agora: em telas médias eles quebram em três por
-          linha em vez de espremer todos, que era o que empurrava a largura. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <StatTile label="Chamados abertos" value={String(abertos)} hint="fora de Concluído" />
-        <StatTile
-          label="Vencidos"
-          value={String(vencidos)}
-          tone={vencidos > 0 ? "destructive" : "default"}
-          hint="prazo do SLA estourado"
-        />
-        <StatTile
-          label="Parados"
-          value={String(parados)}
-          tone={parados > 0 ? "destructive" : "default"}
-          hint={`${diasLimiteParado}+ dias sem registro novo`}
-        />
-        <StatTile
-          label="Tempo médio de resolução"
-          value={tempoMedio === null ? "—" : `${tempoMedio.toFixed(1)} dias`}
-          hint={
-            resolvidos.length > 0
-              ? `${noPrazo}/${resolvidos.length} dentro do prazo`
-              : "sem chamados concluídos"
-          }
-        />
-        <StatTile
-          label="Clientes recorrentes"
-          value={String(clientesRecorrentes.size)}
-          tone={clientesRecorrentes.size > 0 ? "destructive" : "default"}
-          hint={`${MIN_OCORRENCIAS_RECORRENCIA}+ do mesmo tipo em ${MESES_JANELA_RECORRENCIA} meses`}
-        />
-      </div>
-
-      <BarraFiltros
-        filtros={filtros}
-        clientes={(clientesData ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
-        tipos={tiposData ?? []}
-        responsaveis={usuariosData ?? []}
-      />
-
       {/* O quadro é componente de cliente por causa do filtro "Meus chamados":
-          é recorte de leitura, resolvido na hora e sem ida ao servidor. */}
+          é recorte de leitura, resolvido na hora e sem ida ao servidor. É ele
+          também que gruda o cabeçalho no topo, junto do próprio botão — daí
+          título, indicadores e filtros entrarem por `cabecalho`. */}
       <QuadroChamados
+        cabecalho={
+          <>
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Pós-venda</h1>
+                <p className="text-sm text-muted-foreground">
+                  Chamados de assistência sobre usinas entregues — {itens.length} no recorte atual
+                </p>
+              </div>
+              {podeEditar && (
+                <Button render={<Link href="/pos-venda/novo" />} nativeButton={false}>
+                  + Novo chamado
+                </Button>
+              )}
+            </div>
+
+            {/* Cinco indicadores agora: em telas médias eles quebram em três por
+                linha em vez de espremer todos, que era o que empurrava a largura. */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              <StatTile label="Chamados abertos" value={String(abertos)} hint="fora de Concluído" />
+              <StatTile
+                label="Vencidos"
+                value={String(vencidos)}
+                tone={vencidos > 0 ? "destructive" : "default"}
+                hint="prazo do SLA estourado"
+              />
+              <StatTile
+                label="Parados"
+                value={String(parados)}
+                tone={parados > 0 ? "destructive" : "default"}
+                hint={`${diasLimiteParado}+ dias sem registro novo`}
+              />
+              <StatTile
+                label="Tempo médio de resolução"
+                value={tempoMedio === null ? "—" : `${tempoMedio.toFixed(1)} dias`}
+                hint={
+                  resolvidos.length > 0
+                    ? `${noPrazo}/${resolvidos.length} dentro do prazo`
+                    : "sem chamados concluídos"
+                }
+              />
+              <StatTile
+                label="Clientes recorrentes"
+                value={String(clientesRecorrentes.size)}
+                tone={clientesRecorrentes.size > 0 ? "destructive" : "default"}
+                hint={`${MIN_OCORRENCIAS_RECORRENCIA}+ do mesmo tipo em ${MESES_JANELA_RECORRENCIA} meses`}
+              />
+            </div>
+
+            <BarraFiltros
+              filtros={filtros}
+              clientes={(clientesData ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
+              tipos={tiposData ?? []}
+              responsaveis={usuariosData ?? []}
+            />
+          </>
+        }
         itens={itens.map(
           ({ card, coluna, recorrente, novidade, parado, diasParado }): ItemQuadro => ({
             card,

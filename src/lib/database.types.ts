@@ -14,6 +14,64 @@ export type Database = {
   }
   public: {
     Tables: {
+      AlteracaoProgramacao: {
+        Row: {
+          alteradoEm: string
+          alteradoPorId: string | null
+          campo: string
+          id: string
+          motoristaAnteriorId: string | null
+          programacaoId: string
+          publicadaEm: string | null
+          valorAnterior: string | null
+          valorNovo: string | null
+        }
+        Insert: {
+          alteradoEm?: string
+          alteradoPorId?: string | null
+          campo: string
+          id?: string
+          motoristaAnteriorId?: string | null
+          programacaoId: string
+          publicadaEm?: string | null
+          valorAnterior?: string | null
+          valorNovo?: string | null
+        }
+        Update: {
+          alteradoEm?: string
+          alteradoPorId?: string | null
+          campo?: string
+          id?: string
+          motoristaAnteriorId?: string | null
+          programacaoId?: string
+          publicadaEm?: string | null
+          valorAnterior?: string | null
+          valorNovo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "AlteracaoProgramacao_alteradoPorId_fkey"
+            columns: ["alteradoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "AlteracaoProgramacao_motoristaAnteriorId_fkey"
+            columns: ["motoristaAnteriorId"]
+            isOneToOne: false
+            referencedRelation: "Funcionario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "AlteracaoProgramacao_programacaoId_fkey"
+            columns: ["programacaoId"]
+            isOneToOne: false
+            referencedRelation: "ProgramacaoDiaria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Anexo: {
         Row: {
           criadoEm: string
@@ -560,6 +618,66 @@ export type Database = {
           },
         ]
       }
+      EnvioWhatsapp: {
+        Row: {
+          criadoEm: string
+          enviadoEm: string | null
+          erro: string | null
+          funcionarioId: string | null
+          id: string
+          mensagem: string
+          papel: Database["public"]["Enums"]["PapelDestinatario"]
+          status: string
+          telefone: string
+          tentativas: number
+          urgente: boolean
+          usuarioId: string | null
+        }
+        Insert: {
+          criadoEm?: string
+          enviadoEm?: string | null
+          erro?: string | null
+          funcionarioId?: string | null
+          id?: string
+          mensagem: string
+          papel: Database["public"]["Enums"]["PapelDestinatario"]
+          status?: string
+          telefone: string
+          tentativas?: number
+          urgente?: boolean
+          usuarioId?: string | null
+        }
+        Update: {
+          criadoEm?: string
+          enviadoEm?: string | null
+          erro?: string | null
+          funcionarioId?: string | null
+          id?: string
+          mensagem?: string
+          papel?: Database["public"]["Enums"]["PapelDestinatario"]
+          status?: string
+          telefone?: string
+          tentativas?: number
+          urgente?: boolean
+          usuarioId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "EnvioWhatsapp_funcionarioId_fkey"
+            columns: ["funcionarioId"]
+            isOneToOne: false
+            referencedRelation: "Funcionario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "EnvioWhatsapp_usuarioId_fkey"
+            columns: ["usuarioId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Funcao: {
         Row: {
           ativo: boolean
@@ -612,7 +730,9 @@ export type Database = {
           funcaoId: string | null
           id: string
           nome: string
+          recebeProgramacao: boolean
           salarioMensal: number
+          telefone: string | null
         }
         Insert: {
           ativo?: boolean
@@ -624,7 +744,9 @@ export type Database = {
           funcaoId?: string | null
           id?: string
           nome: string
+          recebeProgramacao?: boolean
           salarioMensal: number
+          telefone?: string | null
         }
         Update: {
           ativo?: boolean
@@ -636,7 +758,9 @@ export type Database = {
           funcaoId?: string | null
           id?: string
           nome?: string
+          recebeProgramacao?: boolean
           salarioMensal?: number
+          telefone?: string | null
         }
         Relationships: [
           {
@@ -651,6 +775,64 @@ export type Database = {
             columns: ["funcaoId"]
             isOneToOne: false
             referencedRelation: "Funcao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Indisponibilidade: {
+        Row: {
+          criadoEm: string
+          criadoPorId: string | null
+          dataFim: string
+          dataInicio: string
+          funcionarioId: string | null
+          id: string
+          motivo: string
+          tipo: Database["public"]["Enums"]["TipoIndisponibilidade"]
+          veiculoId: string | null
+        }
+        Insert: {
+          criadoEm?: string
+          criadoPorId?: string | null
+          dataFim: string
+          dataInicio: string
+          funcionarioId?: string | null
+          id?: string
+          motivo: string
+          tipo: Database["public"]["Enums"]["TipoIndisponibilidade"]
+          veiculoId?: string | null
+        }
+        Update: {
+          criadoEm?: string
+          criadoPorId?: string | null
+          dataFim?: string
+          dataInicio?: string
+          funcionarioId?: string | null
+          id?: string
+          motivo?: string
+          tipo?: Database["public"]["Enums"]["TipoIndisponibilidade"]
+          veiculoId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Indisponibilidade_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Indisponibilidade_funcionarioId_fkey"
+            columns: ["funcionarioId"]
+            isOneToOne: false
+            referencedRelation: "Funcionario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Indisponibilidade_veiculoId_fkey"
+            columns: ["veiculoId"]
+            isOneToOne: false
+            referencedRelation: "Veiculo"
             referencedColumns: ["id"]
           },
         ]
@@ -1404,6 +1586,7 @@ export type Database = {
           id: string
           impostos: number
           margemMinima: number
+          tetoDiarioAvisosProgramacao: number
           tetoDiarioConversasNovas: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
@@ -1421,6 +1604,7 @@ export type Database = {
           id?: string
           impostos: number
           margemMinima: number
+          tetoDiarioAvisosProgramacao?: number
           tetoDiarioConversasNovas?: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
@@ -1438,6 +1622,7 @@ export type Database = {
           id?: string
           impostos?: number
           margemMinima?: number
+          tetoDiarioAvisosProgramacao?: number
           tetoDiarioConversasNovas?: number
           textoImpostosPadrao?: string
           validadePropostaPadraoDias?: number
@@ -1484,6 +1669,165 @@ export type Database = {
           },
           {
             foreignKeyName: "ParticipanteConversa_usuarioId_fkey"
+            columns: ["usuarioId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ProgramacaoDiaria: {
+        Row: {
+          atualizadoEm: string | null
+          atualizadoPorId: string | null
+          criadoEm: string
+          criadoPorId: string | null
+          data: string
+          descricaoAvulsa: string | null
+          id: string
+          motoristaId: string | null
+          obraId: string | null
+          observacao: string | null
+          publicadaEm: string | null
+          servico: string
+          status: Database["public"]["Enums"]["StatusProgramacao"]
+          temAlteracaoPendente: boolean
+          tipoDestino: Database["public"]["Enums"]["TipoDestinoProgramacao"]
+          veiculoId: string | null
+        }
+        Insert: {
+          atualizadoEm?: string | null
+          atualizadoPorId?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          data: string
+          descricaoAvulsa?: string | null
+          id?: string
+          motoristaId?: string | null
+          obraId?: string | null
+          observacao?: string | null
+          publicadaEm?: string | null
+          servico: string
+          status?: Database["public"]["Enums"]["StatusProgramacao"]
+          temAlteracaoPendente?: boolean
+          tipoDestino: Database["public"]["Enums"]["TipoDestinoProgramacao"]
+          veiculoId?: string | null
+        }
+        Update: {
+          atualizadoEm?: string | null
+          atualizadoPorId?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          data?: string
+          descricaoAvulsa?: string | null
+          id?: string
+          motoristaId?: string | null
+          obraId?: string | null
+          observacao?: string | null
+          publicadaEm?: string | null
+          servico?: string
+          status?: Database["public"]["Enums"]["StatusProgramacao"]
+          temAlteracaoPendente?: boolean
+          tipoDestino?: Database["public"]["Enums"]["TipoDestinoProgramacao"]
+          veiculoId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ProgramacaoDiaria_atualizadoPorId_fkey"
+            columns: ["atualizadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoDiaria_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoDiaria_motoristaId_fkey"
+            columns: ["motoristaId"]
+            isOneToOne: false
+            referencedRelation: "Funcionario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoDiaria_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: false
+            referencedRelation: "Obra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoDiaria_veiculoId_fkey"
+            columns: ["veiculoId"]
+            isOneToOne: false
+            referencedRelation: "Veiculo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ProgramacaoEquipe: {
+        Row: {
+          funcionarioId: string
+          id: string
+          programacaoId: string
+        }
+        Insert: {
+          funcionarioId: string
+          id?: string
+          programacaoId: string
+        }
+        Update: {
+          funcionarioId?: string
+          id?: string
+          programacaoId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ProgramacaoEquipe_funcionarioId_fkey"
+            columns: ["funcionarioId"]
+            isOneToOne: false
+            referencedRelation: "Funcionario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoEquipe_programacaoId_fkey"
+            columns: ["programacaoId"]
+            isOneToOne: false
+            referencedRelation: "ProgramacaoDiaria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ProgramacaoResponsavel: {
+        Row: {
+          id: string
+          programacaoId: string
+          usuarioId: string
+        }
+        Insert: {
+          id?: string
+          programacaoId: string
+          usuarioId: string
+        }
+        Update: {
+          id?: string
+          programacaoId?: string
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ProgramacaoResponsavel_programacaoId_fkey"
+            columns: ["programacaoId"]
+            isOneToOne: false
+            referencedRelation: "ProgramacaoDiaria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ProgramacaoResponsavel_usuarioId_fkey"
             columns: ["usuarioId"]
             isOneToOne: false
             referencedRelation: "Usuario"
@@ -1829,7 +2173,9 @@ export type Database = {
           notificaPosVenda: boolean
           notificaWhatsappSemDono: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
+          recebeProgramacao: boolean
           senhaHash: string
+          telefone: string | null
         }
         Insert: {
           ativo?: boolean
@@ -1840,7 +2186,9 @@ export type Database = {
           notificaPosVenda?: boolean
           notificaWhatsappSemDono?: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
+          recebeProgramacao?: boolean
           senhaHash: string
+          telefone?: string | null
         }
         Update: {
           ativo?: boolean
@@ -1851,9 +2199,52 @@ export type Database = {
           notificaPosVenda?: boolean
           notificaWhatsappSemDono?: boolean
           perfil?: Database["public"]["Enums"]["PerfilUsuario"]
+          recebeProgramacao?: boolean
           senhaHash?: string
+          telefone?: string | null
         }
         Relationships: []
+      }
+      Veiculo: {
+        Row: {
+          ativo: boolean
+          criadoEm: string
+          criadoPorId: string | null
+          id: string
+          identificacao: string | null
+          modelo: string
+          placa: string
+          tipo: Database["public"]["Enums"]["TipoVeiculo"]
+        }
+        Insert: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          identificacao?: string | null
+          modelo: string
+          placa: string
+          tipo: Database["public"]["Enums"]["TipoVeiculo"]
+        }
+        Update: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          identificacao?: string | null
+          modelo?: string
+          placa?: string
+          tipo?: Database["public"]["Enums"]["TipoVeiculo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Veiculo_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1894,17 +2285,25 @@ export type Database = {
         | "aprovada"
         | "perdida"
       OrigemObra: "funil" | "manual"
+      PapelDestinatario:
+        | "responsavel"
+        | "motorista_novo"
+        | "motorista_removido"
       PerfilUsuario:
         | "comercial"
         | "engenharia"
         | "obra"
         | "admin"
         | "atendimento"
+        | "logistica"
       PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
       RamoCliente: "energia_solar" | "redes_subestacoes"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
+      StatusProgramacao: "rascunho" | "publicada" | "cancelada"
       TipoConversa: "obra" | "direta" | "grupo"
+      TipoDestinoProgramacao: "obra" | "avulso"
+      TipoIndisponibilidade: "funcionario" | "veiculo"
       TipoInteracao: "ligacao" | "email" | "reuniao" | "visita"
       TipoInteracaoChamado:
         | "ligacao"
@@ -1929,6 +2328,13 @@ export type Database = {
       TipoOrcamentoItem: "material" | "kit"
       TipoProposta: "usina_solar" | "redes"
       TipoUnidadeConsumidora: "geradora" | "beneficiaria"
+      TipoVeiculo:
+        | "caminhonete"
+        | "van"
+        | "munck"
+        | "caminhao"
+        | "carro_passeio"
+        | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2074,18 +2480,27 @@ export const Constants = {
         "perdida",
       ],
       OrigemObra: ["funil", "manual"],
+      PapelDestinatario: [
+        "responsavel",
+        "motorista_novo",
+        "motorista_removido",
+      ],
       PerfilUsuario: [
         "comercial",
         "engenharia",
         "obra",
         "admin",
         "atendimento",
+        "logistica",
       ],
       PrioridadeChamado: ["baixa", "media", "alta", "critica"],
       RamoCliente: ["energia_solar", "redes_subestacoes"],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
+      StatusProgramacao: ["rascunho", "publicada", "cancelada"],
       TipoConversa: ["obra", "direta", "grupo"],
+      TipoDestinoProgramacao: ["obra", "avulso"],
+      TipoIndisponibilidade: ["funcionario", "veiculo"],
       TipoInteracao: ["ligacao", "email", "reuniao", "visita"],
       TipoInteracaoChamado: [
         "ligacao",
@@ -2112,6 +2527,14 @@ export const Constants = {
       TipoOrcamentoItem: ["material", "kit"],
       TipoProposta: ["usina_solar", "redes"],
       TipoUnidadeConsumidora: ["geradora", "beneficiaria"],
+      TipoVeiculo: [
+        "caminhonete",
+        "van",
+        "munck",
+        "caminhao",
+        "carro_passeio",
+        "outro",
+      ],
     },
   },
 } as const

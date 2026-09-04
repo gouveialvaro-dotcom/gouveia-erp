@@ -28,7 +28,7 @@ export default async function PaginaAdministracao() {
   const { data } = ehAdmin
     ? await supabase
         .from("Usuario")
-        .select("id, nome, email, perfil, ativo, notificaWhatsappSemDono")
+        .select("id, nome, email, perfil, ativo, notificaWhatsappSemDono, telefone, recebeProgramacao")
         .order("nome")
     : { data: null };
 
@@ -63,6 +63,7 @@ export default async function PaginaAdministracao() {
               <span>Perfil</span>
               <span>Situação</span>
               <span>Aviso de WhatsApp</span>
+              <span>WhatsApp da pessoa</span>
               <span />
             </div>
 
@@ -71,7 +72,7 @@ export default async function PaginaAdministracao() {
                 // Remonta a linha quando o servidor devolve valores novos: os
                 // campos são não controlados e o Base UI reclama de defaultChecked
                 // trocando depois da montagem.
-                key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaWhatsappSemDono}`}
+                key={`${u.id}|${u.perfil}|${u.ativo}|${u.notificaWhatsappSemDono}|${u.telefone}|${u.recebeProgramacao}`}
                 ehVoce={u.id === meuId}
                 usuario={{
                   id: u.id,
@@ -80,6 +81,8 @@ export default async function PaginaAdministracao() {
                   perfil: u.perfil as Perfil,
                   ativo: u.ativo,
                   notificaWhatsappSemDono: u.notificaWhatsappSemDono,
+                  telefone: u.telefone,
+                  recebeProgramacao: u.recebeProgramacao,
                 }}
               />
             ))}

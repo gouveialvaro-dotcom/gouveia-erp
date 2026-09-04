@@ -14,6 +14,9 @@ const ITENS: { titulo: string; href: string; modulo: Modulo }[] = [
   { titulo: "Kits", href: "/cadastros/kits", modulo: "cadastrosGerais" },
   { titulo: "Funções", href: "/cadastros/funcoes", modulo: "cadastrosGerais" },
   { titulo: "Funcionários", href: "/cadastros/funcionarios", modulo: "cadastrosGerais" },
+  // A frota tem módulo próprio ("veiculos"): quem a mantém é a logística, que
+  // em cadastrosGerais só lê.
+  { titulo: "Veículos", href: "/cadastros/veiculos", modulo: "veiculos" },
   { titulo: "Tipos de problema", href: "/cadastros/tipos-problema", modulo: "posVenda" },
   { titulo: "Descrições padrão", href: "/cadastros/descricoes", modulo: "cadastrosGerais" },
   { titulo: "Parâmetros gerais", href: "/cadastros/parametros", modulo: "cadastrosGerais" },

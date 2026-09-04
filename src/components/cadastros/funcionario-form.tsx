@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ComboboxCampo } from "@/components/ui/combobox-campo";
+import { CampoTelefone } from "@/components/ui/campo-telefone";
 
 export type OpcaoFuncao = {
   id: string;
@@ -28,6 +29,8 @@ type FuncionarioFormValues = {
   salarioMensal: string;
   encargosPercent: string;
   ativo: boolean;
+  telefone: string | null;
+  recebeProgramacao: boolean;
 };
 
 export function FuncionarioForm({
@@ -130,6 +133,29 @@ export function FuncionarioForm({
             úteis)
           </p>
         )}
+
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label htmlFor="telefone">WhatsApp</Label>
+          <CampoTelefone id="telefone" name="telefone" defaultValue={funcionario?.telefone} />
+          <p className="text-xs text-muted-foreground">
+            É por aqui que a pessoa recebe o aviso quando é o motorista do dia. Sem número,
+            ela não pode ser salva como motorista de uma linha com veículo.
+          </p>
+        </div>
+
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label className="flex items-center gap-2 font-normal">
+            <Checkbox
+              name="recebeProgramacao"
+              defaultChecked={funcionario?.recebeProgramacao ?? true}
+            />
+            Recebe aviso de programação
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Desligar tira a pessoa do envio em qualquer papel — inclusive como motorista
+            retirado de uma programação.
+          </p>
+        </div>
 
         <div className="col-span-2 flex items-center gap-2">
           <Checkbox id="ativo" name="ativo" defaultChecked={funcionario?.ativo ?? true} />

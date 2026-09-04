@@ -7,7 +7,8 @@ import {
   type EstadoFormUsuario,
 } from "@/app/(app)/administracao/actions";
 import { cn } from "@/lib/utils";
-import { ROTULO_PERFIL, podeEscrever, type Perfil } from "@/lib/permissoes";
+import { ROTULO_PERFIL, podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
+import { CampoTelefone } from "@/components/ui/campo-telefone";
 import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,6 +24,8 @@ export type UsuarioLinhaValores = {
   perfil: Perfil;
   ativo: boolean;
   notificaWhatsappSemDono: boolean;
+  telefone: string | null;
+  recebeProgramacao: boolean;
 };
 
 export function UsuarioLinha({
@@ -43,6 +46,11 @@ export function UsuarioLinha({
 
   // Trocar o perfil aqui muda na hora se a caixa de notificação faz sentido.
   const escrevePosVenda = podeEscrever(perfil, "posVenda");
+  // Quem não enxerga a programação não pode ser responsável por um destino, e
+  // o interruptor do aviso não teria o que ligar ou desligar. O valor atual
+  // ainda é enviado por campo oculto, para não ser zerado por um salvamento
+  // feito enquanto o perfil estava trocado.
+  const leProgramacao = podeLer(perfil, "programacao");
 
   return (
     <form action={formAction} className={cn("grid gap-3 px-3 py-2 items-center", COLUNAS_USUARIO)}>
@@ -84,6 +92,25 @@ export function UsuarioLinha({
       ) : (
         <span className="text-xs text-muted-foreground">—</span>
       )}
+
+      {/* O WhatsApp fica aqui porque é dado de acesso da pessoa, e não do
+          módulo: é o canal por onde ela recebe o aviso de programação quando é
+          responsável por um destino. Sem número, a programação recusa salvá-la
+          como responsável. */}
+      <div className="flex flex-col gap-1">
+        <CampoTelefone name="telefone" defaultValue={usuario.telefone} />
+        {leProgramacao ? (
+          <Label className="flex items-center gap-2 text-xs font-normal">
+            <Checkbox
+              name="recebeProgramacao"
+              defaultChecked={usuario.recebeProgramacao}
+            />
+            Recebe programação
+          </Label>
+        ) : (
+          <input type="hidden" name="recebeProgramacao" value={String(usuario.recebeProgramacao)} />
+        )}
+      </div>
 
       <div className="flex items-center justify-end gap-2">
         {estado?.erro && <span className="text-xs text-destructive">{estado.erro}</span>}

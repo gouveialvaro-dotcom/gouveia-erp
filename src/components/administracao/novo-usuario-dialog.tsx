@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
+import { CampoTelefone } from "@/components/ui/campo-telefone";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,15 @@ function FormNovoUsuario({ aoCriar }: { aoCriar: () => void }) {
           autoComplete="new-password"
         />
         <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="telefone">WhatsApp (opcional)</Label>
+        <CampoTelefone id="telefone" name="telefone" />
+        <p className="text-xs text-muted-foreground">
+          Necessário para a pessoa ser responsável por um destino na programação de
+          logística — é por ele que ela recebe o aviso de alteração.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

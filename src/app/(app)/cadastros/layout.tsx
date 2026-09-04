@@ -10,7 +10,11 @@ export default async function CadastrosLayout({
 }) {
   const { perfil } = await acessoModulo("clientes");
 
-  if (!podeLer(perfil, "clientes") && !podeLer(perfil, "cadastrosGerais")) {
+  if (
+    !podeLer(perfil, "clientes") &&
+    !podeLer(perfil, "cadastrosGerais") &&
+    !podeLer(perfil, "veiculos")
+  ) {
     redirect("/");
   }
 
