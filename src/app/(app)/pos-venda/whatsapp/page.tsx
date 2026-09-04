@@ -283,7 +283,7 @@ export default async function PaginaWhatsapp({
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-[calc(100svh-6.5rem)]">
       <AtualizacaoAutomatica />
       {busca.msg && <AncoraMensagem mensagemId={busca.msg} />}
 
@@ -306,9 +306,9 @@ export default async function PaginaWhatsapp({
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)_19rem]">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)_19rem]">
         {/* --- Lista de conversas --- */}
-        <div className="flex flex-col gap-2">
+        <div className="flex min-h-0 flex-col gap-2">
           <BuscaConversas filtros={busca} caixa={caixa} total={totalResultados} />
 
 
@@ -443,7 +443,7 @@ export default async function PaginaWhatsapp({
 
 
 
-          <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto pr-1">
+          <div className="flex max-h-[60vh] min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-none">
             {lista.map((conversa) => (
               <div
                 key={conversa.id}
@@ -502,7 +502,7 @@ export default async function PaginaWhatsapp({
         </div>
 
         {/* --- Conversa --- */}
-        <div className="flex min-h-[60vh] flex-col overflow-hidden rounded-md border bg-background">
+        <div className="flex max-h-[70svh] min-h-[26rem] flex-col overflow-hidden rounded-md border bg-background lg:h-full lg:max-h-none lg:min-h-0">
           {selecionada ? (
             <>
               <FaixaChamado
@@ -573,7 +573,7 @@ export default async function PaginaWhatsapp({
                 </span>
               </div>
 
-              <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
                 {linhas.map(({ mensagem, dia, novoDia }) => {
                   const daEmpresa = mensagem.direcao === "saida";
 
@@ -698,7 +698,7 @@ export default async function PaginaWhatsapp({
         </div>
 
         {/* --- Painel do cliente --- */}
-        <div className="flex flex-col gap-3">
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
           {selecionada ? (
             <>
               <Card>
