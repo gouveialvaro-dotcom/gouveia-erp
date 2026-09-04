@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/topbar";
+import { ProvedorTituloPagina } from "@/components/titulo-pagina";
 import { podeLer, type Perfil } from "@/lib/permissoes";
 
 export default async function AppLayout({
@@ -21,6 +22,7 @@ export default async function AppLayout({
     <SidebarProvider>
       <AppSidebar perfil={perfil} />
       <SidebarInset>
+        <ProvedorTituloPagina>
         <Topbar
           nome={session.user.name ?? session.user.email ?? ""}
           perfil={perfil}
@@ -32,6 +34,7 @@ export default async function AppLayout({
         {/* min-w-0 pelo mesmo motivo do SidebarInset, e padding menor no
             estreito: com p-6 fixo, metade da largura do celular ia em margem. */}
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        </ProvedorTituloPagina>
       </SidebarInset>
     </SidebarProvider>
   );

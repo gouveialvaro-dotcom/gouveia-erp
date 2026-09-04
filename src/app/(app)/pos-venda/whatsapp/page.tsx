@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AncoraMensagem } from "@/components/pos-venda/whatsapp/ancora-mensagem";
 import { AtribuirConversas } from "@/components/pos-venda/whatsapp/atribuir-conversas";
 import { AtualizacaoAutomatica } from "@/components/pos-venda/whatsapp/atualizacao-automatica";
+import { TituloPagina } from "@/components/titulo-pagina";
 import { BuscaConversas } from "@/components/pos-venda/whatsapp/busca-conversas";
 import { BotaoOcultar } from "@/components/pos-venda/whatsapp/botao-ocultar";
 import { BotaoPromover } from "@/components/pos-venda/whatsapp/botao-promover";
@@ -287,17 +288,25 @@ export default async function PaginaWhatsapp({
       <AtualizacaoAutomatica />
       {busca.msg && <AncoraMensagem mensagemId={busca.msg} />}
 
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">WhatsApp do pós-venda</h1>
-          <p className="text-sm text-muted-foreground">
-            Conversas do número corporativo — {contadores.pendentes} aguardando resposta
-          </p>
-        </div>
-        <Link href="/pos-venda" className="text-sm text-muted-foreground hover:underline">
-          ← Chamados
-        </Link>
-      </div>
+      {/* Título e subtítulo vão para a barra superior, não para o corpo: numa
+
+
+          tela de conversa cada linha de cabeçalho sai da altura útil do
+
+
+          histórico. O link de volta fica junto da busca, na coluna da lista. */}
+
+
+      <TituloPagina
+
+
+        titulo="WhatsApp do pós-venda"
+
+
+        subtitulo={`Conversas do número corporativo — ${contadores.pendentes} aguardando resposta`}
+
+
+      />
 
       {!podeEditar && (
         <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -309,6 +318,19 @@ export default async function PaginaWhatsapp({
       <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)_19rem]">
         {/* --- Lista de conversas --- */}
         <div className="flex min-h-0 flex-col gap-2">
+          <Link
+
+            href="/pos-venda"
+
+            className="text-xs text-muted-foreground hover:underline"
+
+          >
+
+            ← Chamados
+
+          </Link>
+
+
           <BuscaConversas filtros={busca} caixa={caixa} total={totalResultados} />
 
 
