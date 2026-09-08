@@ -24,7 +24,7 @@ import {
   type Diagnostico,
 } from "@/lib/isolarcloud";
 
-const ROTA = "/administracao/monitoramento";
+const ROTA = "/monitoramento/cadastro";
 
 export type EstadoFormUsina = { erro?: string; ok?: boolean } | undefined;
 

@@ -8,7 +8,6 @@ import { dataRefBrasil, ROTULO_MOTIVO_INATIVACAO } from "@/lib/monitoramento";
 import { integracaoConfigurada } from "@/lib/isolarcloud";
 import { janelaDoHorario } from "@/lib/monitoramento-coleta";
 import { formatarData } from "@/lib/format";
-import { TituloPagina } from "@/components/titulo-pagina";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,21 +55,13 @@ export default async function PaginaCadastroUsinas() {
 
   return (
     <div className="flex flex-col gap-8">
-      <TituloPagina
-        titulo="Cadastro de usinas monitoradas"
-        subtitulo="Vínculo entre a planta do iSolarCloud e o cliente"
-      />
-
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Só entra no monitoramento cliente de energia solar com{" "}
-          <strong>plano de manutenção ativo</strong> — é o contrato que autoriza a Gouveia a
-          acompanhar a usina, a mesma regra que rege a abertura de chamado.
-        </p>
-        <Button variant="outline" size="sm" render={<Link href="/monitoramento" />}>
-          Ir para o painel
-        </Button>
-      </div>
+      {/* Sem botão de "voltar ao painel": a aba Painel fica logo acima, na
+          sub-navegação do módulo. */}
+      <p className="text-sm text-muted-foreground">
+        Só entra no monitoramento cliente de energia solar com{" "}
+        <strong>plano de manutenção ativo</strong> — é o contrato que autoriza a Gouveia a
+        acompanhar a usina, a mesma regra que rege a abertura de chamado.
+      </p>
 
       <section className="flex flex-col gap-3 rounded-md border bg-card p-4">
         <h2 className="text-base font-semibold">Vincular nova usina</h2>

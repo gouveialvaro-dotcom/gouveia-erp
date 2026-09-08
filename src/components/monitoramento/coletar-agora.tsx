@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { coletarAgora } from "@/app/(app)/administracao/monitoramento/actions";
+import { coletarAgora } from "@/app/(app)/monitoramento/cadastro/actions";
 import type { ResultadoColeta } from "@/lib/monitoramento-coleta";
 import { JANELAS, ROTULO_JANELA, type JanelaColetaUsina } from "@/lib/monitoramento";
 import { Button } from "@/components/ui/button";

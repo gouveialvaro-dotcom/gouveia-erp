@@ -157,7 +157,7 @@ export default async function PaginaMonitoramento() {
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Nenhuma usina em monitoramento. O vínculo com cliente e unidade geradora é
-                    feito em Administração → Cadastro de usinas.
+                    feito na aba Cadastro de usinas.
                   </TableCell>
                 </TableRow>
               )}

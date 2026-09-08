@@ -8,7 +8,7 @@ import {
   type EstadoBusca,
   type EstadoFormUsina,
   type PlantaEncontrada,
-} from "@/app/(app)/administracao/monitoramento/actions";
+} from "@/app/(app)/monitoramento/cadastro/actions";
 import { impedimentoDeVinculo } from "@/lib/monitoramento";
 import type { RamoCliente } from "@/lib/clientes";
 import { Badge } from "@/components/ui/badge";
