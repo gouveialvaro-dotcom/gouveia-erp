@@ -88,12 +88,23 @@ export function VincularUsinaForm({
           </Button>
         </div>
 
+        {/* A mensagem antiga dizia "preencha o .env" e mandava procurar no lugar
+            errado: o caso real foi o arquivo já preenchido e o processo do
+            servidor rodando desde antes, sem nunca ter lido as variáveis. O
+            texto agora cobre as duas causas, e o "Testar conexão" ao lado
+            distingue uma da outra — ele é Server Action e sempre roda no
+            servidor, sem passar por cache de página. */}
         {!integracaoConfigurada && (
           <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
-            A integração ainda não está configurada. Preencha <code>ISOLARCLOUD_BASE_URL</code>,{" "}
-            <code>ISOLARCLOUD_APP_KEY</code>, <code>ISOLARCLOUD_ACCESS_KEY</code>,{" "}
-            <code>ISOLARCLOUD_USUARIO</code> e <code>ISOLARCLOUD_SENHA</code> no <code>.env</code>.
-            Enquanto isso, a usina pode ser cadastrada à mão abaixo.
+            O servidor não está enxergando as credenciais do iSolarCloud
+            (<code>ISOLARCLOUD_BASE_URL</code>, <code>ISOLARCLOUD_APP_KEY</code>,{" "}
+            <code>ISOLARCLOUD_ACCESS_KEY</code>, <code>ISOLARCLOUD_USUARIO</code>,{" "}
+            <code>ISOLARCLOUD_SENHA</code>). Ou elas não estão preenchidas, ou{" "}
+            <strong>foram preenchidas depois de o servidor subir</strong> — as variáveis são lidas
+            só na inicialização, então em desenvolvimento é preciso reiniciar o{" "}
+            <code>next dev</code> e, na Vercel, refazer o deploy depois de cadastrá-las. Clique em{" "}
+            <strong>Testar conexão</strong> para ver o que o servidor responde agora. Enquanto
+            isso, a usina pode ser cadastrada à mão abaixo.
           </p>
         )}
 
