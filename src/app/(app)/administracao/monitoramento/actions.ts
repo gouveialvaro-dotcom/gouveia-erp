@@ -5,7 +5,13 @@ import { z } from "zod";
 import { exigirPermissao } from "@/lib/api-auth";
 import { supabase } from "@/lib/supabase";
 import { dataRefBrasil, impedimentoDeVinculo } from "@/lib/monitoramento";
-import { diagnosticar, listarUsinas, type Diagnostico } from "@/lib/isolarcloud";
+import {
+  acusaFalha,
+  diagnosticar,
+  estaComunicando,
+  listarUsinas,
+  type Diagnostico,
+} from "@/lib/isolarcloud";
 
 const ROTA = "/administracao/monitoramento";
 
@@ -17,7 +23,11 @@ export type PlantaEncontrada = {
   psId: string;
   nome: string;
   potenciaKwp: number | null;
-  situacao: string | null;
+  /** Já está reportando agora, segundo a própria API. */
+  comunicando: boolean;
+  /** Acusa alarme ou falha no momento da busca. */
+  emFalha: boolean;
+  energiaDiaKwh: number | null;
   /** Já vinculada a um cliente aqui dentro. */
   vinculada: boolean;
   /** Nome do cliente, quando já vinculada. */
@@ -56,7 +66,9 @@ export async function buscarPlantasNoIsolar(): Promise<EstadoBusca> {
       psId: planta.psId,
       nome: planta.nome,
       potenciaKwp: planta.potenciaKwp,
-      situacao: planta.situacao,
+      comunicando: estaComunicando(planta),
+      emFalha: acusaFalha(planta),
+      energiaDiaKwh: planta.energiaDiaKwh,
       vinculada: porPsId.has(planta.psId),
       clienteVinculado: porPsId.get(planta.psId) ?? null,
     })),
@@ -70,9 +82,9 @@ export async function testarConexaoIsolar(): Promise<Diagnostico> {
 }
 
 const esquemaVinculo = z.object({
-  // Identificador da planta no iSolarCloud (ps_id). Digitado à mão por
-  // enquanto: o botão "Buscar usinas no iSolarCloud" depende do cliente HTTP,
-  // que espera a confirmação do modo de autenticação da aplicação no portal.
+  // Identificador da planta no iSolarCloud (ps_id). Normalmente vem preenchido
+  // pela busca; a digitação à mão continua valendo para o caso de a integração
+  // estar fora do ar e alguém precisar cadastrar assim mesmo.
   psId: z.string().trim().min(1, "Informe o identificador da planta (ps_id)."),
   nomeIsolar: z.string().trim().min(1, "Informe o nome da planta."),
   apelido: z.string().trim().optional(),

@@ -172,11 +172,23 @@ function ListaDePlantas({
                     {planta.potenciaKwp.toLocaleString("pt-BR")} kWp
                   </span>
                 )}
+                {planta.energiaDiaKwh !== null && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    hoje {planta.energiaDiaKwh.toLocaleString("pt-BR", {
+                      maximumFractionDigits: 0,
+                    })}{" "}
+                    kWh
+                  </span>
+                )}
                 {planta.clienteVinculado && (
                   <span className="ml-2 text-xs text-muted-foreground">
                     → {planta.clienteVinculado}
                   </span>
                 )}
+                <span className="ml-2 inline-flex gap-1 align-middle">
+                  {!planta.comunicando && <Badge variant="outline">sem comunicação</Badge>}
+                  {planta.emFalha && <Badge variant="destructive">acusa falha</Badge>}
+                </span>
               </div>
               {aoEscolher ? (
                 <Button
