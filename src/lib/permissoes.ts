@@ -12,6 +12,7 @@ export type Modulo =
   | "orcamentos"
   | "crm"
   | "posVenda" // chamados, tipos de problema, concessionárias e UCs
+  | "monitoramento" // painel das usinas monitoradas e seus alertas
   | "programacao" // programação de saída, indisponibilidades e envios
   | "veiculos" // frota: placa, modelo e tipo
   | "obras"
@@ -78,6 +79,25 @@ const MATRIZ: Record<Modulo, Record<Perfil, NivelAcesso>> = {
   // engenharia enxergam para acompanhar reincidência e falha de equipamento,
   // mas não movimentam chamado.
   posVenda: {
+    comercial: "leitura",
+    engenharia: "leitura",
+    obra: "nenhum",
+    atendimento: "escrita",
+    logistica: "nenhum",
+    admin: "escrita",
+  },
+  // O monitoramento de usina é o pós-venda enxergando o problema antes do
+  // cliente ligar, então segue a mesma linha: quem trata é o atendimento.
+  // Engenharia lê porque falha de inversor e queda de geração são diagnóstico
+  // dela; comercial lê porque usina parada em cliente com plano ativo é assunto
+  // de renovação de contrato. Obra e logística não enxergam — nada aqui vira
+  // deslocamento de equipe sem passar por um chamado antes.
+  //
+  // CUIDADO: escrita aqui NÃO autoriza cadastrar ou vincular usina. Isso é
+  // exigirPermissao("administracao", "escrita"), por decisão do escopo — o
+  // vínculo com cliente e UC geradora é o que faz o alerta chegar em alguém, e
+  // errar nele é alertar sobre a usina do cliente errado.
+  monitoramento: {
     comercial: "leitura",
     engenharia: "leitura",
     obra: "nenhum",
