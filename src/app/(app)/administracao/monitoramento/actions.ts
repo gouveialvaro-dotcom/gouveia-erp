@@ -5,10 +5,69 @@ import { z } from "zod";
 import { exigirPermissao } from "@/lib/api-auth";
 import { supabase } from "@/lib/supabase";
 import { dataRefBrasil, impedimentoDeVinculo } from "@/lib/monitoramento";
+import { diagnosticar, listarUsinas, type Diagnostico } from "@/lib/isolarcloud";
 
 const ROTA = "/administracao/monitoramento";
 
 export type EstadoFormUsina = { erro?: string; ok?: boolean } | undefined;
+
+// --- Busca das plantas no iSolarCloud -------------------------------------
+
+export type PlantaEncontrada = {
+  psId: string;
+  nome: string;
+  potenciaKwp: number | null;
+  situacao: string | null;
+  /** Já vinculada a um cliente aqui dentro. */
+  vinculada: boolean;
+  /** Nome do cliente, quando já vinculada. */
+  clienteVinculado: string | null;
+};
+
+export type EstadoBusca =
+  | { erro: string; plantas?: undefined }
+  | { erro?: undefined; plantas: PlantaEncontrada[] }
+  | undefined;
+
+/**
+ * Lista as plantas da conta no iSolarCloud e marca as que já têm vínculo.
+ *
+ * As não vinculadas ficam separadas na tela de propósito: é a lista do que
+ * ainda não foi tratado. Sem essa separação, uma usina nova entrando na conta
+ * da Sungrow passaria despercebida no meio das já cadastradas — e usina que
+ * ninguém vinculou é usina que ninguém monitora.
+ */
+export async function buscarPlantasNoIsolar(): Promise<EstadoBusca> {
+  await exigirPermissao("administracao", "escrita");
+
+  const resposta = await listarUsinas();
+  if (!resposta.ok) return { erro: resposta.erro };
+
+  const { data: cadastradas } = await supabase
+    .from("UsinaMonitorada")
+    .select("psId, cliente:Cliente(razaoSocial)");
+
+  const porPsId = new Map(
+    (cadastradas ?? []).map((u) => [u.psId, u.cliente?.razaoSocial ?? "cliente removido"])
+  );
+
+  return {
+    plantas: resposta.dados.map((planta) => ({
+      psId: planta.psId,
+      nome: planta.nome,
+      potenciaKwp: planta.potenciaKwp,
+      situacao: planta.situacao,
+      vinculada: porPsId.has(planta.psId),
+      clienteVinculado: porPsId.get(planta.psId) ?? null,
+    })),
+  };
+}
+
+/** Teste de ponta a ponta da integração, com o erro cru da API. */
+export async function testarConexaoIsolar(): Promise<Diagnostico> {
+  await exigirPermissao("administracao", "escrita");
+  return diagnosticar();
+}
 
 const esquemaVinculo = z.object({
   // Identificador da planta no iSolarCloud (ps_id). Digitado à mão por

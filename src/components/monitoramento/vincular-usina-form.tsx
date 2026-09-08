@@ -1,12 +1,17 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import {
+  buscarPlantasNoIsolar,
+  testarConexaoIsolar,
   vincularUsina,
+  type EstadoBusca,
   type EstadoFormUsina,
+  type PlantaEncontrada,
 } from "@/app/(app)/administracao/monitoramento/actions";
 import { impedimentoDeVinculo } from "@/lib/monitoramento";
 import type { RamoCliente } from "@/lib/clientes";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,12 +37,184 @@ export type UnidadeOpcao = {
 export function VincularUsinaForm({
   clientes,
   unidades,
+  integracaoConfigurada,
 }: {
   clientes: ClienteOpcao[];
   unidades: UnidadeOpcao[];
+  integracaoConfigurada: boolean;
+}) {
+  const [busca, setBusca] = useState<EstadoBusca>(undefined);
+  const [planta, setPlanta] = useState<PlantaEncontrada | null>(null);
+  const [diagnostico, setDiagnostico] = useState<string | null>(null);
+  const [carregando, iniciar] = useTransition();
+
+  const naoVinculadas = busca?.plantas?.filter((p) => !p.vinculada) ?? [];
+  const jaVinculadas = busca?.plantas?.filter((p) => p.vinculada) ?? [];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={carregando || !integracaoConfigurada}
+            onClick={() =>
+              iniciar(async () => {
+                setDiagnostico(null);
+                setBusca(await buscarPlantasNoIsolar());
+              })
+            }
+          >
+            {carregando ? "Buscando..." : "Buscar usinas no iSolarCloud"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={carregando}
+            onClick={() =>
+              iniciar(async () => {
+                const d = await testarConexaoIsolar();
+                setDiagnostico(
+                  d.erro
+                    ? `Falhou em ${d.baseUrl}: ${d.erro}`
+                    : `Conexão ok em ${d.baseUrl}. ${d.usinasEncontradas} planta(s) visíveis na conta.`
+                );
+              })
+            }
+          >
+            Testar conexão
+          </Button>
+        </div>
+
+        {!integracaoConfigurada && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
+            A integração ainda não está configurada. Preencha <code>ISOLARCLOUD_BASE_URL</code>,{" "}
+            <code>ISOLARCLOUD_APP_KEY</code>, <code>ISOLARCLOUD_ACCESS_KEY</code>,{" "}
+            <code>ISOLARCLOUD_USUARIO</code> e <code>ISOLARCLOUD_SENHA</code> no <code>.env</code>.
+            Enquanto isso, a usina pode ser cadastrada à mão abaixo.
+          </p>
+        )}
+
+        {diagnostico && (
+          <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">{diagnostico}</p>
+        )}
+
+        {busca?.erro && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {busca.erro}
+          </p>
+        )}
+
+        {busca?.plantas && (
+          <div className="flex flex-col gap-4">
+            <ListaDePlantas
+              titulo="Sem vínculo — ainda não monitoradas"
+              vazio="Todas as plantas da conta já estão vinculadas."
+              plantas={naoVinculadas}
+              escolhida={planta}
+              aoEscolher={setPlanta}
+            />
+            <ListaDePlantas
+              titulo="Já vinculadas"
+              vazio="Nenhuma planta vinculada ainda."
+              plantas={jaVinculadas}
+              escolhida={null}
+              aoEscolher={null}
+            />
+          </div>
+        )}
+      </section>
+
+      <Formulario
+        clientes={clientes}
+        unidades={unidades}
+        planta={planta}
+        aoVincular={() => setPlanta(null)}
+      />
+    </div>
+  );
+}
+
+function ListaDePlantas({
+  titulo,
+  vazio,
+  plantas,
+  escolhida,
+  aoEscolher,
+}: {
+  titulo: string;
+  vazio: string;
+  plantas: PlantaEncontrada[];
+  escolhida: PlantaEncontrada | null;
+  aoEscolher: ((planta: PlantaEncontrada) => void) | null;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">
+        {titulo} <span className="text-muted-foreground">({plantas.length})</span>
+      </h3>
+      {plantas.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{vazio}</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {plantas.map((planta) => (
+            <li
+              key={planta.psId}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <div className="min-w-0">
+                <span className="font-medium">{planta.nome}</span>
+                <span className="ml-2 font-mono text-xs text-muted-foreground">{planta.psId}</span>
+                {planta.potenciaKwp !== null && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {planta.potenciaKwp.toLocaleString("pt-BR")} kWp
+                  </span>
+                )}
+                {planta.clienteVinculado && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    → {planta.clienteVinculado}
+                  </span>
+                )}
+              </div>
+              {aoEscolher ? (
+                <Button
+                  type="button"
+                  variant={escolhida?.psId === planta.psId ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => aoEscolher(planta)}
+                >
+                  {escolhida?.psId === planta.psId ? "Selecionada" : "Vincular"}
+                </Button>
+              ) : (
+                <Badge variant="secondary">monitorando</Badge>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Formulario({
+  clientes,
+  unidades,
+  planta,
+  aoVincular,
+}: {
+  clientes: ClienteOpcao[];
+  unidades: UnidadeOpcao[];
+  planta: PlantaEncontrada | null;
+  aoVincular: () => void;
 }) {
   const [estado, formAction, pendente] = useActionState<EstadoFormUsina, FormData>(
-    vincularUsina,
+    async (anterior, dados) => {
+      const resultado = await vincularUsina(anterior, dados);
+      if (resultado?.ok) aoVincular();
+      return resultado;
+    },
     undefined
   );
   const [clienteId, setClienteId] = useState("");
@@ -59,29 +236,42 @@ export function VincularUsinaForm({
   // dá — e é o motivo mais comum de recusa.
   const impedimentoDoCliente =
     cliente && !unidade
-      ? impedimentoDeVinculo(cliente, {
-          clienteId: cliente.id,
-          tipo: "geradora",
-          ativo: true,
-        })
+      ? impedimentoDeVinculo(cliente, { clienteId: cliente.id, tipo: "geradora", ativo: true })
       : null;
 
   const aviso = impedimento ?? impedimentoDoCliente;
 
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-2">
-      <div className="flex flex-col gap-1.5">
+      {/* key força os campos a se recarregarem quando outra planta é escolhida:
+          com defaultValue e sem key, o React mantém o valor digitado antes e a
+          tela mostraria a planta nova com o ps_id da anterior. */}
+      <div className="flex flex-col gap-1.5" key={planta?.psId ?? "manual"}>
         <Label htmlFor="psId">Identificador da planta (ps_id)</Label>
-        <Input id="psId" name="psId" required autoComplete="off" />
+        <Input
+          id="psId"
+          name="psId"
+          required
+          autoComplete="off"
+          defaultValue={planta?.psId ?? ""}
+          readOnly={planta !== null}
+        />
         <p className="text-xs text-muted-foreground">
-          Como aparece no iSolarCloud. Digitado à mão por enquanto — a busca automática das
-          plantas depende da integração com a API, ainda não configurada.
+          {planta
+            ? "Preenchido pela busca no iSolarCloud."
+            : "Como aparece no iSolarCloud. Use a busca acima para não digitar à mão."}
         </p>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" key={`nome-${planta?.psId ?? "manual"}`}>
         <Label htmlFor="nomeIsolar">Nome da planta no iSolarCloud</Label>
-        <Input id="nomeIsolar" name="nomeIsolar" required autoComplete="off" />
+        <Input
+          id="nomeIsolar"
+          name="nomeIsolar"
+          required
+          autoComplete="off"
+          defaultValue={planta?.nome ?? ""}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -93,7 +283,7 @@ export function VincularUsinaForm({
         </p>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" key={`pot-${planta?.psId ?? "manual"}`}>
         <Label htmlFor="potenciaIsolarKwp">Potência informada pela API (kWp, opcional)</Label>
         <Input
           id="potenciaIsolarKwp"
@@ -102,6 +292,7 @@ export function VincularUsinaForm({
           step="0.01"
           min="0"
           autoComplete="off"
+          defaultValue={planta?.potenciaKwp ?? ""}
         />
         <p className="text-xs text-muted-foreground">
           A potência oficial continua sendo a do cadastro da unidade consumidora. Esta serve para

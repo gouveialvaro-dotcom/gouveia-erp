@@ -5,6 +5,7 @@ import { acessoModulo } from "@/lib/pagina-auth";
 import { podeEscrever } from "@/lib/permissoes";
 import { ROTULO_SITUACAO_MANUTENCAO, situacaoManutencao } from "@/lib/clientes";
 import { dataRefBrasil, ROTULO_MOTIVO_INATIVACAO } from "@/lib/monitoramento";
+import { integracaoConfigurada } from "@/lib/isolarcloud";
 import { formatarData } from "@/lib/format";
 import { TituloPagina } from "@/components/titulo-pagina";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,7 @@ export default async function PaginaCadastroUsinas() {
       <section className="flex flex-col gap-3 rounded-md border bg-card p-4">
         <h2 className="text-base font-semibold">Vincular nova usina</h2>
         <VincularUsinaForm
+          integracaoConfigurada={integracaoConfigurada()}
           clientes={clientesData ?? []}
           unidades={(unidadesData ?? []).map((u) => ({
             id: u.id,
