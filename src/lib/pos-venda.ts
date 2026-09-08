@@ -188,48 +188,161 @@ export function textoPrazo(chamado: ChamadoSla, hoje = hojeIso()) {
   return `${restantes}d restantes`;
 }
 
-// --- Sem movimento -------------------------------------------------------
-// Chamado parado é diferente de chamado atrasado: o prazo pode estar longe e o
-// atendimento ter esfriado mesmo assim — são estados ortogonais, e um chamado
-// pode estar nos dois. Como "a_vencer" e "vencido", este é um estado DERIVADO e
-// não uma coluna gravada: uma coluna precisaria de um job para ser mantida e
-// mentiria entre uma passada e outra, enquanto a data da última movimentação já
-// está no banco e responde sozinha a qualquer momento.
+// --- Estado do card ------------------------------------------------------
+// Duas perguntas diferentes, que o quadro sozinho não respondia: "alguém
+// assumiu?" e "o prazo está acabando?". Antes só a segunda tinha cor, então um
+// chamado esquecido com prazo longe parecia igual a um sob controle.
+//
+// PRAZO MANDA MAIS QUE POSSE. A ordem abaixo é a da especificação e o
+// early-return implementa exatamente ela: concluído > vencido > a vencer > em
+// andamento > aguardando. O chamado que ninguém encostou não perde essa
+// informação ao ficar laranja — ela migra para a etiqueta de inatividade.
+//
+// A janela do laranja é o diasAlerta cadastrado por tipo de problema, o MESMO
+// que governa a coluna "A vencer": um segundo número aqui produziria card
+// laranja fora da coluna laranja.
+
+export type EstadoCard =
+  | "aguardando"
+  | "em_andamento"
+  | "a_vencer"
+  | "vencido"
+  | "concluido";
+
+export const ROTULO_ESTADO_CARD: Record<EstadoCard, string> = {
+  aguardando: "Aguardando",
+  em_andamento: "Em andamento",
+  a_vencer: "A vencer",
+  vencido: "Vencido",
+  concluido: "Concluído",
+};
+
+// A palavra não é enfeite: parte da equipe não distingue verde de laranja de
+// vermelho, e cor sozinha não pode ser a única fonte da informação. Por isso
+// rótulo e cor moram juntos aqui — quem usar um é obrigado a ver o outro.
+//
+// Cada estado traz o par claro/escuro. Fundo do card NÃO é pintado: quadro
+// inteiro colorido vira poluição e some no tema escuro. A cor vive na faixa da
+// borda esquerda e na etiqueta.
+export const CORES_ESTADO_CARD: Record<EstadoCard, { faixa: string; etiqueta: string }> = {
+  aguardando: {
+    faixa: "border-l-amber-400 dark:border-l-amber-300",
+    etiqueta:
+      "border-amber-500/40 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  },
+  em_andamento: {
+    faixa: "border-l-emerald-500 dark:border-l-emerald-400",
+    etiqueta:
+      "border-emerald-500/40 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  },
+  a_vencer: {
+    faixa: "border-l-orange-500 dark:border-l-orange-400",
+    etiqueta:
+      "border-orange-500/40 bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
+  },
+  vencido: {
+    faixa: "border-l-red-600 dark:border-l-red-500",
+    etiqueta: "border-red-500/40 bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200",
+  },
+  concluido: {
+    faixa: "border-l-emerald-800 dark:border-l-emerald-600",
+    etiqueta:
+      "border-emerald-800/40 bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100",
+  },
+};
+
+export type ChamadoEstado = ChamadoSla & {
+  /** Nulo enquanto o responsável não agiu — é o que separa amarelo de verde.
+   *  Uma vez preenchido não volta atrás, nem por inatividade nem por troca de
+   *  dono; o ponto cego disso é coberto pela etiqueta de inatividade. */
+  primeiraAcaoResponsavelEm: string | null;
+};
+
+export function estadoDoCard(
+  chamado: ChamadoEstado,
+  diasAlerta: number,
+  hoje = hojeIso()
+): EstadoCard {
+  if (chamado.estagio === "concluido") return "concluido";
+  const restantes = diasRestantes(chamado, hoje);
+  if (restantes < 0) return "vencido";
+  if (restantes <= diasAlerta) return "a_vencer";
+  return chamado.primeiraAcaoResponsavelEm ? "em_andamento" : "aguardando";
+}
+
+/** Concluído depois do prazo. O verde escuro vence o vermelho na ordem acima,
+ *  então sem esta etiqueta o atraso sumiria do card e o indicador de SLA do
+ *  dashboard não bateria com o que se vê no quadro. */
+export function concluidoForaDoPrazo(chamado: {
+  estagio: EstagioChamado;
+  concluidoEm: string | null;
+  prazoLimite: string;
+}) {
+  if (chamado.estagio !== "concluido" || !chamado.concluidoEm) return false;
+  return chamado.concluidoEm.slice(0, 10) > chamado.prazoLimite.slice(0, 10);
+}
+
+// --- Inatividade ---------------------------------------------------------
+// Substitui o realce de "parado há 2 dias", que era um estado visual do card e
+// disputava atenção com o prazo. Virou ETIQUETA, que convive com qualquer cor:
+// um card pode estar verde e parado há seis dias ao mesmo tempo.
+//
+// É ela que cobre o ponto cego do verde permanente. Uma única ação no primeiro
+// dia deixa o card verde para sempre, e um chamado de 90 dias de SLA pode ficar
+// dois meses verde e abandonado — o alerta de prazo só acorda no fim. A
+// etiqueta acusa isso desde o segundo dia.
+//
+// Continua sendo estado DERIVADO, e não coluna gravada: coluna precisaria de um
+// job para ser mantida e mentiria entre uma passada e outra, enquanto as datas
+// já estão no banco e respondem sozinhas a qualquer momento.
 
 export const DIAS_SEM_MOVIMENTO_PADRAO = 2;
 
-export type ChamadoMovimento = {
+export type ChamadoInatividade = {
   estagio: EstagioChamado;
   abertoEm: string;
-  /** Data ("YYYY-MM-DD") da interação mais recente, se houver alguma. */
-  ultimaInteracaoEm: string | null;
+  primeiraAcaoResponsavelEm: string | null;
+  ultimaAcaoResponsavelEm: string | null;
 };
 
-/** A mais recente entre a última interação e a abertura: sem esse piso, um
- *  chamado recém-aberto e ainda sem interação nenhuma contaria como parado
- *  desde a origem dos tempos. */
-export function ultimaMovimentacao(chamado: ChamadoMovimento) {
-  const abertura = chamado.abertoEm.slice(0, 10);
-  const interacao = chamado.ultimaInteracaoEm?.slice(0, 10);
-  if (!interacao) return abertura;
-  return interacao > abertura ? interacao : abertura;
+/** Data a partir da qual se conta. Sem ação do responsável, o piso é a
+ *  abertura: sem esse piso um chamado recém-aberto contaria como parado desde
+ *  a origem dos tempos. */
+export function inicioDaContagem(chamado: ChamadoInatividade) {
+  return (chamado.ultimaAcaoResponsavelEm ?? chamado.abertoEm).slice(0, 10);
 }
 
-/** Dias corridos parados. A conta é sobre strings "YYYY-MM-DD" em UTC, como o
- *  resto do módulo: converter para Date local desloca o dia em fuso negativo e
- *  o destaque acenderia (ou apagaria) um dia fora da hora. */
-export function diasSemMovimento(chamado: ChamadoMovimento, hoje = hojeIso()) {
-  return diferencaEmDias(ultimaMovimentacao(chamado), hoje);
+/** Dias corridos, como o SLA do módulo — misturar com dias úteis daria duas
+ *  aritméticas de data para o mesmo chamado. A conta é sobre strings
+ *  "YYYY-MM-DD" em UTC: converter para Date local desloca o dia em fuso
+ *  negativo e a etiqueta acenderia (ou apagaria) um dia fora da hora. */
+export function diasSemMovimento(chamado: ChamadoInatividade, hoje = hojeIso()) {
+  return diferencaEmDias(inicioDaContagem(chamado), hoje);
 }
 
-/** Concluído nunca entra no destaque: parar é o desfecho esperado dele. */
+/** Concluído nunca recebe a etiqueta: parar é o desfecho esperado dele. */
 export function semMovimento(
-  chamado: ChamadoMovimento,
+  chamado: ChamadoInatividade,
   diasLimite = DIAS_SEM_MOVIMENTO_PADRAO,
   hoje = hojeIso()
 ) {
   if (chamado.estagio === "concluido") return false;
   return diasSemMovimento(chamado, hoje) >= diasLimite;
+}
+
+/** Texto pronto da etiqueta, ou null quando ela não deve aparecer. As duas
+ *  redações dizem coisas diferentes de propósito: "Parado" pressupõe que houve
+ *  trabalho e ele esfriou; "Sem ação" diz que ninguém com posse começou. */
+export function etiquetaInatividade(
+  chamado: ChamadoInatividade,
+  diasLimite = DIAS_SEM_MOVIMENTO_PADRAO,
+  hoje = hojeIso()
+) {
+  if (!semMovimento(chamado, diasLimite, hoje)) return null;
+  const dias = diasSemMovimento(chamado, hoje);
+  return chamado.primeiraAcaoResponsavelEm
+    ? `Parado há ${dias} dias`
+    : `Sem ação há ${dias} dias`;
 }
 
 // --- Notificações --------------------------------------------------------

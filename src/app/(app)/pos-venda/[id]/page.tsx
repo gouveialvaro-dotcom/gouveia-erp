@@ -16,15 +16,17 @@ import {
   ROTULO_TIPO_UC,
   DIAS_SEM_MOVIMENTO_PADRAO,
   PERFIS_RESPONSAVEL_CHAMADO,
+  CORES_ESTADO_CARD,
+  ROTULO_ESTADO_CARD,
   colunaDoChamado,
-  diasSemMovimento,
+  concluidoForaDoPrazo,
   diferencaEmDias,
+  estadoDoCard,
+  etiquetaInatividade,
   hojeIso,
   mesesAtras,
   podeTrocarResponsavel,
-  semMovimento,
   textoPrazo,
-  ultimaMovimentacao,
 } from "@/lib/pos-venda";
 import {
   ROTULO_RAMO,
@@ -152,17 +154,15 @@ export default async function PaginaChamado({
 
   const recorrente = (ocorrencias ?? 0) >= MIN_OCORRENCIAS_RECORRENCIA;
 
-  // "Sem movimento" é estado derivado, como "a_vencer" e "vencido": nada é
-  // gravado, a conta sai da própria linha do tempo a cada carregamento.
+  // Mesmas funções do quadro, de propósito: cor e palavra têm de bater entre a
+  // tela aberta e o card, senão o atendente vê "Vencido" numa e "Em andamento"
+  // na outra e nenhuma das duas ganha crédito.
   const diasLimiteParado =
     parametros?.diasSemMovimentoChamado ?? DIAS_SEM_MOVIMENTO_PADRAO;
-  const movimento = {
-    estagio: chamado.estagio,
-    abertoEm: chamado.abertoEm,
-    ultimaInteracaoEm:
-      chamado.interacoes.map((i) => i.data.slice(0, 10)).sort().at(-1) ?? null,
-  };
-  const parado = semMovimento(movimento, diasLimiteParado, hoje);
+  const estado = estadoDoCard(chamado, chamado.tipo?.diasAlerta ?? 0, hoje);
+  const coresEstado = CORES_ESTADO_CARD[estado];
+  const inatividade = etiquetaInatividade(chamado, diasLimiteParado, hoje);
+  const foraDoPrazo = concluidoForaDoPrazo(chamado);
 
   const elegiveis = (usuarios ?? []).map((u) => ({
     id: u.id,
@@ -211,15 +211,20 @@ export default async function PaginaChamado({
         <h2 className="text-lg font-semibold">
           #{chamado.numero} · {chamado.titulo}
         </h2>
+        <Badge variant="outline" className={coresEstado.etiqueta}>
+          {ROTULO_ESTADO_CARD[estado]}
+        </Badge>
+        {/* A coluna continua aparecendo ao lado do estado: são coisas
+            diferentes, e é justamente o chamado vencido que segue numa coluna
+            de trabalho — o que aguarda concessionária, tipicamente — que a cor
+            existe para revelar. */}
         <Badge variant={vencido ? "destructive" : "outline"}>{ROTULO_COLUNA[coluna]}</Badge>
         <Badge variant={prioridade.variant}>{prioridade.texto}</Badge>
         {recorrente && <Badge variant="destructive">Recorrente</Badge>}
-        {parado && (
-          <Badge
-            variant="secondary"
-            title={`Sem registro novo desde ${formatarData(ultimaMovimentacao(movimento))}`}
-          >
-            Parado há {diasSemMovimento(movimento, hoje)}d
+        {inatividade && <Badge variant="secondary">{inatividade}</Badge>}
+        {foraDoPrazo && (
+          <Badge variant="outline" title="Encerrado depois do prazo limite">
+            Fora do prazo
           </Badge>
         )}
         {podeEditar && (

@@ -68,6 +68,34 @@ async function soltarConversasDoChamado(chamadoId: string) {
 // aqui é a trava de fato. A regra em si mora em lib/pos-venda.ts, porque é a
 // MESMA que monta o combobox — duas cópias divergiriam no primeiro ajuste.
 // Devolve o nome, que os avisos e a nota do histórico precisam de qualquer jeito.
+// A cor do card vira de amarelo para verde quando o RESPONSÁVEL age — e só
+// ele. Ação de terceiro, inclusive admin, não conta: se o coordenador mexe no
+// card de outra pessoa, o dono ainda não assumiu, e pintar de verde esconderia
+// justamente o que a cor existe para mostrar.
+//
+// A primeira data nunca é reescrita (o verde não volta atrás); a última é
+// sempre, porque alimenta a etiqueta de inatividade. As duas são gravadas na
+// hora da ação: derivar do histórico daria outra resposta a cada repasse de
+// responsável, já que a linha do tempo guarda quem fez, não quem era o dono.
+async function registrarAcaoDoResponsavel(chamadoId: string, usuarioId: string) {
+  const { data: chamado } = await supabase
+    .from("Chamado")
+    .select("responsavelId, primeiraAcaoResponsavelEm")
+    .eq("id", chamadoId)
+    .maybeSingle();
+
+  if (!chamado || chamado.responsavelId !== usuarioId) return;
+
+  const agora = new Date().toISOString();
+  await supabase
+    .from("Chamado")
+    .update({
+      ultimaAcaoResponsavelEm: agora,
+      primeiraAcaoResponsavelEm: chamado.primeiraAcaoResponsavelEm ?? agora,
+    })
+    .eq("id", chamadoId);
+}
+
 async function responsavelElegivel(usuarioId: string) {
   const { data } = await supabase
     .from("Usuario")
@@ -266,6 +294,8 @@ export async function atualizarChamado(
 
   if (error) return { erro: "Não foi possível salvar o chamado." };
 
+  await registrarAcaoDoResponsavel(chamadoId, usuarioId);
+
   if (concluido) await soltarConversasDoChamado(chamadoId);
 
   const resumo = await resumoChamado(chamadoId);
@@ -392,6 +422,8 @@ async function moverEstagio(chamadoId: string, estagioAtual: string, passo: 1 | 
     })
     .eq("id", chamadoId);
 
+  await registrarAcaoDoResponsavel(chamadoId, usuarioId);
+
   if (estagio === "concluido") await soltarConversasDoChamado(chamadoId);
 
   const resumo = await resumoChamado(chamadoId);
@@ -457,6 +489,8 @@ export async function adicionarInteracao(chamadoId: string, formData: FormData) 
     })
     .select("id")
     .single();
+
+  await registrarAcaoDoResponsavel(chamadoId, usuarioId);
 
   // Um protocolo registrado na linha do tempo é o número que o time cobra da
   // distribuidora depois; sobe para o chamado para aparecer no cabeçalho.
@@ -524,6 +558,8 @@ export async function enviarAnexo(
     await supabase.storage.from(BUCKET_ANEXOS).remove([caminho]);
     return { erro: "Falha ao registrar o anexo." };
   }
+
+  await registrarAcaoDoResponsavel(chamadoId, usuarioId);
 
   revalidarChamado(chamadoId);
 }

@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatarData } from "@/lib/format";
 import {
+  CORES_ESTADO_CARD,
+  ROTULO_ESTADO_CARD,
   COLUNAS_DERIVADAS,
   ORDEM_ESTAGIO_FLUXO,
   ROTULO_ESTAGIO,
   ROTULO_PRIORIDADE,
   textoPrazo,
   type ColunaKanban,
+  type EstadoCard,
   type EstagioChamado,
   type PrioridadeChamado,
 } from "@/lib/pos-venda";
@@ -39,47 +43,52 @@ export function CardChamado({
   chamado,
   coluna,
   hoje,
+  estado,
+  inatividade,
+  foraDoPrazo,
   recorrente,
   novidade,
-  parado,
-  diasParado,
   podeEditar,
 }: {
   chamado: ChamadoCard;
   coluna: ColunaKanban;
   hoje: string;
+  /** Cor e palavra do card — regra e ordem de prioridade em lib/pos-venda.ts. */
+  estado: EstadoCard;
+  /** Texto pronto da etiqueta de inatividade, ou null quando não cabe. */
+  inatividade: string | null;
+  /** Concluído depois do prazo: o verde escuro vence o vermelho, então o atraso
+   *  só continua visível por esta etiqueta. */
+  foraDoPrazo: boolean;
   recorrente: boolean;
   /** Alguém mexeu no chamado e este usuário ainda não abriu para ver. */
   novidade: boolean;
-  /** Sem registro novo há tempo demais — estado derivado, ver lib/pos-venda.ts. */
-  parado: boolean;
-  diasParado: number;
   podeEditar: boolean;
 }) {
   const vencido = coluna === "vencido";
   const aVencer = coluna === "a_vencer";
   const concluido = coluna === "concluido";
+  const cores = CORES_ESTADO_CARD[estado];
   const prioridade = ROTULO_PRIORIDADE[chamado.prioridade];
   const indiceFluxo = ORDEM_ESTAGIO_FLUXO.indexOf(
     chamado.estagio as (typeof ORDEM_ESTAGIO_FLUXO)[number]
   );
 
   return (
-    <Card
-      size="sm"
-      className={cn(
-        vencido && "bg-destructive/5 ring-destructive/40",
-        aVencer && "ring-amber-500/40",
-        // O tracejado é deliberado: parada é ortogonal ao prazo, então precisa
-        // de uma marca que não brigue com o anel de vencido/a vencer.
-        parado && !concluido && "border-dashed border-amber-500/60",
-        concluido && "opacity-60"
-      )}
-    >
+    // A cor vive só na faixa da borda esquerda: pintar o fundo do card deixa o
+    // quadro inteiro colorido, o que vira poluição e some no tema escuro.
+    <Card size="sm" className={cn("border-l-4", cores.faixa)}>
       <CardContent className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             #{chamado.numero}
+            {/* A palavra é obrigatória, não é reforço: cor sozinha não pode ser
+                a única fonte da informação — parte da equipe não distingue bem
+                verde de laranja de vermelho. */}
+            <Badge variant="outline" className={cn("gap-1", cores.etiqueta)}>
+              {concluido && <Check className="size-3" />}
+              {ROTULO_ESTADO_CARD[estado]}
+            </Badge>
             {novidade && (
               <span
                 className="inline-block size-2 shrink-0 rounded-full bg-primary"
@@ -87,16 +96,8 @@ export function CardChamado({
               />
             )}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             {novidade && <Badge variant="secondary">Atualizado</Badge>}
-            {parado && (
-              <Badge
-                variant="secondary"
-                title={`Sem registro novo há ${diasParado} dia(s) corridos`}
-              >
-                Parado {diasParado}d
-              </Badge>
-            )}
             {recorrente && (
               <Badge variant="destructive" title="3+ chamados do mesmo tipo em 6 meses">
                 Recorrente
@@ -105,6 +106,27 @@ export function CardChamado({
             <Badge variant={prioridade.variant}>{prioridade.texto}</Badge>
           </div>
         </div>
+
+        {(inatividade || foraDoPrazo) && (
+          // Convivem com qualquer cor: um card pode estar verde E parado há
+          // seis dias. Por isso ficam fora do bloco de estado, não dentro dele.
+          <div className="flex flex-wrap gap-1">
+            {inatividade && (
+              <Badge variant="secondary" className="font-normal">
+                {inatividade}
+              </Badge>
+            )}
+            {foraDoPrazo && (
+              <Badge
+                variant="outline"
+                className="font-normal"
+                title="Encerrado depois do prazo limite"
+              >
+                Fora do prazo
+              </Badge>
+            )}
+          </div>
+        )}
 
         <Link href={`/pos-venda/${chamado.id}`} className="font-medium hover:underline">
           {chamado.cliente}

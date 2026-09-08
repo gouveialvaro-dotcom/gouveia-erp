@@ -216,6 +216,7 @@ export type Database = {
           id: string
           numero: number
           obraId: string | null
+          primeiraAcaoResponsavelEm: string | null
           prazoLimite: string
           prioridade: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria: string | null
@@ -223,6 +224,7 @@ export type Database = {
           solucao: string | null
           tipoProblemaId: string
           titulo: string
+          ultimaAcaoResponsavelEm: string | null
           unidadeConsumidoraId: string | null
         }
         Insert: {
@@ -237,6 +239,7 @@ export type Database = {
           id?: string
           numero?: number
           obraId?: string | null
+          primeiraAcaoResponsavelEm?: string | null
           prazoLimite: string
           prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria?: string | null
@@ -244,6 +247,7 @@ export type Database = {
           solucao?: string | null
           tipoProblemaId: string
           titulo: string
+          ultimaAcaoResponsavelEm?: string | null
           unidadeConsumidoraId?: string | null
         }
         Update: {
@@ -258,6 +262,7 @@ export type Database = {
           id?: string
           numero?: number
           obraId?: string | null
+          primeiraAcaoResponsavelEm?: string | null
           prazoLimite?: string
           prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria?: string | null
@@ -265,6 +270,7 @@ export type Database = {
           solucao?: string | null
           tipoProblemaId?: string
           titulo?: string
+          ultimaAcaoResponsavelEm?: string | null
           unidadeConsumidoraId?: string | null
         }
         Relationships: [

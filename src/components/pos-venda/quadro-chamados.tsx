@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ORDEM_COLUNA_KANBAN, ROTULO_COLUNA, type ColunaKanban } from "@/lib/pos-venda";
+import {
+  ORDEM_COLUNA_KANBAN,
+  ROTULO_COLUNA,
+  type ColunaKanban,
+  type EstadoCard,
+} from "@/lib/pos-venda";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardChamado, type ChamadoCard } from "@/components/pos-venda/card-chamado";
+import {
+  BarraFiltros,
+  type FiltrosPosVenda,
+  type Opcao,
+} from "@/components/pos-venda/filtros";
 
 // Teto inicial por coluna. Uma coluna cheia empurrava as demais para fora da
 // tela e obrigava a rolar a página inteira para conferir a próxima etapa; com o
@@ -15,10 +25,11 @@ const CARDS_POR_COLUNA = 5;
 export type ItemQuadro = {
   card: ChamadoCard;
   coluna: ColunaKanban;
+  estado: EstadoCard;
+  inatividade: string | null;
+  foraDoPrazo: boolean;
   recorrente: boolean;
   novidade: boolean;
-  parado: boolean;
-  diasParado: number;
 };
 
 export function QuadroChamados({
@@ -27,6 +38,11 @@ export function QuadroChamados({
   podeEditar,
   meuId,
   cabecalho,
+  filtros,
+  clientes,
+  tipos,
+  responsaveis,
+  acaoNovoChamado,
 }: {
   itens: ItemQuadro[];
   hoje: string;
@@ -34,10 +50,21 @@ export function QuadroChamados({
   /** Id conferido no banco (ver usuarioIdAtual) — é com ele que o dono do card
    *  é comparado. */
   meuId: string;
-  /** Título, indicadores e filtros da página. Vêm para dentro do quadro, e não
-   *  ficam soltos na página, porque o bloco que gruda no topo precisa ser um
-   *  elemento só — e o "Meus chamados", que fecha esse bloco, é estado daqui. */
+  /** Título e indicadores da página. Vêm para dentro do quadro, e não ficam
+   *  soltos na página, porque o bloco que gruda no topo precisa ser um
+   *  elemento só. */
   cabecalho?: ReactNode;
+  /* A barra de filtros é montada aqui, e não na página, porque o botão "Meus
+     chamados" divide a linha com o "Filtrar" e é estado deste componente —
+     recorte resolvido na hora, sem ida ao servidor. Por isso os dados dos
+     campos precisam descer até aqui. */
+  filtros: FiltrosPosVenda;
+  clientes: Opcao[];
+  tipos: Opcao[];
+  responsaveis: Opcao[];
+  /** "+ Novo chamado", montado na página porque depende de permissão. Entra na
+   *  mesma linha para não gastar uma faixa de tela só para ele. */
+  acaoNovoChamado?: ReactNode;
 }) {
   // Recorte de leitura, não preferência: fica no cliente e não é persistido de
   // propósito. Guardar a escolha faria alguém voltar dias depois a um quadro
@@ -51,34 +78,37 @@ export function QuadroChamados({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Cabeçalho e controles ficam à vista enquanto o quadro rola.
-          A partir de xl, que é exatamente onde os cinco indicadores cabem em
-          uma linha e o bloco fica em 358px: abaixo disso eles quebram em duas
-          ou três linhas (478px, 718px) e congelar tomaria a tela inteira.
-          Amarrar na mesma medida de xl:grid-cols-5 é o que garante que a barra
-          fixa só apareça quando ela cabe.
+      {/* Indicadores e filtros ficam à vista enquanto o quadro rola.
+          Só a partir de xl, que é onde os cinco indicadores cabem em uma linha
+          e o bloco fica entre 250px e 300px; abaixo disso eles quebram em duas
+          ou três linhas (416px em 1100px de largura, 758px em 820px) e congelar
+          tomaria a tela que o quadro precisa. Amarrar na mesma medida de
+          xl:grid-cols-5 é o que garante que a barra fixa só apareça onde cabe.
           A margem negativa cancela o padding do <main> para o fundo encostar no
           topo da tela e tapar os cards que passam por baixo; a borda deixa esse
           corte proposital em vez de parecer card cortado no meio. */}
       <div className="z-20 flex flex-col gap-4 bg-background -mt-4 pt-4 pb-3 sm:-mt-6 sm:pt-6 xl:sticky xl:top-0 xl:border-b">
         {cabecalho}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={somenteMeus ? "default" : "outline"}
-            aria-pressed={somenteMeus}
-            onClick={() => setSomenteMeus((atual) => !atual)}
-          >
-            Meus chamados ({meus})
-          </Button>
-          {somenteMeus && (
-            <span className="text-xs text-muted-foreground">
-              Mostrando só o que está no seu nome.
-            </span>
-          )}
-        </div>
+        <BarraFiltros
+          filtros={filtros}
+          clientes={clientes}
+          tipos={tipos}
+          responsaveis={responsaveis}
+          acoes={
+            <>
+              <Button
+                type="button"
+                variant={somenteMeus ? "default" : "outline"}
+                aria-pressed={somenteMeus}
+                onClick={() => setSomenteMeus((atual) => !atual)}
+              >
+                Meus chamados ({meus})
+              </Button>
+              {acaoNovoChamado}
+            </>
+          }
+        />
       </div>
 
       {/* Empilhado no estreito e em faixa rolável a partir do desktop: com as
@@ -138,10 +168,11 @@ function ColunaQuadro({
             chamado={item.card}
             coluna={coluna}
             hoje={hoje}
+            estado={item.estado}
+            inatividade={item.inatividade}
+            foraDoPrazo={item.foraDoPrazo}
             recorrente={item.recorrente}
             novidade={item.novidade}
-            parado={item.parado}
-            diasParado={item.diasParado}
             podeEditar={podeEditar}
           />
         ))}

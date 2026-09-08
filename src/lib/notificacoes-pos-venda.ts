@@ -6,7 +6,7 @@ import {
   DIAS_SEM_MOVIMENTO_PADRAO,
   hojeIso,
   semMovimento,
-  ultimaMovimentacao,
+  inicioDaContagem,
 } from "@/lib/pos-venda";
 import { MINUTOS_UTEIS_SEM_DONO, minutosUteisEntre } from "@/lib/pos-venda-whatsapp";
 import { podeEscrever, podeLer, type Perfil } from "@/lib/permissoes";
@@ -161,7 +161,7 @@ export async function sincronizarChamados(usuarioId: string) {
   let query = supabase
     .from("Chamado")
     .select(
-      "id, numero, titulo, estagio, abertoEm, prazoLimite, cliente:Cliente(razaoSocial), interacoes:InteracaoChamado(data)"
+      "id, numero, titulo, estagio, abertoEm, prazoLimite, primeiraAcaoResponsavelEm, ultimaAcaoResponsavelEm, cliente:Cliente(razaoSocial)"
     )
     .neq("estagio", "concluido");
 
@@ -194,23 +194,26 @@ export async function sincronizarChamados(usuarioId: string) {
       });
     }
 
-    // A última interação sai em memória, e não com um order/limit por chamado:
-    // seriam N consultas para uma lista que já veio inteira no mesmo select.
-    const datas = (c.interacoes ?? []).map((i) => i.data.slice(0, 10)).sort();
+    // O aviso lê exatamente a mesma data que a etiqueta do card: se um saísse
+    // da linha do tempo e o outro da ação do responsável, o sino diria "parado"
+    // sobre um card que não está marcado, e ninguém saberia em qual acreditar.
     const movimento = {
       estagio: c.estagio,
       abertoEm: c.abertoEm,
-      ultimaInteracaoEm: datas.at(-1) ?? null,
+      primeiraAcaoResponsavelEm: c.primeiraAcaoResponsavelEm,
+      ultimaAcaoResponsavelEm: c.ultimaAcaoResponsavelEm,
     };
 
     if (semMovimento(movimento, diasLimite, hoje)) {
-      const parado = ultimaMovimentacao(movimento);
+      const parado = inicioDaContagem(movimento);
       linhas.push({
         usuarioId,
         chamadoId: c.id,
         tipo: "chamado_sem_movimento",
         titulo: `Chamado #${c.numero} está parado`,
-        detalhe: `${cliente} · sem registro novo desde ${formatarData(parado)}`,
+        detalhe: c.primeiraAcaoResponsavelEm
+          ? `${cliente} · sem ação do responsável desde ${formatarData(parado)}`
+          : `${cliente} · sem nenhuma ação desde a abertura, em ${formatarData(parado)}`,
         referencia: parado,
       });
     }

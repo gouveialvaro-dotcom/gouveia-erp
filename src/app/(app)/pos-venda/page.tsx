@@ -8,11 +8,12 @@ import {
   MIN_OCORRENCIAS_RECORRENCIA,
   PERFIS_RESPONSAVEL_CHAMADO,
   colunaDoChamado,
-  diasSemMovimento,
+  concluidoForaDoPrazo,
+  estadoDoCard,
+  etiquetaInatividade,
   diferencaEmDias,
   hojeIso,
   mesesAtras,
-  semMovimento,
 } from "@/lib/pos-venda";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,14 +28,16 @@ import {
 import { StatTile } from "@/components/dashboards/stat-tile";
 import type { ChamadoCard } from "@/components/pos-venda/card-chamado";
 import { QuadroChamados, type ItemQuadro } from "@/components/pos-venda/quadro-chamados";
-import { BarraFiltros, type FiltrosPosVenda } from "@/components/pos-venda/filtros";
+import type { FiltrosPosVenda } from "@/components/pos-venda/filtros";
 import { chamadosComNovidade } from "@/lib/notificacoes-pos-venda";
 import { TituloPagina } from "@/components/titulo-pagina";
 
-// interacoes(data) vem junto porque "sem movimento" é estado derivado: a data
-// da última movimentação não fica gravada em Chamado, sai da linha do tempo.
+// A linha do tempo não vem mais junto: a inatividade passou a sair de
+// ultimaAcaoResponsavelEm, no próprio Chamado, e trazer as interações de todos
+// os chamados só para descobrir a data mais recente era carregar a tabela
+// inteira para usar um campo.
 const SELECT_CHAMADO =
-  "*, cliente:Cliente(id, razaoSocial), tipo:TipoProblemaPosVenda(id, nome, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, concessionaria:Concessionaria(id, nome, sigla)), interacoes:InteracaoChamado(data)";
+  "*, cliente:Cliente(id, razaoSocial), tipo:TipoProblemaPosVenda(id, nome, prazoDias, diasAlerta), responsavel:Usuario!Chamado_responsavelId_fkey(id, nome), uc:UnidadeConsumidora(id, numero, apelido, concessionaria:Concessionaria(id, nome, sigla))";
 
 export default async function PaginaPosVenda({
   searchParams,
@@ -124,18 +127,28 @@ export default async function PaginaPosVenda({
     parametros?.diasSemMovimentoChamado ?? DIAS_SEM_MOVIMENTO_PADRAO;
 
   const itens = chamados.map((c) => {
+    // A janela do laranja é o mesmo diasAlerta que decide a coluna "A vencer" —
+    // dois números aqui dariam card laranja fora da coluna laranja.
+    const diasAlerta = c.tipo?.diasAlerta ?? 0;
     const coluna = colunaDoChamado(
       { estagio: c.estagio, prazoLimite: c.prazoLimite },
-      c.tipo?.diasAlerta ?? 0,
+      diasAlerta,
       hoje
     );
-    // A última interação sai em memória: a lista já veio no mesmo select, e um
-    // order/limit por chamado seria uma consulta por card.
+    const estado = estadoDoCard(
+      {
+        estagio: c.estagio,
+        prazoLimite: c.prazoLimite,
+        primeiraAcaoResponsavelEm: c.primeiraAcaoResponsavelEm,
+      },
+      diasAlerta,
+      hoje
+    );
     const movimento = {
       estagio: c.estagio,
       abertoEm: c.abertoEm,
-      ultimaInteracaoEm:
-        (c.interacoes ?? []).map((i) => i.data.slice(0, 10)).sort().at(-1) ?? null,
+      primeiraAcaoResponsavelEm: c.primeiraAcaoResponsavelEm,
+      ultimaAcaoResponsavelEm: c.ultimaAcaoResponsavelEm,
     };
     const card: ChamadoCard = {
       id: c.id,
@@ -155,10 +168,11 @@ export default async function PaginaPosVenda({
     return {
       card,
       coluna,
+      estado,
+      inatividade: etiquetaInatividade(movimento, diasLimiteParado, hoje),
+      foraDoPrazo: concluidoForaDoPrazo(c),
       recorrente: chavesRecorrentes.has(`${c.clienteId}|${c.tipoProblemaId}`),
       novidade: novidades.has(c.id),
-      parado: semMovimento(movimento, diasLimiteParado, hoje),
-      diasParado: diasSemMovimento(movimento, hoje),
       diasResolucao:
         c.concluidoEm ? diferencaEmDias(c.abertoEm, c.concluidoEm) : null,
       dentroDoPrazo: c.concluidoEm ? c.concluidoEm <= c.prazoLimite : null,
@@ -169,7 +183,7 @@ export default async function PaginaPosVenda({
 
   const abertos = itens.filter((i) => i.card.estagio !== "concluido").length;
   const vencidos = itens.filter((i) => i.coluna === "vencido").length;
-  const parados = itens.filter((i) => i.parado).length;
+  const parados = itens.filter((i) => i.inatividade !== null).length;
   const resolvidos = itens.filter((i) => i.diasResolucao !== null);
   const tempoMedio =
     resolvidos.length > 0
@@ -207,19 +221,12 @@ export default async function PaginaPosVenda({
 
       {/* O quadro é componente de cliente por causa do filtro "Meus chamados":
           é recorte de leitura, resolvido na hora e sem ida ao servidor. É ele
-          também que gruda o cabeçalho no topo, junto do próprio botão — daí
-          indicadores e filtros entrarem por `cabecalho`. */}
+          também que gruda indicadores e filtros no topo enquanto o quadro rola,
+          e que monta a barra de filtros — daí os indicadores entrarem por
+          `cabecalho` e os campos virem como props. */}
       <QuadroChamados
         cabecalho={
           <>
-            {podeEditar && (
-              <div className="flex justify-end">
-                <Button render={<Link href="/pos-venda/novo" />} nativeButton={false}>
-                  + Novo chamado
-                </Button>
-              </div>
-            )}
-
             {/* Cinco indicadores agora: em telas médias eles quebram em três por
                 linha em vez de espremer todos, que era o que empurrava a largura. */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -252,23 +259,36 @@ export default async function PaginaPosVenda({
                 hint={`${MIN_OCORRENCIAS_RECORRENCIA}+ do mesmo tipo em ${MESES_JANELA_RECORRENCIA} meses`}
               />
             </div>
-
-            <BarraFiltros
-              filtros={filtros}
-              clientes={(clientesData ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
-              tipos={tiposData ?? []}
-              responsaveis={usuariosData ?? []}
-            />
           </>
         }
+        filtros={filtros}
+        clientes={(clientesData ?? []).map((c) => ({ id: c.id, nome: c.razaoSocial }))}
+        tipos={tiposData ?? []}
+        responsaveis={usuariosData ?? []}
+        acaoNovoChamado={
+          podeEditar ? (
+            <Button render={<Link href="/pos-venda/novo" />} nativeButton={false}>
+              + Novo chamado
+            </Button>
+          ) : null
+        }
         itens={itens.map(
-          ({ card, coluna, recorrente, novidade, parado, diasParado }): ItemQuadro => ({
+          ({
             card,
             coluna,
+            estado,
+            inatividade,
+            foraDoPrazo,
             recorrente,
             novidade,
-            parado,
-            diasParado,
+          }): ItemQuadro => ({
+            card,
+            coluna,
+            estado,
+            inatividade,
+            foraDoPrazo,
+            recorrente,
+            novidade,
           })
         )}
         hoje={hoje}
