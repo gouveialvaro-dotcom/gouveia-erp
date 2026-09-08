@@ -38,10 +38,13 @@ export function VincularUsinaForm({
   clientes,
   unidades,
   integracaoConfigurada,
+  ambiente,
 }: {
   clientes: ClienteOpcao[];
   unidades: UnidadeOpcao[];
   integracaoConfigurada: boolean;
+  /** Onde a página foi renderizada: "servidor local" ou "Vercel (produção)". */
+  ambiente: string;
 }) {
   const [busca, setBusca] = useState<EstadoBusca>(undefined);
   const [planta, setPlanta] = useState<PlantaEncontrada | null>(null);
@@ -78,8 +81,8 @@ export function VincularUsinaForm({
                 const d = await testarConexaoIsolar();
                 setDiagnostico(
                   d.erro
-                    ? `Falhou em ${d.baseUrl}: ${d.erro}`
-                    : `Conexão ok em ${d.baseUrl}. ${d.usinasEncontradas} planta(s) visíveis na conta.`
+                    ? `[${d.ambiente}] Falhou em ${d.baseUrl}: ${d.erro}`
+                    : `[${d.ambiente}] Conexão ok em ${d.baseUrl}. ${d.usinasEncontradas} planta(s) visíveis na conta.`
                 );
               })
             }
@@ -96,7 +99,7 @@ export function VincularUsinaForm({
             servidor, sem passar por cache de página. */}
         {!integracaoConfigurada && (
           <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
-            O servidor não está enxergando as credenciais do iSolarCloud
+            <strong>{ambiente}</strong> não está enxergando as credenciais do iSolarCloud
             (<code>ISOLARCLOUD_BASE_URL</code>, <code>ISOLARCLOUD_APP_KEY</code>,{" "}
             <code>ISOLARCLOUD_ACCESS_KEY</code>, <code>ISOLARCLOUD_USUARIO</code>,{" "}
             <code>ISOLARCLOUD_SENHA</code>). Ou elas não estão preenchidas, ou{" "}

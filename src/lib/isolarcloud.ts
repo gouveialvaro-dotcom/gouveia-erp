@@ -70,7 +70,23 @@ export function integracaoConfigurada() {
   return BASE_URL !== "" && APP_KEY !== "" && ACCESS_KEY !== "";
 }
 
-/** O que falta preencher no .env — para a tela dizer isso em vez de "erro". */
+/**
+ * Onde este código está rodando.
+ *
+ * Existe porque a mesma tela, com a mesma mensagem, aparece no servidor local e
+ * no deploy — e as variáveis de ambiente são configuradas em lugares
+ * diferentes: o `.env` da máquina não sobe no deploy, e a Vercel tem as dela.
+ * Sem dizer onde rodou, "faltam credenciais" manda conferir o arquivo que já
+ * está certo, enquanto o que falta está no painel da Vercel. Custou uma
+ * investigação inteira descobrir isso na marra.
+ */
+export function ambienteDaExecucao(): string {
+  const vercel = process.env.VERCEL_ENV;
+  if (!vercel) return "servidor local";
+  return vercel === "production" ? "Vercel (produção)" : `Vercel (${vercel})`;
+}
+
+/** O que falta preencher — para a tela dizer isso em vez de "erro". */
 export function credenciaisFaltando(): string[] {
   const faltando: string[] = [];
   if (!BASE_URL) faltando.push("ISOLARCLOUD_BASE_URL");
@@ -522,6 +538,8 @@ export async function listarDispositivos(psId: string): Promise<Resultado<Dispos
 // --- Diagnóstico ----------------------------------------------------------
 
 export type Diagnostico = {
+  /** Onde o diagnóstico rodou: servidor local ou deploy. */
+  ambiente: string;
   configurada: boolean;
   faltando: string[];
   baseUrl: string;
@@ -539,6 +557,7 @@ export type Diagnostico = {
  */
 export async function diagnosticar(): Promise<Diagnostico> {
   const base: Diagnostico = {
+    ambiente: ambienteDaExecucao(),
     configurada: integracaoConfigurada(),
     faltando: credenciaisFaltando(),
     baseUrl: BASE_URL || "(não definida)",
@@ -548,7 +567,10 @@ export async function diagnosticar(): Promise<Diagnostico> {
   };
 
   if (base.faltando.length) {
-    return { ...base, erro: `Falta preencher no .env: ${base.faltando.join(", ")}.` };
+    const onde = base.ambiente === "servidor local"
+      ? "no .env da máquina (e reinicie o next dev depois)"
+      : "nas Environment Variables do projeto na Vercel (e refaça o deploy depois)";
+    return { ...base, erro: `Falta preencher ${onde}: ${base.faltando.join(", ")}.` };
   }
 
   // Token novo de propósito: um cache válido esconderia justamente o problema
