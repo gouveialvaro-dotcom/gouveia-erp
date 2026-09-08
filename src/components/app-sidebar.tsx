@@ -12,6 +12,7 @@ import {
   MessageCircle,
   ShieldCheck,
   MessagesSquare,
+  SunMedium,
   Truck,
   Zap,
 } from "lucide-react";
@@ -47,6 +48,12 @@ const ITENS: ItemNav[] = [
     href: "/pos-venda/whatsapp",
     icone: MessageCircle,
     modulos: ["posVenda"],
+  },
+  {
+    titulo: "Monitoramento de usinas",
+    href: "/monitoramento",
+    icone: SunMedium,
+    modulos: ["monitoramento"],
   },
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
   { titulo: "Programação", href: "/programacao", icone: Truck, modulos: ["programacao"] },

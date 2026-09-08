@@ -10,10 +10,70 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      AlertaUsina: {
+        Row: {
+          abertoEm: string
+          chamadoId: string | null
+          id: string
+          mensagem: string
+          referencia: string
+          resolvidoEm: string | null
+          situacao: Database["public"]["Enums"]["SituacaoAlertaUsina"]
+          tipo: Database["public"]["Enums"]["TipoAlertaUsina"]
+          ultimaNotificacaoEm: string | null
+          usinaMonitoradaId: string
+          valorObservado: number | null
+          valorReferencia: number | null
+        }
+        Insert: {
+          abertoEm?: string
+          chamadoId?: string | null
+          id?: string
+          mensagem: string
+          referencia: string
+          resolvidoEm?: string | null
+          situacao?: Database["public"]["Enums"]["SituacaoAlertaUsina"]
+          tipo: Database["public"]["Enums"]["TipoAlertaUsina"]
+          ultimaNotificacaoEm?: string | null
+          usinaMonitoradaId: string
+          valorObservado?: number | null
+          valorReferencia?: number | null
+        }
+        Update: {
+          abertoEm?: string
+          chamadoId?: string | null
+          id?: string
+          mensagem?: string
+          referencia?: string
+          resolvidoEm?: string | null
+          situacao?: Database["public"]["Enums"]["SituacaoAlertaUsina"]
+          tipo?: Database["public"]["Enums"]["TipoAlertaUsina"]
+          ultimaNotificacaoEm?: string | null
+          usinaMonitoradaId?: string
+          valorObservado?: number | null
+          valorReferencia?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "AlertaUsina_chamadoId_fkey"
+            columns: ["chamadoId"]
+            isOneToOne: false
+            referencedRelation: "Chamado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "AlertaUsina_usinaMonitoradaId_fkey"
+            columns: ["usinaMonitoradaId"]
+            isOneToOne: false
+            referencedRelation: "UsinaMonitorada"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       AlteracaoProgramacao: {
         Row: {
           alteradoEm: string
@@ -216,8 +276,8 @@ export type Database = {
           id: string
           numero: number
           obraId: string | null
-          primeiraAcaoResponsavelEm: string | null
           prazoLimite: string
+          primeiraAcaoResponsavelEm: string | null
           prioridade: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria: string | null
           responsavelId: string
@@ -239,8 +299,8 @@ export type Database = {
           id?: string
           numero?: number
           obraId?: string | null
-          primeiraAcaoResponsavelEm?: string | null
           prazoLimite: string
+          primeiraAcaoResponsavelEm?: string | null
           prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria?: string | null
           responsavelId: string
@@ -262,8 +322,8 @@ export type Database = {
           id?: string
           numero?: number
           obraId?: string | null
-          primeiraAcaoResponsavelEm?: string | null
           prazoLimite?: string
+          primeiraAcaoResponsavelEm?: string | null
           prioridade?: Database["public"]["Enums"]["PrioridadeChamado"]
           protocoloConcessionaria?: string | null
           responsavelId?: string
@@ -626,6 +686,7 @@ export type Database = {
       }
       EnvioWhatsapp: {
         Row: {
+          alertaUsinaId: string | null
           criadoEm: string
           enviadoEm: string | null
           erro: string | null
@@ -640,6 +701,7 @@ export type Database = {
           usuarioId: string | null
         }
         Insert: {
+          alertaUsinaId?: string | null
           criadoEm?: string
           enviadoEm?: string | null
           erro?: string | null
@@ -654,6 +716,7 @@ export type Database = {
           usuarioId?: string | null
         }
         Update: {
+          alertaUsinaId?: string | null
           criadoEm?: string
           enviadoEm?: string | null
           erro?: string | null
@@ -669,6 +732,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "EnvioWhatsapp_alertaUsinaId_fkey"
+            columns: ["alertaUsinaId"]
+            isOneToOne: false
+            referencedRelation: "AlertaUsina"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "EnvioWhatsapp_funcionarioId_fkey"
             columns: ["funcionarioId"]
             isOneToOne: false
@@ -680,6 +750,50 @@ export type Database = {
             columns: ["usuarioId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      FalhaUsina: {
+        Row: {
+          codigo: string
+          coletasSemAlarme: number
+          descricao: string
+          detectadaEm: string
+          dispositivo: string | null
+          encerradaEm: string | null
+          id: string
+          severidade: string | null
+          usinaMonitoradaId: string
+        }
+        Insert: {
+          codigo: string
+          coletasSemAlarme?: number
+          descricao: string
+          detectadaEm: string
+          dispositivo?: string | null
+          encerradaEm?: string | null
+          id?: string
+          severidade?: string | null
+          usinaMonitoradaId: string
+        }
+        Update: {
+          codigo?: string
+          coletasSemAlarme?: number
+          descricao?: string
+          detectadaEm?: string
+          dispositivo?: string | null
+          encerradaEm?: string | null
+          id?: string
+          severidade?: string | null
+          usinaMonitoradaId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "FalhaUsina_usinaMonitoradaId_fkey"
+            columns: ["usinaMonitoradaId"]
+            isOneToOne: false
+            referencedRelation: "UsinaMonitorada"
             referencedColumns: ["id"]
           },
         ]
@@ -1010,6 +1124,56 @@ export type Database = {
           },
         ]
       }
+      LeituraUsina: {
+        Row: {
+          coletadoEm: string
+          comunicando: boolean
+          dataRef: string
+          energiaDiaKwh: number | null
+          energiaMesKwh: number | null
+          fontePotencia: string | null
+          id: string
+          janela: Database["public"]["Enums"]["JanelaColetaUsina"]
+          payload: Json | null
+          potenciaInstantaneaKw: number | null
+          usinaMonitoradaId: string
+        }
+        Insert: {
+          coletadoEm?: string
+          comunicando: boolean
+          dataRef: string
+          energiaDiaKwh?: number | null
+          energiaMesKwh?: number | null
+          fontePotencia?: string | null
+          id?: string
+          janela: Database["public"]["Enums"]["JanelaColetaUsina"]
+          payload?: Json | null
+          potenciaInstantaneaKw?: number | null
+          usinaMonitoradaId: string
+        }
+        Update: {
+          coletadoEm?: string
+          comunicando?: boolean
+          dataRef?: string
+          energiaDiaKwh?: number | null
+          energiaMesKwh?: number | null
+          fontePotencia?: string | null
+          id?: string
+          janela?: Database["public"]["Enums"]["JanelaColetaUsina"]
+          payload?: Json | null
+          potenciaInstantaneaKw?: number | null
+          usinaMonitoradaId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "LeituraUsina_usinaMonitoradaId_fkey"
+            columns: ["usinaMonitoradaId"]
+            isOneToOne: false
+            referencedRelation: "UsinaMonitorada"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Material: {
         Row: {
           atualizadoEm: string
@@ -1201,6 +1365,51 @@ export type Database = {
           {
             foreignKeyName: "MensagemWhatsapp_ocultaPorId_fkey"
             columns: ["ocultaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      NotificacaoMonitoramento: {
+        Row: {
+          alertaUsinaId: string
+          criadaEm: string
+          id: string
+          lidaEm: string | null
+          referencia: string
+          titulo: string
+          usuarioId: string
+        }
+        Insert: {
+          alertaUsinaId: string
+          criadaEm?: string
+          id?: string
+          lidaEm?: string | null
+          referencia: string
+          titulo: string
+          usuarioId: string
+        }
+        Update: {
+          alertaUsinaId?: string
+          criadaEm?: string
+          id?: string
+          lidaEm?: string | null
+          referencia?: string
+          titulo?: string
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "NotificacaoMonitoramento_alertaUsinaId_fkey"
+            columns: ["alertaUsinaId"]
+            isOneToOne: false
+            referencedRelation: "AlertaUsina"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoMonitoramento_usuarioId_fkey"
+            columns: ["usuarioId"]
             isOneToOne: false
             referencedRelation: "Usuario"
             referencedColumns: ["id"]
@@ -1587,15 +1796,19 @@ export type Database = {
           diasSemMovimentoChamado: number
           diasUteisMes: number
           encargosSociais: number
+          horaFimAvisoMonitoramento: string
           horaFimComercial: string
+          horaInicioAvisoMonitoramento: string
           horaInicioComercial: string
           id: string
           impostos: number
           margemMinima: number
+          tetoDiarioAvisosMonitoramento: number
           tetoDiarioAvisosProgramacao: number
           tetoDiarioConversasNovas: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
+          whatsappMonitoramentoAtivo: boolean
         }
         Insert: {
           atualizadoEm?: string
@@ -1605,15 +1818,19 @@ export type Database = {
           diasSemMovimentoChamado?: number
           diasUteisMes?: number
           encargosSociais: number
+          horaFimAvisoMonitoramento?: string
           horaFimComercial?: string
+          horaInicioAvisoMonitoramento?: string
           horaInicioComercial?: string
           id?: string
           impostos: number
           margemMinima: number
+          tetoDiarioAvisosMonitoramento?: number
           tetoDiarioAvisosProgramacao?: number
           tetoDiarioConversasNovas?: number
           textoImpostosPadrao: string
           validadePropostaPadraoDias: number
+          whatsappMonitoramentoAtivo?: boolean
         }
         Update: {
           atualizadoEm?: string
@@ -1623,15 +1840,19 @@ export type Database = {
           diasSemMovimentoChamado?: number
           diasUteisMes?: number
           encargosSociais?: number
+          horaFimAvisoMonitoramento?: string
           horaFimComercial?: string
+          horaInicioAvisoMonitoramento?: string
           horaInicioComercial?: string
           id?: string
           impostos?: number
           margemMinima?: number
+          tetoDiarioAvisosMonitoramento?: number
           tetoDiarioAvisosProgramacao?: number
           tetoDiarioConversasNovas?: number
           textoImpostosPadrao?: string
           validadePropostaPadraoDias?: number
+          whatsappMonitoramentoAtivo?: boolean
         }
         Relationships: [
           {
@@ -2169,6 +2390,79 @@ export type Database = {
           },
         ]
       }
+      UsinaMonitorada: {
+        Row: {
+          apelido: string | null
+          ativo: boolean
+          clienteId: string
+          criadoEm: string
+          criadoPorId: string | null
+          id: string
+          inativadaEm: string | null
+          motivoInativacao:
+            | Database["public"]["Enums"]["MotivoInativacaoUsina"]
+            | null
+          nomeIsolar: string
+          potenciaIsolarKwp: number | null
+          psId: string
+          unidadeConsumidoraId: string
+        }
+        Insert: {
+          apelido?: string | null
+          ativo?: boolean
+          clienteId: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          inativadaEm?: string | null
+          motivoInativacao?:
+            | Database["public"]["Enums"]["MotivoInativacaoUsina"]
+            | null
+          nomeIsolar: string
+          potenciaIsolarKwp?: number | null
+          psId: string
+          unidadeConsumidoraId: string
+        }
+        Update: {
+          apelido?: string | null
+          ativo?: boolean
+          clienteId?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          inativadaEm?: string | null
+          motivoInativacao?:
+            | Database["public"]["Enums"]["MotivoInativacaoUsina"]
+            | null
+          nomeIsolar?: string
+          potenciaIsolarKwp?: number | null
+          psId?: string
+          unidadeConsumidoraId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "UsinaMonitorada_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UsinaMonitorada_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UsinaMonitorada_unidadeConsumidoraId_fkey"
+            columns: ["unidadeConsumidoraId"]
+            isOneToOne: false
+            referencedRelation: "UnidadeConsumidora"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Usuario: {
         Row: {
           ativo: boolean
@@ -2176,6 +2470,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          notificaMonitoramento: boolean
           notificaPosVenda: boolean
           notificaWhatsappSemDono: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
@@ -2189,6 +2484,7 @@ export type Database = {
           email: string
           id?: string
           nome: string
+          notificaMonitoramento?: boolean
           notificaPosVenda?: boolean
           notificaWhatsappSemDono?: boolean
           perfil: Database["public"]["Enums"]["PerfilUsuario"]
@@ -2202,6 +2498,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          notificaMonitoramento?: boolean
           notificaPosVenda?: boolean
           notificaWhatsappSemDono?: boolean
           perfil?: Database["public"]["Enums"]["PerfilUsuario"]
@@ -2290,11 +2587,14 @@ export type Database = {
         | "negociacao"
         | "aprovada"
         | "perdida"
+      JanelaColetaUsina: "manha" | "meio_dia" | "fim_tarde"
+      MotivoInativacaoUsina: "plano_encerrado" | "manual"
       OrigemObra: "funil" | "manual"
       PapelDestinatario:
         | "responsavel"
         | "motorista_novo"
         | "motorista_removido"
+        | "alerta_usina"
       PerfilUsuario:
         | "comercial"
         | "engenharia"
@@ -2304,9 +2604,16 @@ export type Database = {
         | "logistica"
       PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
       RamoCliente: "energia_solar" | "redes_subestacoes"
+      SituacaoAlertaUsina: "aberto" | "resolvido" | "ignorado"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
       StatusProgramacao: "rascunho" | "publicada" | "cancelada"
+      TipoAlertaUsina:
+        | "falha"
+        | "sem_comunicacao"
+        | "sem_geracao"
+        | "potencia_baixa"
+        | "plano_a_vencer"
       TipoConversa: "obra" | "direta" | "grupo"
       TipoDestinoProgramacao: "obra" | "avulso"
       TipoIndisponibilidade: "funcionario" | "veiculo"
@@ -2356,12 +2663,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2385,11 +2692,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2410,11 +2717,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2435,11 +2742,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2452,11 +2759,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2485,11 +2792,14 @@ export const Constants = {
         "aprovada",
         "perdida",
       ],
+      JanelaColetaUsina: ["manha", "meio_dia", "fim_tarde"],
+      MotivoInativacaoUsina: ["plano_encerrado", "manual"],
       OrigemObra: ["funil", "manual"],
       PapelDestinatario: [
         "responsavel",
         "motorista_novo",
         "motorista_removido",
+        "alerta_usina",
       ],
       PerfilUsuario: [
         "comercial",
@@ -2501,9 +2811,17 @@ export const Constants = {
       ],
       PrioridadeChamado: ["baixa", "media", "alta", "critica"],
       RamoCliente: ["energia_solar", "redes_subestacoes"],
+      SituacaoAlertaUsina: ["aberto", "resolvido", "ignorado"],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
       StatusProgramacao: ["rascunho", "publicada", "cancelada"],
+      TipoAlertaUsina: [
+        "falha",
+        "sem_comunicacao",
+        "sem_geracao",
+        "potencia_baixa",
+        "plano_a_vencer",
+      ],
       TipoConversa: ["obra", "direta", "grupo"],
       TipoDestinoProgramacao: ["obra", "avulso"],
       TipoIndisponibilidade: ["funcionario", "veiculo"],

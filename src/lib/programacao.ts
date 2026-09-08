@@ -54,6 +54,11 @@ export const ROTULO_PAPEL: Record<PapelDestinatario, string> = {
   responsavel: "Responsável",
   motorista_novo: "Motorista",
   motorista_removido: "Motorista retirado",
+  // O monitoramento de usinas divide a MESMA fila de envio (EnvioWhatsapp), por
+  // dividir o mesmo número: dois tetos diários independentes não se enxergariam
+  // e o número levaria a soma dos dois. Por isso o papel aparece aqui, mesmo não
+  // sendo de programação — é o que separa as duas coisas em /programacao/envios.
+  alerta_usina: "Alerta de usina",
 };
 
 /** Campos que a mensagem sabe narrar. É a lista fechada de AlteracaoProgramacao.campo. */

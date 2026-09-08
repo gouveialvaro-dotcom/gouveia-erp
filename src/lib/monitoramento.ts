@@ -9,21 +9,15 @@
 // que é normal, o que vira alerta e o que já foi avisado.
 
 import { situacaoManutencao, type PlanoManutencao, type RamoCliente } from "@/lib/clientes";
+import type { Database } from "@/lib/database.types";
 import { formatarData } from "@/lib/format";
 import { diferencaEmDias } from "@/lib/pos-venda";
 
-// Enums da migração 013. Declarados aqui enquanto ela não é aplicada no
-// Supabase e src/lib/database.types.ts não é regenerado — depois, trocar por
-// Database["public"]["Enums"][...], como fazem pos-venda.ts e programacao.ts.
-export type JanelaColetaUsina = "manha" | "meio_dia" | "fim_tarde";
-export type TipoAlertaUsina =
-  | "falha"
-  | "sem_comunicacao"
-  | "sem_geracao"
-  | "potencia_baixa"
-  | "plano_a_vencer";
-export type SituacaoAlertaUsina = "aberto" | "resolvido" | "ignorado";
-export type MotivoInativacaoUsina = "plano_encerrado" | "manual";
+type Enums = Database["public"]["Enums"];
+export type JanelaColetaUsina = Enums["JanelaColetaUsina"];
+export type TipoAlertaUsina = Enums["TipoAlertaUsina"];
+export type SituacaoAlertaUsina = Enums["SituacaoAlertaUsina"];
+export type MotivoInativacaoUsina = Enums["MotivoInativacaoUsina"];
 
 type Variante = "default" | "secondary" | "outline" | "destructive";
 
