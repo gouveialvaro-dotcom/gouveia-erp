@@ -4,7 +4,18 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { exigirPermissao } from "@/lib/api-auth";
 import { supabase } from "@/lib/supabase";
-import { dataRefBrasil, impedimentoDeVinculo } from "@/lib/monitoramento";
+import type { EstadoExclusao } from "@/components/ui/botao-excluir";
+import {
+  dataRefBrasil,
+  impedimentoDeVinculo,
+  JANELAS,
+  type JanelaColetaUsina,
+} from "@/lib/monitoramento";
+import {
+  coletarJanela,
+  janelaDoHorario,
+  type ResultadoColeta,
+} from "@/lib/monitoramento-coleta";
 import {
   acusaFalha,
   diagnosticar,
@@ -85,7 +96,20 @@ const esquemaVinculo = z.object({
   // Identificador da planta no iSolarCloud (ps_id). Normalmente vem preenchido
   // pela busca; a digitação à mão continua valendo para o caso de a integração
   // estar fora do ar e alguém precisar cadastrar assim mesmo.
-  psId: z.string().trim().min(1, "Informe o identificador da planta (ps_id)."),
+  //
+  // SÓ DÍGITOS. As 150 plantas da conta têm ps_id numérico, e o erro real que
+  // motivou esta trava foi alguém digitar o NOME da planta aqui: o cadastro
+  // aceitou, e a usina só não aparecia no painel — a coleta a listava como
+  // "ausente na conta" três vezes por dia, sem ninguém entender por quê.
+  psId: z
+    .string()
+    .trim()
+    .min(1, "Informe o identificador da planta (ps_id).")
+    .regex(
+      /^\d+$/,
+      "O ps_id é numérico (ex.: 1093717) — o que você digitou parece ser o nome da planta. " +
+        "Use o botão “Buscar usinas no iSolarCloud” para preenchê-lo certo."
+    ),
   nomeIsolar: z.string().trim().min(1, "Informe o nome da planta."),
   apelido: z.string().trim().optional(),
   clienteId: z.string().trim().min(1, "Escolha o cliente."),
@@ -232,4 +256,65 @@ export async function reativarUsina(formData: FormData) {
 
   revalidatePath(ROTA);
   revalidatePath("/monitoramento");
+}
+
+// --- Coleta manual --------------------------------------------------------
+
+/**
+ * Dispara uma janela de coleta na hora, a partir da tela.
+ *
+ * Existe porque o cron roda três vezes ao dia e ninguém vai esperar até as 18h
+ * para saber se o vínculo que acabou de fazer está trazendo número. Não é
+ * atalho para o agendamento: é a mesma função que o cron chama, e o upsert por
+ * (usina, dataRef, janela) faz as duas convergirem para a mesma linha.
+ */
+export async function coletarAgora(formData: FormData): Promise<ResultadoColeta> {
+  await exigirPermissao("administracao", "escrita");
+
+  const pedida = String(formData.get("janela") ?? "");
+  const janela = (JANELAS as string[]).includes(pedida)
+    ? (pedida as JanelaColetaUsina)
+    : janelaDoHorario();
+
+  const resultado = await coletarJanela(janela);
+
+  revalidatePath(ROTA);
+  revalidatePath("/monitoramento");
+  return resultado;
+}
+
+/**
+ * Apaga o vínculo — só enquanto ele não tem histórico.
+ *
+ * Existe para desfazer erro de cadastro (ps_id trocado, cliente errado), e não
+ * para tirar usina do monitoramento: para isso é desativar, que preserva
+ * leitura, falha e alerta. Com leitura gravada, apagar levaria junto o
+ * histórico de manutenção do cliente, que é argumento em renovação de contrato
+ * — por isso a trava é no servidor, e não um aviso na tela.
+ */
+export async function excluirUsina(
+  _estado: EstadoExclusao,
+  formData: FormData
+): Promise<EstadoExclusao> {
+  await exigirPermissao("administracao", "escrita");
+  const { usinaId } = esquemaUsina.parse({ usinaId: formData.get("usinaId") });
+
+  const { count } = await supabase
+    .from("LeituraUsina")
+    .select("id", { count: "exact", head: true })
+    .eq("usinaMonitoradaId", usinaId);
+
+  if ((count ?? 0) > 0) {
+    return {
+      erro:
+        "Esta usina já tem leitura gravada e não pode ser apagada — o histórico é do cliente. " +
+        "Use Desativar, que tira do painel e preserva tudo.",
+    };
+  }
+
+  await supabase.from("UsinaMonitorada").delete().eq("id", usinaId);
+
+  revalidatePath(ROTA);
+  revalidatePath("/monitoramento");
+  return {};
 }

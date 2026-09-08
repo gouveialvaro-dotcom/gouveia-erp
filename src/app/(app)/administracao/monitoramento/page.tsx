@@ -6,6 +6,7 @@ import { podeEscrever } from "@/lib/permissoes";
 import { ROTULO_SITUACAO_MANUTENCAO, situacaoManutencao } from "@/lib/clientes";
 import { dataRefBrasil, ROTULO_MOTIVO_INATIVACAO } from "@/lib/monitoramento";
 import { integracaoConfigurada } from "@/lib/isolarcloud";
+import { janelaDoHorario } from "@/lib/monitoramento-coleta";
 import { formatarData } from "@/lib/format";
 import { TituloPagina } from "@/components/titulo-pagina";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +19,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BotaoExcluir } from "@/components/ui/botao-excluir";
 import { VincularUsinaForm } from "@/components/monitoramento/vincular-usina-form";
-import { desativarUsina, reativarUsina } from "./actions";
+import { ColetarAgora } from "@/components/monitoramento/coletar-agora";
+import { desativarUsina, excluirUsina, reativarUsina } from "./actions";
 
 export default async function PaginaCadastroUsinas() {
   const { perfil } = await acessoModulo("administracao");
@@ -85,6 +88,19 @@ export default async function PaginaCadastroUsinas() {
         />
       </section>
 
+      <section className="flex flex-col gap-3 rounded-md border bg-card p-4">
+        <h2 className="text-base font-semibold">Coleta</h2>
+        <p className="text-sm text-muted-foreground">
+          O agendamento roda três vezes ao dia (8h, 12h e 18h, horário de Natal), com uma
+          retentativa 15 minutos depois de cada uma.{" "}
+          <strong>A coleta ainda não abre alerta</strong> — são 7 a 10 dias só juntando leitura,
+          para formar a base de referência de cada usina e conferir os números contra o portal da
+          Sungrow antes de qualquer aviso. Ligar alerta sem base é o caminho para a equipe deixar
+          de olhar o painel na primeira semana.
+        </p>
+        <ColetarAgora janelaSugerida={janelaDoHorario()} />
+      </section>
+
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Usinas cadastradas</h2>
         <div className="rounded-md border bg-card">
@@ -148,12 +164,28 @@ export default async function PaginaCadastroUsinas() {
                     </TableCell>
                     <TableCell>
                       {usina.ativo ? (
-                        <form action={desativarUsina}>
-                          <input type="hidden" name="usinaId" value={usina.id} />
-                          <Button type="submit" variant="ghost" size="sm">
-                            Desativar
-                          </Button>
-                        </form>
+                        <div className="flex gap-1">
+                          <form action={desativarUsina}>
+                            <input type="hidden" name="usinaId" value={usina.id} />
+                            <Button type="submit" variant="ghost" size="sm">
+                              Desativar
+                            </Button>
+                          </form>
+                          <BotaoExcluir
+                            acao={excluirUsina}
+                            campos={{ usinaId: usina.id }}
+                            variant="ghost"
+                            titulo="Excluir o vínculo desta usina?"
+                            descricao={
+                              <>
+                                Isto desfaz um <strong>erro de cadastro</strong> — ps_id trocado,
+                                cliente errado. Não é o jeito de tirar uma usina do monitoramento:
+                                para isso use Desativar, que preserva leitura, falha e alerta. Se
+                                já houver leitura gravada, a exclusão é recusada.
+                              </>
+                            }
+                          />
+                        </div>
                       ) : (
                         <form action={reativarUsina}>
                           <input type="hidden" name="usinaId" value={usina.id} />
