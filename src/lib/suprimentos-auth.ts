@@ -1,0 +1,94 @@
+import { redirect } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { ApiAuthError, exigirPermissao } from "@/lib/api-auth";
+import { acessoModulo, usuarioIdAtual } from "@/lib/pagina-auth";
+import { podeLer } from "@/lib/permissoes";
+import type { PapelSuprimentos } from "@/lib/suprimentos";
+
+// Autorização DENTRO do módulo Suprimentos.
+//
+// A matriz de permissoes.ts só diz quem entra no módulo (todo mundo). Quem
+// cota, aprova ou recebe sai dos papéis em PapelUsuarioSuprimentos. O admin
+// do sistema passa em qualquer checagem de papel: é quem configura os papéis e
+// precisa conseguir destravar o fluxo se alguém sair da empresa.
+
+export async function papeisDoUsuario(usuarioId: string) {
+  const { data } = await supabase
+    .from("PapelUsuarioSuprimentos")
+    .select("papel")
+    .eq("usuarioId", usuarioId);
+  return new Set((data ?? []).map((linha) => linha.papel));
+}
+
+function temAlgum(
+  papeis: Set<PapelSuprimentos>,
+  ehAdmin: boolean,
+  exigidos: PapelSuprimentos[]
+) {
+  return ehAdmin || exigidos.some((papel) => papeis.has(papel));
+}
+
+/** Para Server Components de página. Redireciona quem não entra no módulo. */
+export async function contextoSuprimentos() {
+  const { perfil, nome } = await acessoModulo("suprimentos");
+  if (!podeLer(perfil, "suprimentos")) redirect("/");
+
+  const usuarioId = await usuarioIdAtual();
+  const papeis = await papeisDoUsuario(usuarioId);
+  const ehAdmin = perfil === "admin";
+
+  return {
+    usuarioId,
+    nome,
+    perfil,
+    papeis,
+    ehAdmin,
+    tem: (...exigidos: PapelSuprimentos[]) => temAlgum(papeis, ehAdmin, exigidos),
+  };
+}
+
+/**
+ * Para Server Actions. Sem papéis informados, basta estar logado no módulo
+ * (caso da requisição, que qualquer um abre). Lança ApiAuthError (403) quando
+ * falta o papel.
+ */
+export async function exigirPapelSuprimentos(...exigidos: PapelSuprimentos[]) {
+  const contexto = await exigirPermissao("suprimentos", "escrita");
+  const papeis = await papeisDoUsuario(contexto.usuarioId);
+  const ehAdmin = contexto.perfil === "admin";
+
+  if (exigidos.length > 0 && !temAlgum(papeis, ehAdmin, exigidos)) {
+    throw new ApiAuthError(403, "Sem permissão para esta ação em Suprimentos.");
+  }
+
+  return { ...contexto, papeis, ehAdmin };
+}
+
+/** Configuração do módulo (papéis, alçadas, empresas): só o admin do sistema. */
+export async function exigirAdminSuprimentos() {
+  const contexto = await exigirPapelSuprimentos();
+  if (!contexto.ehAdmin) {
+    throw new ApiAuthError(403, "Esta configuração é restrita ao administrador.");
+  }
+  return contexto;
+}
+
+/** Converte o erro de autorização em mensagem para o formulário. */
+export function mensagemDeErro(erro: unknown) {
+  if (erro instanceof ApiAuthError) return erro.message;
+  console.error(erro);
+  return "Erro inesperado. Tente novamente.";
+}
+
+export async function parametrosSuprimentos() {
+  const { data } = await supabase
+    .from("ParametroSuprimentos")
+    .select("*")
+    .eq("id", "padrao")
+    .maybeSingle();
+  return {
+    limiteComprador: Number(data?.limiteComprador ?? 500),
+    limiteGerencia: Number(data?.limiteGerencia ?? 3000),
+    minimoCotacoes: data?.minimoCotacoes ?? 3,
+  };
+}
