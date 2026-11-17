@@ -15,6 +15,7 @@ export default async function SuprimentosLayout({
     ...(tem("aprovador_gerencia", "aprovador_diretoria")
       ? [{ titulo: "Aprovações", href: "/suprimentos/aprovacoes" }]
       : []),
+    { titulo: "Pedidos", href: "/suprimentos/pedidos" },
     { titulo: "Produtos", href: "/suprimentos/produtos" },
     { titulo: "Fornecedores", href: "/suprimentos/fornecedores" },
   ];

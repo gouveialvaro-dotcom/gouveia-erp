@@ -12,7 +12,12 @@ import {
   niveisExigidos,
 } from "@/lib/suprimentos";
 import { formatarData, formatarDataHora } from "@/lib/format";
-import { BadgeStatusRequisicao, BadgeUrgencia } from "@/components/suprimentos/status-requisicao";
+import {
+  BadgeStatusEntrega,
+  BadgeStatusRequisicao,
+  BadgeUrgencia,
+} from "@/components/suprimentos/status-requisicao";
+import { moeda } from "@/lib/suprimentos-cotacao";
 import { CancelarRequisicao } from "@/components/suprimentos/cancelar-requisicao";
 import { AlertaMinimoCotacoes } from "@/components/suprimentos/alerta-cotacoes";
 import { MatrizCotacao } from "@/components/suprimentos/matriz-cotacao";
@@ -63,13 +68,18 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
   const ehRequisitante = r.requisitanteId === contexto.usuarioId;
   const ehComprador = contexto.tem("comprador");
   const cotacaoAberta = STATUS_COTACAO_ABERTA.includes(r.status);
-  const [{ itens: itensCotacao, cotacoes, escolhas }, parametros, { data: aprovacoesBrutas }] = await Promise.all([
+  const [{ itens: itensCotacao, cotacoes, escolhas }, parametros, { data: aprovacoesBrutas }, { data: pedidos }] = await Promise.all([
     carregarCotacoes(r.id),
     parametrosSuprimentos(),
     supabase
       .from("Aprovacao")
       .select("*, aprovador:Usuario!Aprovacao_aprovadorId_fkey(nome)")
       .eq("requisicaoId", r.id),
+    supabase
+      .from("PedidoCompra")
+      .select("id, codigo, statusEntrega, valorTotal, fornecedor:Fornecedor(razaoSocial, nomeFantasia)")
+      .eq("requisicaoId", r.id)
+      .order("codigo"),
   ]);
   const aprovacoes = (aprovacoesBrutas ?? []).map((a) => ({
     ...a,
@@ -202,6 +212,26 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
             (aguardando.find((n) => n !== meuNivel) as "gerencia" | "diretoria" | undefined) ?? null
           }
         />
+      )}
+
+      {(pedidos ?? []).length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Pedidos de compra</h3>
+          <div className="rounded-md border bg-card divide-y">
+            {(pedidos ?? []).map((p) => (
+              <Link
+                key={p.id}
+                href={`/suprimentos/pedidos/${p.id}`}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm hover:bg-muted"
+              >
+                <span className="font-mono font-medium">{p.codigo}</span>
+                <span className="flex-1">{p.fornecedor?.nomeFantasia || p.fornecedor?.razaoSocial}</span>
+                <span className="tabular-nums">{moeda(Number(p.valorTotal))}</span>
+                <BadgeStatusEntrega status={p.statusEntrega} />
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <HistoricoAprovacoes aprovacoes={aprovacoes} aguardando={aguardando} />

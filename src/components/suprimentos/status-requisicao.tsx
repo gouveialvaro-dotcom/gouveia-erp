@@ -1,7 +1,9 @@
 import { Siren } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
+  ROTULO_STATUS_ENTREGA,
   ROTULO_STATUS_REQUISICAO,
+  type StatusEntregaPedido,
   type StatusRequisicao,
   type UrgenciaRequisicao,
 } from "@/lib/suprimentos";
@@ -28,4 +30,14 @@ export function BadgeUrgencia({ urgencia }: { urgencia: UrgenciaRequisicao }) {
       <Siren className="h-3 w-3" /> Emergencial
     </Badge>
   );
+}
+
+const VARIANTE_ENTREGA: Record<StatusEntregaPedido, "default" | "secondary" | "destructive"> = {
+  pendente: "secondary",
+  recebido_conforme: "default",
+  recebido_inconforme: "destructive",
+};
+
+export function BadgeStatusEntrega({ status }: { status: StatusEntregaPedido }) {
+  return <Badge variant={VARIANTE_ENTREGA[status]}>{ROTULO_STATUS_ENTREGA[status]}</Badge>;
 }
