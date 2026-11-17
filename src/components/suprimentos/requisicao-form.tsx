@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useState } from "react";
-import { Plus, Trash2, Siren } from "lucide-react";
+import { Plus, Trash2, Siren, X } from "lucide-react";
 import {
   criarRequisicao,
   type EstadoFormRequisicao,
@@ -14,6 +14,9 @@ import {
   type UrgenciaRequisicao,
 } from "@/lib/suprimentos";
 import { cn } from "@/lib/utils";
+import type { ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
+import { BuscaProduto } from "@/components/suprimentos/busca-produto";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { CampoData } from "@/components/ui/campo-data";
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Item = {
   chave: number;
+  /** Produto do catálogo escolhido (o padrão). */
+  produto: ProdutoEncontrado | null;
+  /** Marcado quando o requisitante não achou no catálogo: vale o texto livre. */
+  foraCatalogo: boolean;
   descricao: string;
   quantidade: string;
   unidade: string;
@@ -32,6 +39,8 @@ type Item = {
 let proximaChave = 1;
 const itemVazio = (): Item => ({
   chave: proximaChave++,
+  produto: null,
+  foraCatalogo: false,
   descricao: "",
   quantidade: "",
   unidade: "UN",
@@ -65,19 +74,26 @@ export function RequisicaoForm({
     if (!prazoEditado) setPrazo(somarDiasIso(hoje, DIAS_PRAZO_PADRAO[nova]));
   }
 
-  function alterarItem(chave: number, campo: keyof Omit<Item, "chave">, valor: string) {
-    setItens((atual) => atual.map((i) => (i.chave === chave ? { ...i, [campo]: valor } : i)));
+  function alterarItem(chave: number, mudanca: Partial<Omit<Item, "chave">>) {
+    setItens((atual) => atual.map((i) => (i.chave === chave ? { ...i, ...mudanca } : i)));
   }
 
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
+
+  // Item "preenchido" = tem produto, texto ou quantidade. Os vazios no fim da
+  // lista são ignorados.
+  const itensPreenchidos = itens.filter(
+    (i) => (i.foraCatalogo ? i.descricao.trim() !== "" : i.produto !== null) || i.quantidade.trim() !== ""
+  );
+
   const itensJson = JSON.stringify(
-    itens
-      .filter((i) => i.descricao.trim() !== "" || i.quantidade.trim() !== "")
-      .map(({ descricao, quantidade, unidade, especificacao }) => ({
-        descricao,
-        quantidade: quantidade.replace(",", "."),
-        unidade,
-        especificacao: especificacao || undefined,
-      }))
+    itensPreenchidos.map((i) => ({
+      produtoId: !i.foraCatalogo && i.produto ? i.produto.id : undefined,
+      descricao: !i.foraCatalogo && i.produto ? i.produto.descricao : i.descricao,
+      quantidade: i.quantidade.replace(",", "."),
+      unidade: i.unidade,
+      especificacao: i.especificacao || undefined,
+    }))
   );
 
   return (
@@ -87,6 +103,18 @@ export function RequisicaoForm({
       // "Selecione" mesmo controlado (o estado não muda, então não redesenha).
       onSubmit={(evento) => {
         evento.preventDefault();
+        // Item no modo catálogo sem produto escolhido: avisa aqui, com o número
+        // do item, em vez de o servidor responder "Descreva cada item".
+        const semProduto = itens.findIndex(
+          (i) => itensPreenchidos.includes(i) && !i.foraCatalogo && !i.produto
+        );
+        if (semProduto >= 0) {
+          setErroLocal(
+            `Escolha o produto do item ${semProduto + 1} no catálogo, ou marque que não encontrou.`
+          );
+          return;
+        }
+        setErroLocal(null);
         const dados = new FormData(evento.currentTarget);
         startTransition(() => acao(dados));
       }}
@@ -170,7 +198,7 @@ export function RequisicaoForm({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Itens ({itens.length})</h3>
           <p className="text-xs text-muted-foreground">
-            Descreva com suas palavras — o comprador vincula ao catálogo.
+            Busque no catálogo. Não achou? Marque a caixa e descreva.
           </p>
         </div>
 
@@ -196,20 +224,57 @@ export function RequisicaoForm({
                 </Button>
               )}
             </div>
-            <Input
-              aria-label={`Descrição do item ${indice + 1}`}
-              placeholder="Material, peça ou serviço"
-              value={item.descricao}
-              onChange={(e) => alterarItem(item.chave, "descricao", e.target.value)}
-              className="h-10"
-            />
+            {item.foraCatalogo ? (
+              <Input
+                aria-label={`Descrição do item ${indice + 1}`}
+                placeholder="Descreva o material, peça ou serviço"
+                value={item.descricao}
+                onChange={(e) => alterarItem(item.chave, { descricao: e.target.value })}
+                className="h-10"
+              />
+            ) : item.produto ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                <span className="text-sm font-medium">{item.produto.descricao}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Trocar o produto do item ${indice + 1}`}
+                  title="Trocar produto"
+                  onClick={() => alterarItem(item.chave, { produto: null })}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <BuscaProduto
+                rotulo={`Produto do item ${indice + 1}`}
+                aoEscolher={(produto) =>
+                  alterarItem(item.chave, { produto, unidade: produto.unidade.toUpperCase() })
+                }
+              />
+            )}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={item.foraCatalogo}
+                onCheckedChange={(marcado) =>
+                  alterarItem(item.chave, {
+                    foraCatalogo: Boolean(marcado),
+                    // Ao abrir o texto livre, já leva o nome do produto escolhido.
+                    descricao: marcado && item.produto && !item.descricao ? item.produto.descricao : item.descricao,
+                    produto: marcado ? null : item.produto,
+                  })
+                }
+              />
+              Não encontrei no catálogo — descrever com minhas palavras
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <Input
                 aria-label={`Quantidade do item ${indice + 1}`}
                 placeholder="Quantidade"
                 inputMode="decimal"
                 value={item.quantidade}
-                onChange={(e) => alterarItem(item.chave, "quantidade", e.target.value)}
+                onChange={(e) => alterarItem(item.chave, { quantidade: e.target.value })}
                 className="h-10"
               />
               <Input
@@ -217,7 +282,7 @@ export function RequisicaoForm({
                 placeholder="Unidade"
                 list="unidades-requisicao"
                 value={item.unidade}
-                onChange={(e) => alterarItem(item.chave, "unidade", e.target.value.toUpperCase())}
+                onChange={(e) => alterarItem(item.chave, { unidade: e.target.value.toUpperCase() })}
                 className="h-10"
               />
             </div>
@@ -225,7 +290,7 @@ export function RequisicaoForm({
               aria-label={`Especificações do item ${indice + 1}`}
               placeholder="Especificações técnicas / observações (opcional)"
               value={item.especificacao}
-              onChange={(e) => alterarItem(item.chave, "especificacao", e.target.value)}
+              onChange={(e) => alterarItem(item.chave, { especificacao: e.target.value })}
               rows={2}
             />
           </div>
@@ -254,7 +319,9 @@ export function RequisicaoForm({
         />
       </div>
 
-      {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
+      {(erroLocal ?? estado?.erro) && (
+        <p className="text-sm text-destructive">{erroLocal ?? estado?.erro}</p>
+      )}
 
       <div>
         <Button type="submit" disabled={pendente} size="lg">
