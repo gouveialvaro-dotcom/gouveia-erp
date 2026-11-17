@@ -3530,6 +3530,17 @@ export type Database = {
         Args: { p_requisicao_id: string; p_usuario_id: string }
         Returns: Json
       }
+      suprimentos_registrar_recebimento: {
+        Args: {
+          p_documento_recebedor: string | null
+          p_nome_recebedor: string
+          p_observacao: string | null
+          p_pedido_id: string
+          p_situacao: Database["public"]["Enums"]["SituacaoRecebimento"]
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
       suprimentos_total_escolha: {
         Args: { p_requisicao_id: string }
         Returns: number

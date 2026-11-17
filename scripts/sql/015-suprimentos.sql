@@ -664,6 +664,78 @@ begin
 end;
 $$;
 
+-- Recebimento na obra. Entrega parcial ou com problema é "inconforme" (com
+-- observação obrigatória) e o pedido aceita um novo registro quando o restante
+-- chegar; depois de "conforme", fecha. A requisição conclui quando nenhum
+-- pedido dela está mais aguardando entrega.
+create or replace function public.suprimentos_registrar_recebimento(
+  p_pedido_id text,
+  p_usuario_id text,
+  p_situacao "SituacaoRecebimento",
+  p_observacao text,
+  p_nome_recebedor text,
+  p_documento_recebedor text
+)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare
+  p "PedidoCompra"%rowtype;
+  v_status "StatusRequisicao";
+  v_recebimento text;
+begin
+  select * into p from "PedidoCompra" where id = p_pedido_id;
+  if not found then
+    raise exception 'Pedido não encontrado.';
+  end if;
+  -- Trava pela requisição: dois pedidos dela recebidos ao mesmo tempo não podem
+  -- deixar de concluí-la.
+  select status into v_status from "Requisicao" where id = p."requisicaoId" for update;
+  select * into p from "PedidoCompra" where id = p_pedido_id;
+
+  if v_status not in ('pedido_emitido', 'concluida') then
+    raise exception 'Esta requisição não está com pedido emitido.';
+  end if;
+  if p."statusEntrega" = 'recebido_conforme' then
+    raise exception 'Este pedido já foi recebido conforme.';
+  end if;
+  if coalesce(btrim(p_nome_recebedor), '') = '' then
+    raise exception 'Informe quem recebeu o material.';
+  end if;
+  if p_situacao = 'inconforme' and coalesce(btrim(p_observacao), '') = '' then
+    raise exception 'Descreva o problema ao marcar como inconforme.';
+  end if;
+
+  insert into "Recebimento" (
+    "pedidoCompraId", situacao, observacao, "nomeRecebedor", "documentoRecebedor", "registradoPorId"
+  ) values (
+    p.id, p_situacao, nullif(btrim(p_observacao), ''), btrim(p_nome_recebedor),
+    nullif(btrim(p_documento_recebedor), ''), p_usuario_id
+  )
+  returning id into v_recebimento;
+
+  update "PedidoCompra"
+     set "statusEntrega" = case when p_situacao = 'conforme' then 'recebido_conforme' else 'recebido_inconforme' end::"StatusEntregaPedido"
+   where id = p.id;
+
+  if not exists (
+    select 1 from "PedidoCompra" where "requisicaoId" = p."requisicaoId" and "statusEntrega" = 'pendente'
+  ) then
+    update "Requisicao" set status = 'concluida', "atualizadoEm" = now()
+     where id = p."requisicaoId" and status = 'pedido_emitido';
+  end if;
+
+  return jsonb_build_object(
+    'recebimentoId', v_recebimento,
+    'statusRequisicao', (select status from "Requisicao" where id = p."requisicaoId")
+  );
+end;
+$$;
+
+revoke execute on function public.suprimentos_registrar_recebimento(text, text, "SituacaoRecebimento", text, text, text) from public, anon, authenticated;
+grant execute on function public.suprimentos_registrar_recebimento(text, text, "SituacaoRecebimento", text, text, text) to service_role;
+
 revoke execute on function public.suprimentos_total_escolha(text) from public, anon, authenticated;
 revoke execute on function public.suprimentos_emitir_pedidos(text, text) from public, anon, authenticated;
 revoke execute on function public.suprimentos_enviar_aprovacao(text, text) from public, anon, authenticated;

@@ -16,6 +16,7 @@ export default async function SuprimentosLayout({
       ? [{ titulo: "Aprovações", href: "/suprimentos/aprovacoes" }]
       : []),
     { titulo: "Pedidos", href: "/suprimentos/pedidos" },
+    { titulo: "Recebimentos", href: "/suprimentos/recebimentos" },
     { titulo: "Produtos", href: "/suprimentos/produtos" },
     { titulo: "Fornecedores", href: "/suprimentos/fornecedores" },
   ];
