@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPapelSuprimentos, mensagemDeErro } from "@/lib/suprimentos-auth";
-import { termoBusca } from "@/lib/suprimentos-busca";
+import { buscarProdutos, type ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
 import { STATUS_COTACAO_ABERTA, chaveDescricao } from "@/lib/suprimentos";
 import { numeroBr } from "@/lib/suprimentos-cotacao";
 
@@ -65,27 +65,11 @@ async function itemDaRequisicao(itemId: string) {
 
 // ---------------------------------------------------------------- catálogo
 
-export type ProdutoEncontrado = { id: string; numero: number; descricao: string; unidade: string };
+export type { ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
 
 export async function buscarProdutosCatalogo(q: string): Promise<ProdutoEncontrado[]> {
   await exigirPapelSuprimentos("comprador");
-  const termo = termoBusca(q);
-  if (termo.length < 2) return [];
-
-  // Cada palavra precisa aparecer, em qualquer ordem: "cabo 10mm" acha
-  // "CABO FLEXÍVEL 10MM".
-  let consulta = supabase
-    .from("Produto")
-    .select("id, numero, descricao, unidade")
-    .eq("ativo", true)
-    .order("descricao")
-    .limit(20);
-  // Busca na chave (sem acento, maiúscula): "flexível" acha "FLEXIVEL".
-  for (const palavra of chaveDescricao(termo).split(" ").slice(0, 5)) {
-    consulta = consulta.like("chaveDescricao", `%${palavra}%`);
-  }
-  const { data } = await consulta;
-  return data ?? [];
+  return buscarProdutos(q);
 }
 
 export async function vincularProduto(itemId: string, produtoId: string | null): Promise<Resultado> {

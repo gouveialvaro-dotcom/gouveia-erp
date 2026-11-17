@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPapelSuprimentos, mensagemDeErro } from "@/lib/suprimentos-auth";
 import { notificar, usuariosComPapel } from "@/lib/suprimentos-notificacoes";
+import { buscarProdutos, type ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
 import {
   ITENS_POR_REQUISICAO_MAX,
   STATUS_CANCELAVEL_COMPRADOR,
@@ -16,7 +17,16 @@ import {
 
 export type EstadoFormRequisicao = { erro?: string } | undefined;
 
+/** Busca no catálogo para quem monta a requisição: qualquer usuário do módulo. */
+export async function buscarProdutosRequisicao(q: string): Promise<ProdutoEncontrado[]> {
+  await exigirPapelSuprimentos();
+  return buscarProdutos(q);
+}
+
 const itemSchema = z.object({
+  // Item do catálogo (o padrão) ou texto livre, quando o requisitante marca que
+  // não encontrou o produto. O comprador vincula os de texto livre depois.
+  produtoId: z.string().min(1).optional(),
   descricao: z.string().trim().min(2, "Descreva cada item.").max(300),
   quantidade: z.coerce.number().positive("A quantidade de cada item precisa ser maior que zero."),
   unidade: z.string().trim().min(1, "Informe a unidade de cada item.").max(10),
@@ -72,6 +82,22 @@ export async function criarRequisicao(
     if (!obra) return { erro: "Obra não encontrada." };
     if (obra.status === "concluida") return { erro: "Esta obra já está concluída." };
 
+    // Produto escolhido precisa existir e estar ativo. A descrição gravada é a
+    // do catálogo, não a que veio do navegador.
+    const idsProduto = [...new Set(dados.data.itens.flatMap((i) => (i.produtoId ? [i.produtoId] : [])))];
+    const produtos = new Map<string, { descricao: string; unidade: string }>();
+    if (idsProduto.length) {
+      const { data: encontrados } = await supabase
+        .from("Produto")
+        .select("id, descricao, unidade")
+        .in("id", idsProduto)
+        .eq("ativo", true);
+      for (const p of encontrados ?? []) produtos.set(p.id, p);
+      if (produtos.size !== idsProduto.length) {
+        return { erro: "Um dos produtos escolhidos não está mais no catálogo. Escolha de novo." };
+      }
+    }
+
     const { data: requisicao, error } = await supabase
       .from("Requisicao")
       .insert({
@@ -87,14 +113,20 @@ export async function criarRequisicao(
     if (error || !requisicao) return { erro: error?.message ?? "Falha ao criar a requisição." };
 
     const { error: erroItens } = await supabase.from("RequisicaoItem").insert(
-      dados.data.itens.map((item, indice) => ({
-        requisicaoId: requisicao.id,
-        ordem: indice + 1,
-        descricao: item.descricao.replace(/\s+/g, " "),
-        quantidade: item.quantidade,
-        unidade: item.unidade.toUpperCase(),
-        especificacao: item.especificacao || null,
-      }))
+      dados.data.itens.map((item, indice) => {
+        const produto = item.produtoId ? produtos.get(item.produtoId) : undefined;
+        return {
+          requisicaoId: requisicao.id,
+          ordem: indice + 1,
+          produtoId: item.produtoId ?? null,
+          descricao: (produto?.descricao ?? item.descricao).replace(/\s+/g, " "),
+          quantidade: item.quantidade,
+          // A unidade vem preenchida com a do catálogo, mas o requisitante pode
+          // trocar (ex.: catálogo em M e o pedido em ROLO).
+          unidade: item.unidade.toUpperCase(),
+          especificacao: item.especificacao || null,
+        };
+      })
     );
     if (erroItens) {
       // Sem itens a requisição não existe: desfaz o cabeçalho em vez de deixar
