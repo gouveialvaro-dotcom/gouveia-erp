@@ -166,8 +166,35 @@ export function normalizarCnpj(cnpj: string) {
 
 export function formatarCnpj(cnpj: string | null | undefined) {
   const d = normalizarCnpj(cnpj ?? "");
+  // Fornecedor pessoa física guarda o CPF no mesmo campo.
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
   if (d.length !== 14) return cnpj ?? "";
   return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+}
+
+/** "CPF" para 11 dígitos, "CNPJ" para o resto. */
+export function rotuloDocumento(documento: string | null | undefined) {
+  return normalizarCnpj(documento ?? "").length === 11 ? "CPF" : "CNPJ";
+}
+
+/** Validação dos dígitos verificadores do CPF. */
+export function cpfValido(cpf: string) {
+  const d = normalizarCnpj(cpf);
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const digito = (base: string) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (base.length + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  const d1 = digito(d.slice(0, 9));
+  const d2 = digito(d.slice(0, 9) + d1);
+  return d.endsWith(`${d1}${d2}`);
+}
+
+/** CNPJ ou CPF válido (o fornecedor pode ser pessoa física). */
+export function documentoValido(documento: string) {
+  return cnpjValido(documento) || cpfValido(documento);
 }
 
 /** Validação dos dígitos verificadores do CNPJ. */

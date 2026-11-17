@@ -42,15 +42,24 @@ export default async function PaginaFornecedores({
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <form className="flex gap-2">
-          <Input name="q" defaultValue={q ?? ""} placeholder="Nome, CNPJ ou cidade" className="w-64" />
+          <Input name="q" defaultValue={q ?? ""} placeholder="Nome, CNPJ/CPF ou cidade" className="w-64" />
           <Button type="submit" variant="outline">
             Buscar
           </Button>
         </form>
         {podeEditar && (
-          <Button render={<Link href="/suprimentos/fornecedores/novo" />} nativeButton={false}>
-            + Novo fornecedor
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              render={<Link href="/suprimentos/fornecedores/importar" />}
+              nativeButton={false}
+            >
+              Importar planilha do Conta Azul
+            </Button>
+            <Button render={<Link href="/suprimentos/fornecedores/novo" />} nativeButton={false}>
+              + Novo fornecedor
+            </Button>
+          </div>
         )}
       </div>
 
@@ -59,7 +68,7 @@ export default async function PaginaFornecedores({
           <TableHeader>
             <TableRow>
               <TableHead>Fornecedor</TableHead>
-              <TableHead>CNPJ</TableHead>
+              <TableHead>CNPJ / CPF</TableHead>
               <TableHead>Local</TableHead>
               <TableHead>Vendedor</TableHead>
               <TableHead>Status</TableHead>

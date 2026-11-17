@@ -1,4 +1,4 @@
-import { ROTULO_FRETE, codigoRequisicao, formatarCnpj } from "@/lib/suprimentos";
+import { ROTULO_FRETE, codigoRequisicao, formatarCnpj, rotuloDocumento } from "@/lib/suprimentos";
 import { moeda, precoUnitarioBr } from "@/lib/suprimentos-cotacao";
 import { formatarData, formatarDataHora } from "@/lib/format";
 import type { PedidoCarregado } from "@/lib/suprimentos-pedidos";
@@ -56,7 +56,7 @@ export function DocumentoPedido({ pedido }: { pedido: PedidoCarregado }) {
         </Bloco>
         <Bloco titulo="Fornecedor">
           <span className="font-medium">{f?.razaoSocial ?? "—"}</span>
-          {f?.cnpj && <span>CNPJ {formatarCnpj(f.cnpj)}</span>}
+          {f?.cnpj && <span>{rotuloDocumento(f.cnpj)} {formatarCnpj(f.cnpj)}</span>}
           <span>
             {[f?.cidade, f?.uf].filter(Boolean).join(" / ")}
             {pedido.cotacao?.vendedor ? ` · Vendedor: ${pedido.cotacao.vendedor}` : ""}
