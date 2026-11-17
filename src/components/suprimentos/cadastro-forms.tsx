@@ -187,12 +187,12 @@ export function FornecedorForm({ fornecedor }: { fornecedor?: FornecedorRow }) {
         <Campo id="nomeFantasia" rotulo="Nome fantasia (opcional)">
           <Input id="nomeFantasia" name="nomeFantasia" defaultValue={fornecedor?.nomeFantasia ?? ""} />
         </Campo>
-        <Campo id="cnpj" rotulo="CNPJ (opcional)">
+        <Campo id="cnpj" rotulo="CNPJ ou CPF (opcional)">
           <Input
             id="cnpj"
             name="cnpj"
             defaultValue={fornecedor?.cnpj ? formatarCnpj(fornecedor.cnpj) : ""}
-            placeholder="00.000.000/0000-00"
+            placeholder="CNPJ, ou CPF se for pessoa física"
           />
         </Campo>
         <Campo
