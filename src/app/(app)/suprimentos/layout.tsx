@@ -7,11 +7,14 @@ export default async function SuprimentosLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { ehAdmin } = await contextoSuprimentos();
+  const { ehAdmin, tem } = await contextoSuprimentos();
 
   const itens: ItemSubnavSuprimentos[] = [
     { titulo: "Início", href: "/suprimentos" },
     { titulo: "Requisições", href: "/suprimentos/requisicoes" },
+    ...(tem("aprovador_gerencia", "aprovador_diretoria")
+      ? [{ titulo: "Aprovações", href: "/suprimentos/aprovacoes" }]
+      : []),
     { titulo: "Produtos", href: "/suprimentos/produtos" },
     { titulo: "Fornecedores", href: "/suprimentos/fornecedores" },
   ];

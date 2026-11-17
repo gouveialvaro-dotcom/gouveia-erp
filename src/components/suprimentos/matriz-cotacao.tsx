@@ -22,6 +22,7 @@ import {
 } from "@/lib/suprimentos-cotacao";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { EnviarAprovacao } from "@/components/suprimentos/enviar-aprovacao";
 
 export type CotacaoMatriz = CotacaoParaCalculo & {
   frete: ModalidadeFrete;
@@ -46,6 +47,7 @@ export function MatrizCotacao({
   escolhasIniciais,
   limites,
   editavel,
+  envio,
 }: {
   requisicaoId: string;
   itens: ItemMatriz[];
@@ -53,6 +55,8 @@ export function MatrizCotacao({
   escolhasIniciais: Record<string, string | null>;
   limites: { limiteComprador: number; limiteGerencia: number };
   editavel: boolean;
+  /** Na mesa do comprador: habilita o envio para aprovação. */
+  envio?: { itensSemProduto: number; minimoCotacoes: number };
 }) {
   const [escolhas, setEscolhas] = useState(escolhasIniciais);
   const [erro, setErro] = useState<string | null>(null);
@@ -299,6 +303,25 @@ export function MatrizCotacao({
           {salvo && !alterado && <span className="text-xs text-muted-foreground">Escolha salva.</span>}
           {erro && <span className="text-sm text-destructive">{erro}</span>}
         </div>
+      )}
+
+      {editavel && envio && nivel && (
+        <EnviarAprovacao
+          requisicaoId={requisicaoId}
+          total={resumo.total}
+          nivel={nivel}
+          cotacoes={cotacoes.length}
+          minimoCotacoes={envio.minimoCotacoes}
+          pendencias={[
+            ...(envio.itensSemProduto > 0
+              ? [`${envio.itensSemProduto} ${envio.itensSemProduto === 1 ? "item sem vínculo" : "itens sem vínculo"} ao catálogo`]
+              : []),
+            ...(resumo.semVencedor > 0
+              ? [`${resumo.semVencedor} ${resumo.semVencedor === 1 ? "item" : "itens"} sem fornecedor escolhido`]
+              : []),
+            ...(alterado ? ["Salve a escolha antes de enviar"] : []),
+          ]}
+        />
       )}
     </div>
   );

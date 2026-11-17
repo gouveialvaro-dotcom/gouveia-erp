@@ -3510,6 +3510,30 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: undefined
       }
+      suprimentos_decidir_aprovacao: {
+        Args: {
+          p_anexo_caminho: string | null
+          p_anexo_nome: string | null
+          p_comentario: string | null
+          p_decisao: Database["public"]["Enums"]["DecisaoAprovacao"]
+          p_nivel: Database["public"]["Enums"]["NivelAlcada"]
+          p_requisicao_id: string
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
+      suprimentos_emitir_pedidos: {
+        Args: { p_requisicao_id: string; p_usuario_id: string }
+        Returns: undefined
+      }
+      suprimentos_enviar_aprovacao: {
+        Args: { p_requisicao_id: string; p_usuario_id: string }
+        Returns: Json
+      }
+      suprimentos_total_escolha: {
+        Args: { p_requisicao_id: string }
+        Returns: number
+      }
     }
     Enums: {
       DecisaoAprovacao: "aprovada" | "devolvida" | "recusada"

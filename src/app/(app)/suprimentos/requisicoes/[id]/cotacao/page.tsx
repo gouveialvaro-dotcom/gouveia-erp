@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos, parametrosSuprimentos } from "@/lib/suprimentos-auth";
 import { carregarCotacoes } from "@/lib/suprimentos-cotacao-dados";
-import { STATUS_COTACAO_ABERTA, codigoRequisicao } from "@/lib/suprimentos";
+import { ROTULO_NIVEL, STATUS_COTACAO_ABERTA, codigoRequisicao } from "@/lib/suprimentos";
 import { moeda, subtotalCotacao } from "@/lib/suprimentos-cotacao";
 import { formatarData } from "@/lib/format";
 import { excluirCotacao } from "@/app/(app)/suprimentos/requisicoes/cotacao-actions";
@@ -24,14 +24,22 @@ export default async function PaginaCotacao({ params }: { params: Promise<{ id: 
 
   const { data: r } = await supabase
     .from("Requisicao")
-    .select("id, numero, status, urgencia, prazoDesejado, obra:Obra(nomeProjeto), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome)")
+    .select("id, numero, status, urgencia, prazoDesejado, rodadaAprovacao, obra:Obra(nomeProjeto), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome)")
     .eq("id", id)
     .maybeSingle();
   if (!r) notFound();
 
-  const [{ itens, cotacoes, cotacoesBrutas, escolhas }, parametros] = await Promise.all([
+  const [{ itens, cotacoes, cotacoesBrutas, escolhas }, parametros, { data: devolucao }] = await Promise.all([
     carregarCotacoes(r.id),
     parametrosSuprimentos(),
+    // A devolução do último envio explica ao comprador o que refazer.
+    supabase
+      .from("Aprovacao")
+      .select("comentario, nivel, aprovador:Usuario!Aprovacao_aprovadorId_fkey(nome)")
+      .eq("requisicaoId", id)
+      .eq("rodada", r.rodadaAprovacao)
+      .eq("decisao", "devolvida")
+      .maybeSingle(),
   ]);
   const editavel = STATUS_COTACAO_ABERTA.includes(r.status);
   const codigo = codigoRequisicao(r.numero);
@@ -58,9 +66,20 @@ export default async function PaginaCotacao({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
+      {editavel && devolucao && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+          <span className="font-medium">
+            Devolvida por {devolucao.aprovador?.nome ?? "—"} ({ROTULO_NIVEL[devolucao.nivel]}):
+          </span>{" "}
+          {devolucao.comentario}
+        </div>
+      )}
+
       {!editavel && (
         <div className="rounded-md border bg-muted/40 p-3 text-sm">
-          A cotação está fechada nesta situação. Para mudar, a requisição precisa voltar para cotação.
+          {r.status === "aguardando_aprovacao"
+            ? "Enviada para aprovação: a cotação fica travada até a decisão. Se o aprovador devolver, ela reabre aqui."
+            : "A cotação está fechada nesta situação."}
         </div>
       )}
 
@@ -173,6 +192,7 @@ export default async function PaginaCotacao({ params }: { params: Promise<{ id: 
           escolhasIniciais={escolhas}
           limites={parametros}
           editavel={editavel}
+          envio={{ itensSemProduto: itens.length - vinculados, minimoCotacoes: parametros.minimoCotacoes }}
         />
       </section>
     </div>

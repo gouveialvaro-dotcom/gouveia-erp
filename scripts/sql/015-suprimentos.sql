@@ -401,4 +401,276 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('suprimentos', 'suprimentos', false, 10485760)
 on conflict (id) do nothing;
 
+-- 12. Funções do fluxo de aprovação.
+--
+-- Enviar, decidir e emitir pedidos mexem em várias tabelas de uma vez e
+-- precisam travar a requisição (dois aprovadores clicando juntos não podem
+-- emitir pedido duas vezes). Por isso moram no banco, cada uma numa transação.
+-- Só a service role executa: o app chama via supabase.rpc no servidor.
+
+-- Total da compra escolhida: itens (linha arredondada a centavos) + frete e
+-- DIFAL inteiros de cada fornecedor que levou pelo menos um item. A tela faz a
+-- mesma conta em src/lib/suprimentos-cotacao.ts.
+create or replace function public.suprimentos_total_escolha(p_requisicao_id text)
+returns numeric
+language sql
+stable
+set search_path = public
+as $$
+  with usados as (
+    select
+      c.id,
+      c."valorFrete" as frete,
+      case when c."incideDifal" then c."valorDifal" else 0 end as difal,
+      sum(round(ri.quantidade * ci."precoUnitario", 2)) as itens
+    from "RequisicaoItem" ri
+    join "CotacaoItem" ci on ci.id = ri."cotacaoItemVencedorId"
+    join "Cotacao" c on c.id = ci."cotacaoId"
+    where ri."requisicaoId" = p_requisicao_id
+    group by c.id
+  )
+  select coalesce(sum(itens + frete + difal), 0)::numeric(14, 2) from usados;
+$$;
+
+-- Um pedido por fornecedor escolhido (PED-0001-A, -B...), com retrato dos itens.
+-- Chamada só pelas duas funções abaixo, já com a requisição travada.
+create or replace function public.suprimentos_emitir_pedidos(p_requisicao_id text, p_usuario_id text)
+returns void
+language plpgsql
+set search_path = public
+as $$
+declare
+  r "Requisicao"%rowtype;
+  c "Cotacao"%rowtype;
+  v_letra integer := 0;
+  v_sufixo text;
+  v_pedido text;
+  v_empresa text;
+  v_itens numeric(14, 2);
+  v_difal numeric(14, 2);
+begin
+  select * into r from "Requisicao" where id = p_requisicao_id;
+  select "empresaId" into v_empresa from "ObraFaturamento" where "obraId" = r."obraId";
+
+  for c in
+    select * from "Cotacao"
+    where id in (
+      select ci."cotacaoId"
+      from "RequisicaoItem" ri
+      join "CotacaoItem" ci on ci.id = ri."cotacaoItemVencedorId"
+      where ri."requisicaoId" = r.id
+    )
+    order by "criadoEm", id
+  loop
+    v_letra := v_letra + 1;
+    v_sufixo := case when v_letra <= 26 then chr(64 + v_letra) else v_letra::text end;
+
+    select coalesce(sum(round(ri.quantidade * ci."precoUnitario", 2)), 0)
+      into v_itens
+    from "RequisicaoItem" ri
+    join "CotacaoItem" ci on ci.id = ri."cotacaoItemVencedorId"
+    where ri."requisicaoId" = r.id and ci."cotacaoId" = c.id;
+
+    v_difal := case when c."incideDifal" then c."valorDifal" else 0 end;
+
+    insert into "PedidoCompra" (
+      "requisicaoId", "cotacaoId", "fornecedorId", codigo, "empresaId",
+      "valorItens", "valorFrete", "valorDifal", "valorTotal",
+      frete, "coletaPropria", "condicaoPagamento", "prazoEntregaDias", "emitidoPorId"
+    ) values (
+      r.id, c.id, c."fornecedorId",
+      'PED-' || lpad(r.numero::text, 4, '0') || '-' || v_sufixo,
+      v_empresa,
+      v_itens, c."valorFrete", v_difal, v_itens + c."valorFrete" + v_difal,
+      c.frete, c."coletaPropria", c."condicaoPagamento", c."prazoEntregaDias",
+      coalesce(r."compradorId", p_usuario_id)
+    )
+    returning id into v_pedido;
+
+    insert into "PedidoCompraItem" (
+      "pedidoCompraId", "requisicaoItemId", ordem, descricao, especificacao,
+      quantidade, unidade, "precoUnitario", "precoTotal"
+    )
+    select
+      v_pedido, ri.id, ri.ordem, coalesce(p.descricao, ri.descricao), ri.especificacao,
+      ri.quantidade, ri.unidade, ci."precoUnitario", round(ri.quantidade * ci."precoUnitario", 2)
+    from "RequisicaoItem" ri
+    join "CotacaoItem" ci on ci.id = ri."cotacaoItemVencedorId"
+    left join "Produto" p on p.id = ri."produtoId"
+    where ri."requisicaoId" = r.id and ci."cotacaoId" = c.id;
+  end loop;
+
+  update "Requisicao"
+     set status = 'pedido_emitido', "atualizadoEm" = now()
+   where id = r.id;
+end;
+$$;
+
+-- Comprador envia a escolha para aprovação. Até o limite do comprador a
+-- própria remessa é a aprovação (autonomia dele) e os pedidos saem na hora.
+create or replace function public.suprimentos_enviar_aprovacao(p_requisicao_id text, p_usuario_id text)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare
+  r "Requisicao"%rowtype;
+  v_total numeric(14, 2);
+  v_limite_comprador numeric(14, 2);
+  v_limite_gerencia numeric(14, 2);
+  v_nivel "NivelAlcada";
+  v_rodada integer;
+begin
+  select * into r from "Requisicao" where id = p_requisicao_id for update;
+  if not found then
+    raise exception 'Requisição não encontrada.';
+  end if;
+  if r.status <> 'em_cotacao' then
+    raise exception 'Só uma requisição em cotação pode ir para aprovação.';
+  end if;
+  if exists (select 1 from "RequisicaoItem" where "requisicaoId" = r.id and "produtoId" is null) then
+    raise exception 'Vincule todos os itens ao catálogo antes de enviar.';
+  end if;
+  if exists (select 1 from "RequisicaoItem" where "requisicaoId" = r.id and "cotacaoItemVencedorId" is null) then
+    raise exception 'Escolha o fornecedor de todos os itens antes de enviar.';
+  end if;
+
+  v_total := suprimentos_total_escolha(r.id);
+  select coalesce(max("limiteComprador"), 500), coalesce(max("limiteGerencia"), 3000)
+    into v_limite_comprador, v_limite_gerencia
+  from "ParametroSuprimentos" where id = 'padrao';
+
+  v_nivel := case
+    when v_total <= v_limite_comprador then 'comprador'
+    when v_total <= v_limite_gerencia then 'gerencia'
+    else 'diretoria'
+  end;
+  v_rodada := r."rodadaAprovacao" + 1;
+
+  update "Requisicao"
+     set status = 'aguardando_aprovacao',
+         "valorTotal" = v_total,
+         "nivelAlcada" = v_nivel,
+         "rodadaAprovacao" = v_rodada,
+         "enviadaAprovacaoEm" = now(),
+         "compradorId" = coalesce("compradorId", p_usuario_id),
+         "atualizadoEm" = now()
+   where id = r.id;
+
+  if v_nivel = 'comprador' then
+    insert into "Aprovacao" (
+      "requisicaoId", rodada, nivel, "aprovadorId", decisao, comentario,
+      "proprioRequisitante", "valorTotal"
+    ) values (
+      r.id, v_rodada, 'comprador', p_usuario_id, 'aprovada', 'Dentro da autonomia do comprador.',
+      p_usuario_id = r."requisitanteId", v_total
+    );
+    perform suprimentos_emitir_pedidos(r.id, p_usuario_id);
+  end if;
+
+  return jsonb_build_object(
+    'nivel', v_nivel,
+    'total', v_total,
+    'rodada', v_rodada,
+    'status', (select status from "Requisicao" where id = r.id)
+  );
+end;
+$$;
+
+-- Decisão de um aprovador. Acima do limite da gerência valem as duas
+-- aprovações (em qualquer ordem, de pessoas diferentes). Devolver volta para a
+-- cotação; recusar encerra; a última aprovação que faltava emite os pedidos.
+-- Quem pode decidir em cada nível (papel) é conferido no app antes da chamada.
+create or replace function public.suprimentos_decidir_aprovacao(
+  p_requisicao_id text,
+  p_usuario_id text,
+  p_nivel "NivelAlcada",
+  p_decisao "DecisaoAprovacao",
+  p_comentario text,
+  p_anexo_caminho text,
+  p_anexo_nome text
+)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare
+  r "Requisicao"%rowtype;
+  v_exigidos "NivelAlcada"[];
+  v_pendentes "NivelAlcada"[];
+begin
+  select * into r from "Requisicao" where id = p_requisicao_id for update;
+  if not found then
+    raise exception 'Requisição não encontrada.';
+  end if;
+  if r.status <> 'aguardando_aprovacao' then
+    raise exception 'Esta requisição não está mais aguardando aprovação.';
+  end if;
+
+  v_exigidos := case r."nivelAlcada"
+    when 'gerencia' then array['gerencia']::"NivelAlcada"[]
+    when 'diretoria' then array['gerencia', 'diretoria']::"NivelAlcada"[]
+    else array[]::"NivelAlcada"[]
+  end;
+  if not (p_nivel = any (v_exigidos)) then
+    raise exception 'Esta compra não pede aprovação neste nível.';
+  end if;
+  if exists (
+    select 1 from "Aprovacao"
+    where "requisicaoId" = r.id and rodada = r."rodadaAprovacao" and nivel = p_nivel
+  ) then
+    raise exception 'Este nível já decidiu esta compra.';
+  end if;
+  if exists (
+    select 1 from "Aprovacao"
+    where "requisicaoId" = r.id and rodada = r."rodadaAprovacao" and "aprovadorId" = p_usuario_id
+  ) then
+    raise exception 'A outra aprovação precisa ser de outra pessoa.';
+  end if;
+  if p_decisao <> 'aprovada' and coalesce(btrim(p_comentario), '') = '' then
+    raise exception 'Explique o motivo ao devolver ou recusar.';
+  end if;
+
+  insert into "Aprovacao" (
+    "requisicaoId", rodada, nivel, "aprovadorId", decisao, comentario,
+    "proprioRequisitante", "valorTotal", "anexoCaminho", "anexoNome"
+  ) values (
+    r.id, r."rodadaAprovacao", p_nivel, p_usuario_id, p_decisao, nullif(btrim(p_comentario), ''),
+    p_usuario_id = r."requisitanteId", r."valorTotal", p_anexo_caminho, p_anexo_nome
+  );
+
+  if p_decisao = 'devolvida' then
+    update "Requisicao"
+       set status = 'em_cotacao', "nivelAlcada" = null, "valorTotal" = null, "atualizadoEm" = now()
+     where id = r.id;
+  elsif p_decisao = 'recusada' then
+    update "Requisicao" set status = 'recusada', "atualizadoEm" = now() where id = r.id;
+  else
+    select coalesce(array_agg(n), array[]::"NivelAlcada"[]) into v_pendentes
+    from unnest(v_exigidos) as n
+    where not exists (
+      select 1 from "Aprovacao"
+      where "requisicaoId" = r.id and rodada = r."rodadaAprovacao" and nivel = n and decisao = 'aprovada'
+    );
+    if cardinality(v_pendentes) = 0 then
+      perform suprimentos_emitir_pedidos(r.id, p_usuario_id);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'status', (select status from "Requisicao" where id = r.id),
+    'pendentes', to_jsonb(coalesce(v_pendentes, array[]::"NivelAlcada"[]))
+  );
+end;
+$$;
+
+revoke execute on function public.suprimentos_total_escolha(text) from public, anon, authenticated;
+revoke execute on function public.suprimentos_emitir_pedidos(text, text) from public, anon, authenticated;
+revoke execute on function public.suprimentos_enviar_aprovacao(text, text) from public, anon, authenticated;
+revoke execute on function public.suprimentos_decidir_aprovacao(text, text, "NivelAlcada", "DecisaoAprovacao", text, text, text) from public, anon, authenticated;
+grant execute on function public.suprimentos_total_escolha(text) to service_role;
+grant execute on function public.suprimentos_emitir_pedidos(text, text) to service_role;
+grant execute on function public.suprimentos_enviar_aprovacao(text, text) to service_role;
+grant execute on function public.suprimentos_decidir_aprovacao(text, text, "NivelAlcada", "DecisaoAprovacao", text, text, text) to service_role;
+
 commit;

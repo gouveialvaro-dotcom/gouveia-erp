@@ -7,13 +7,17 @@ import {
   STATUS_CANCELAVEL_COMPRADOR,
   STATUS_CANCELAVEL_REQUISITANTE,
   STATUS_COTACAO_ABERTA,
+  PAPEL_DO_NIVEL,
   codigoRequisicao,
+  niveisExigidos,
 } from "@/lib/suprimentos";
 import { formatarData, formatarDataHora } from "@/lib/format";
 import { BadgeStatusRequisicao, BadgeUrgencia } from "@/components/suprimentos/status-requisicao";
 import { CancelarRequisicao } from "@/components/suprimentos/cancelar-requisicao";
 import { AlertaMinimoCotacoes } from "@/components/suprimentos/alerta-cotacoes";
 import { MatrizCotacao } from "@/components/suprimentos/matriz-cotacao";
+import { HistoricoAprovacoes } from "@/components/suprimentos/historico-aprovacoes";
+import { PainelDecisao } from "@/components/suprimentos/painel-decisao";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -59,10 +63,32 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
   const ehRequisitante = r.requisitanteId === contexto.usuarioId;
   const ehComprador = contexto.tem("comprador");
   const cotacaoAberta = STATUS_COTACAO_ABERTA.includes(r.status);
-  const [{ itens: itensCotacao, cotacoes, escolhas }, parametros] = await Promise.all([
+  const [{ itens: itensCotacao, cotacoes, escolhas }, parametros, { data: aprovacoesBrutas }] = await Promise.all([
     carregarCotacoes(r.id),
     parametrosSuprimentos(),
+    supabase
+      .from("Aprovacao")
+      .select("*, aprovador:Usuario!Aprovacao_aprovadorId_fkey(nome)")
+      .eq("requisicaoId", r.id),
   ]);
+  const aprovacoes = (aprovacoesBrutas ?? []).map((a) => ({
+    ...a,
+    valorTotal: Number(a.valorTotal),
+    aprovador: a.aprovador?.nome ?? "—",
+  }));
+
+  // Quem ainda falta decidir nesta rodada, e se o usuário é um deles.
+  const daRodada = aprovacoes.filter((a) => a.rodada === r.rodadaAprovacao);
+  const aguardando =
+    r.status === "aguardando_aprovacao"
+      ? niveisExigidos(r.nivelAlcada).filter((n) => !daRodada.some((a) => a.nivel === n))
+      : [];
+  const jaDecidiu = daRodada.some((a) => a.aprovadorId === contexto.usuarioId);
+  const meuNivel = jaDecidiu
+    ? undefined
+    : aguardando.find(
+        (n): n is "gerencia" | "diretoria" => n !== "comprador" && contexto.tem(PAPEL_DO_NIVEL[n])
+      );
   const podeCancelar =
     (contexto.tem("comprador") && STATUS_CANCELAVEL_COMPRADOR.includes(r.status)) ||
     (ehRequisitante && STATUS_CANCELAVEL_REQUISITANTE.includes(r.status));
@@ -114,7 +140,7 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
         <Dado rotulo="Solicitada em">{formatarData(r.dataSolicitacao)}</Dado>
         <Dado rotulo="Entregar até">{formatarData(r.prazoDesejado)}</Dado>
         {r.valorTotal !== null && (
-          <Dado rotulo="Valor total aprovado">
+          <Dado rotulo={r.status === "aguardando_aprovacao" ? "Valor para aprovação" : "Valor da compra"}>
             {Number(r.valorTotal).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           </Dado>
         )}
@@ -165,6 +191,20 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
           </Table>
         </div>
       </section>
+
+      {meuNivel && r.valorTotal !== null && (
+        <PainelDecisao
+          requisicaoId={r.id}
+          nivel={meuNivel}
+          valorTotal={Number(r.valorTotal)}
+          proprioRequisitante={ehRequisitante}
+          outroNivelPendente={
+            (aguardando.find((n) => n !== meuNivel) as "gerencia" | "diretoria" | undefined) ?? null
+          }
+        />
+      )}
+
+      <HistoricoAprovacoes aprovacoes={aprovacoes} aguardando={aguardando} />
 
       {cotacoes.length > 0 && (
         <section className="flex flex-col gap-2">

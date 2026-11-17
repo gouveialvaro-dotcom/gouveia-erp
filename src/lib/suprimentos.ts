@@ -203,6 +203,19 @@ export function nivelExigido(
   return "diretoria";
 }
 
+/** Níveis que precisam aprovar uma compra (acima da gerência, os dois). */
+export function niveisExigidos(nivel: NivelAlcada | null | undefined): NivelAlcada[] {
+  if (nivel === "gerencia") return ["gerencia"];
+  if (nivel === "diretoria") return ["gerencia", "diretoria"];
+  return [];
+}
+
+/** Papel que decide em cada nível de aprovação. */
+export const PAPEL_DO_NIVEL: Record<"gerencia" | "diretoria", PapelSuprimentos> = {
+  gerencia: "aprovador_gerencia",
+  diretoria: "aprovador_diretoria",
+};
+
 /** Aviso do sino de Suprimentos, como a API devolve para a barra superior. */
 export type AvisoSuprimentosItem = {
   id: string;
