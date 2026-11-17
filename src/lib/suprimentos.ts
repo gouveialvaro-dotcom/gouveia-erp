@@ -128,6 +128,12 @@ export const STATUS_CANCELAVEL_COMPRADOR: StatusRequisicao[] = [
   "aprovada",
 ];
 
+/**
+ * Status em que o comprador mexe na cotação. Depois de enviada para aprovação
+ * ela congela; uma devolução do aprovador volta a requisição para em_cotacao.
+ */
+export const STATUS_COTACAO_ABERTA: StatusRequisicao[] = ["pendente", "em_cotacao"];
+
 /** Requisições "em andamento" (ainda pedem ação de alguém). */
 export const STATUS_EM_ANDAMENTO: StatusRequisicao[] = [
   "pendente",

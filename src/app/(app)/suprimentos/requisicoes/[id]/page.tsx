@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { contextoSuprimentos } from "@/lib/suprimentos-auth";
+import { contextoSuprimentos, parametrosSuprimentos } from "@/lib/suprimentos-auth";
+import { carregarCotacoes } from "@/lib/suprimentos-cotacao-dados";
 import {
   STATUS_CANCELAVEL_COMPRADOR,
   STATUS_CANCELAVEL_REQUISITANTE,
+  STATUS_COTACAO_ABERTA,
   codigoRequisicao,
 } from "@/lib/suprimentos";
 import { formatarData, formatarDataHora } from "@/lib/format";
 import { BadgeStatusRequisicao, BadgeUrgencia } from "@/components/suprimentos/status-requisicao";
 import { CancelarRequisicao } from "@/components/suprimentos/cancelar-requisicao";
+import { AlertaMinimoCotacoes } from "@/components/suprimentos/alerta-cotacoes";
+import { MatrizCotacao } from "@/components/suprimentos/matriz-cotacao";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -52,6 +57,12 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
   const codigo = codigoRequisicao(r.numero);
   const itens = [...r.itens].sort((a, b) => a.ordem - b.ordem);
   const ehRequisitante = r.requisitanteId === contexto.usuarioId;
+  const ehComprador = contexto.tem("comprador");
+  const cotacaoAberta = STATUS_COTACAO_ABERTA.includes(r.status);
+  const [{ itens: itensCotacao, cotacoes, escolhas }, parametros] = await Promise.all([
+    carregarCotacoes(r.id),
+    parametrosSuprimentos(),
+  ]);
   const podeCancelar =
     (contexto.tem("comprador") && STATUS_CANCELAVEL_COMPRADOR.includes(r.status)) ||
     (ehRequisitante && STATUS_CANCELAVEL_REQUISITANTE.includes(r.status));
@@ -69,7 +80,18 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
             ← Requisições
           </Link>
         </div>
-        {podeCancelar && <CancelarRequisicao requisicaoId={r.id} codigo={codigo} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {ehComprador && r.status !== "cancelada" && (
+            <Button
+              size="sm"
+              render={<Link href={`/suprimentos/requisicoes/${r.id}/cotacao`} />}
+              nativeButton={false}
+            >
+              {r.status === "pendente" ? "Iniciar cotação" : cotacaoAberta ? "Abrir cotação" : "Ver cotação"}
+            </Button>
+          )}
+          {podeCancelar && <CancelarRequisicao requisicaoId={r.id} codigo={codigo} />}
+        </div>
       </div>
 
       {r.status === "cancelada" && (
@@ -143,6 +165,28 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
           </Table>
         </div>
       </section>
+
+      {cotacoes.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Cotações ({cotacoes.length})</h3>
+          <AlertaMinimoCotacoes
+            quantidade={cotacoes.length}
+            minimo={parametros.minimoCotacoes}
+            paraRequisitante={!ehComprador}
+          />
+          {cotacaoAberta && (
+            <p className="text-xs text-muted-foreground">Cotação em andamento — os valores ainda podem mudar.</p>
+          )}
+          <MatrizCotacao
+            requisicaoId={r.id}
+            itens={itensCotacao}
+            cotacoes={cotacoes}
+            escolhasIniciais={escolhas}
+            limites={parametros}
+            editavel={false}
+          />
+        </section>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Criada em {formatarDataHora(r.criadoEm)}
