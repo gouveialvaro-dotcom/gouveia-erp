@@ -11,6 +11,7 @@ export default async function SuprimentosLayout({
 
   const itens: ItemSubnavSuprimentos[] = [
     { titulo: "Início", href: "/suprimentos" },
+    { titulo: "Requisições", href: "/suprimentos/requisicoes" },
     { titulo: "Produtos", href: "/suprimentos/produtos" },
     { titulo: "Fornecedores", href: "/suprimentos/fornecedores" },
   ];

@@ -99,6 +99,48 @@ export function codigoRequisicao(numero: number) {
 }
 
 /**
+ * Hoje no fuso de Natal, em "YYYY-MM-DD". Fixo e não o do ambiente: o servidor
+ * da Vercel roda em UTC, e às 22h de Natal já seria "amanhã" lá.
+ */
+export function hojeSaoPaulo() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
+export function somarDiasIso(dataIso: string, dias: number) {
+  const [ano, mes, dia] = dataIso.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia + dias)).toISOString().slice(0, 10);
+}
+
+/** Prazo sugerido no formulário: ~2 dias na compra normal, hoje na emergencial. */
+export const DIAS_PRAZO_PADRAO: Record<UrgenciaRequisicao, number> = {
+  normal: 2,
+  emergencial: 0,
+};
+
+/** Status em que o requisitante ainda pode cancelar sozinho (ninguém cotou). */
+export const STATUS_CANCELAVEL_REQUISITANTE: StatusRequisicao[] = ["pendente"];
+
+/** Status em que o comprador/admin pode cancelar: qualquer um antes do pedido. */
+export const STATUS_CANCELAVEL_COMPRADOR: StatusRequisicao[] = [
+  "pendente",
+  "em_cotacao",
+  "aguardando_aprovacao",
+  "aprovada",
+];
+
+/** Requisições "em andamento" (ainda pedem ação de alguém). */
+export const STATUS_EM_ANDAMENTO: StatusRequisicao[] = [
+  "pendente",
+  "em_cotacao",
+  "aguardando_aprovacao",
+  "aprovada",
+  "pedido_emitido",
+];
+
+/** Teto de itens por requisição: acima disso é lista de obra, não pedido. */
+export const ITENS_POR_REQUISICAO_MAX = 100;
+
+/**
  * Chave de duplicidade do catálogo: maiúsculas, sem acento, espaços colapsados.
  * A MESMA função roda no cadastro manual e na importação — é o que impede
  * "Cimento  Poty 50kg" e "CIMENTO POTY 50KG" de virarem dois produtos.
@@ -154,3 +196,26 @@ export function nivelExigido(
   if (valorTotal <= limites.limiteGerencia) return "gerencia";
   return "diretoria";
 }
+
+/** Aviso do sino de Suprimentos, como a API devolve para a barra superior. */
+export type AvisoSuprimentosItem = {
+  id: string;
+  tipo: string;
+  titulo: string;
+  detalhe: string | null;
+  requisicaoId: string | null;
+  pedidoCompraId: string | null;
+  lida: boolean;
+  criadoEm: string;
+  autor: string | null;
+};
+
+export const ROTULO_AVISO: Record<string, string> = {
+  nova_requisicao: "Nova requisição",
+  aprovacao_pendente: "Aprovação pendente",
+  requisicao_devolvida: "Devolvida",
+  requisicao_recusada: "Recusada",
+  requisicao_cancelada: "Cancelada",
+  pedido_emitido: "Pedido emitido",
+  recebimento_registrado: "Recebimento",
+};

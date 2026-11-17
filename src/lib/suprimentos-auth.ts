@@ -37,13 +37,18 @@ export async function contextoSuprimentos() {
   const papeis = await papeisDoUsuario(usuarioId);
   const ehAdmin = perfil === "admin";
 
+  const tem = (...exigidos: PapelSuprimentos[]) => temAlgum(papeis, ehAdmin, exigidos);
+
   return {
     usuarioId,
     nome,
     perfil,
     papeis,
     ehAdmin,
-    tem: (...exigidos: PapelSuprimentos[]) => temAlgum(papeis, ehAdmin, exigidos),
+    tem,
+    // Quem trabalha o fluxo enxerga todas as requisições; o requisitante
+    // comum, só as próprias.
+    veTodasRequisicoes: tem("comprador", "aprovador_gerencia", "aprovador_diretoria", "recebedor"),
   };
 }
 
