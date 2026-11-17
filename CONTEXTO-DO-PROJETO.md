@@ -488,6 +488,51 @@ Só `admin`. Gerencia usuários: perfil, ativo/inativo e o silenciador do aviso
 de conversa de WhatsApp sem dono. O flag `notificaPosVenda` **saiu da tela** —
 o destinatário do aviso de pós-venda passou a ser derivado do próprio chamado.
 
+### 6.9 Suprimentos
+
+Requisição → cotação → aprovação por alçada → pedido de compra → recebimento
+na obra. Schema inteiro em `scripts/sql/015-suprimentos.sql`, que **só cria
+objetos novos** (nada existente é alterado). Código em
+`src/app/(app)/suprimentos`, `src/components/suprimentos` e
+`src/lib/suprimentos*.ts`; impressão do pedido em `/pedidos-compra/[id]`
+(fora do grupo `(app)`, como `/propostas/[id]`).
+
+- **Acesso** — todo perfil entra no módulo (qualquer um requisita). Quem cota,
+  aprova e recebe sai da tabela `PapelUsuarioSuprimentos` (comprador,
+  aprovador_gerencia, aprovador_diretoria, recebedor), configurada pelo admin em
+  Suprimentos → Configuração. O admin passa em qualquer checagem de papel.
+  Quem não tem papel vê só as próprias requisições e pedidos.
+- **Catálogo** — `Produto` (chave de duplicidade `chaveDescricao`: maiúsculas,
+  sem acento) com códigos do Conta Azul em `ProdutoCodigoExterno`, importados
+  dos CSVs de cada CNPJ. O requisitante escreve texto livre; o comprador vincula
+  ao catálogo (ou cria o produto, marcado "revisar").
+- **Cotação** — uma por fornecedor, com frete CIF/FOB (coleta própria), DIFAL
+  (marcado por padrão para fornecedor fora do RN) e preço por item. Escolha por
+  item (compra dividida) ou "tudo de um fornecedor". Abaixo de
+  `minimoCotacoes` segue, com alerta para comprador, requisitante e aprovadores.
+- **Alçada** — total = itens + frete + DIFAL de cada fornecedor usado. Até
+  `limiteComprador` (R$ 500) a remessa já fecha a compra; até `limiteGerencia`
+  (R$ 3.000) aprova a Gerência; acima, Gerência e Diretoria (qualquer ordem,
+  pessoas diferentes). Devolver volta para cotação; recusar encerra. Aprovar a
+  própria requisição é permitido e fica marcado (`proprioRequisitante`).
+- **Funções no banco** — `suprimentos_enviar_aprovacao`,
+  `suprimentos_decidir_aprovacao`, `suprimentos_emitir_pedidos`,
+  `suprimentos_registrar_recebimento` e `suprimentos_total_escolha`. Travam a
+  requisição (`for update`) para dois cliques simultâneos não emitirem pedido
+  duas vezes; execução só pela `service_role`.
+- **Pedido** — um por fornecedor (`PED-0001-A`), faturado pela empresa de
+  `ObraFaturamento`, com retrato dos itens em `PedidoCompraItem`. O documento
+  ao fornecedor mostra itens + frete CIF; frete FOB e DIFAL ficam como custo
+  interno.
+- **Recebimento** — conforme/inconforme (observação obrigatória) com fotos
+  reduzidas no navegador. Parcial = inconforme, e o pedido aceita novo registro
+  até chegar conforme. A requisição conclui quando nenhum pedido está pendente.
+- **Avisos** — sino próprio (`NotificacaoSuprimentos`, ícone de carrinho) ao
+  lado do sino do pós-venda.
+- **Storage** — bucket privado **`suprimentos`** (10 MB): documentos assinados
+  das aprovações e fotos de recebimento, servidos por rotas em
+  `/api/suprimentos/...` que revalidam o acesso.
+
 ---
 
 ## 7. Convenções de código

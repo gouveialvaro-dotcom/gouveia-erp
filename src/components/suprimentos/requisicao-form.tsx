@@ -1,0 +1,266 @@
+"use client";
+
+import { startTransition, useActionState, useState } from "react";
+import { Plus, Trash2, Siren } from "lucide-react";
+import {
+  criarRequisicao,
+  type EstadoFormRequisicao,
+} from "@/app/(app)/suprimentos/requisicoes/actions";
+import {
+  DIAS_PRAZO_PADRAO,
+  ITENS_POR_REQUISICAO_MAX,
+  UNIDADES_SUGERIDAS,
+  somarDiasIso,
+  type UrgenciaRequisicao,
+} from "@/lib/suprimentos";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CampoData } from "@/components/ui/campo-data";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SelectNativo } from "@/components/ui/select-nativo";
+import { Textarea } from "@/components/ui/textarea";
+
+type Item = {
+  chave: number;
+  descricao: string;
+  quantidade: string;
+  unidade: string;
+  especificacao: string;
+};
+
+let proximaChave = 1;
+const itemVazio = (): Item => ({
+  chave: proximaChave++,
+  descricao: "",
+  quantidade: "",
+  unidade: "UN",
+  especificacao: "",
+});
+
+export function RequisicaoForm({
+  obras,
+  hoje,
+}: {
+  obras: { id: string; nome: string }[];
+  /** "Hoje" calculado no servidor no fuso de Natal. */
+  hoje: string;
+}) {
+  const [estado, acao, pendente] = useActionState<EstadoFormRequisicao, FormData>(
+    criarRequisicao,
+    undefined
+  );
+  const [urgencia, setUrgencia] = useState<UrgenciaRequisicao>("normal");
+  const [prazo, setPrazo] = useState(somarDiasIso(hoje, DIAS_PRAZO_PADRAO.normal));
+  const [prazoEditado, setPrazoEditado] = useState(false);
+  const [itens, setItens] = useState<Item[]>(() => [itemVazio()]);
+  // Controlados: o React limpa campos não controlados depois da action, e um
+  // erro de validação apagaria a obra e as observações já preenchidas.
+  const [obraId, setObraId] = useState("");
+  const [observacoes, setObservacoes] = useState("");
+
+  function escolherUrgencia(nova: UrgenciaRequisicao) {
+    setUrgencia(nova);
+    // O prazo acompanha a urgência até a pessoa mexer nele.
+    if (!prazoEditado) setPrazo(somarDiasIso(hoje, DIAS_PRAZO_PADRAO[nova]));
+  }
+
+  function alterarItem(chave: number, campo: keyof Omit<Item, "chave">, valor: string) {
+    setItens((atual) => atual.map((i) => (i.chave === chave ? { ...i, [campo]: valor } : i)));
+  }
+
+  const itensJson = JSON.stringify(
+    itens
+      .filter((i) => i.descricao.trim() !== "" || i.quantidade.trim() !== "")
+      .map(({ descricao, quantidade, unidade, especificacao }) => ({
+        descricao,
+        quantidade: quantidade.replace(",", "."),
+        unidade,
+        especificacao: especificacao || undefined,
+      }))
+  );
+
+  return (
+    <form
+      // Envio manual, e não action={acao}: com action o React limpa o form
+      // depois de um erro de validação, e o <select> da obra volta para
+      // "Selecione" mesmo controlado (o estado não muda, então não redesenha).
+      onSubmit={(evento) => {
+        evento.preventDefault();
+        const dados = new FormData(evento.currentTarget);
+        startTransition(() => acao(dados));
+      }}
+      className="flex flex-col gap-6 max-w-3xl"
+    >
+      <input type="hidden" name="itens" value={itensJson} />
+      <input type="hidden" name="urgencia" value={urgencia} />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor="obraId">Obra (centro de custo)</Label>
+          <SelectNativo
+            id="obraId"
+            name="obraId"
+            value={obraId}
+            onChange={(e) => setObraId(e.target.value)}
+            required
+            className="h-10"
+          >
+            <option value="" disabled>
+              Selecione a obra
+            </option>
+            {obras.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nome}
+              </option>
+            ))}
+          </SelectNativo>
+        </div>
+
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label>Urgência</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => escolherUrgencia("normal")}
+              className={cn(
+                "rounded-lg border px-3 py-3 text-left text-sm transition-colors",
+                urgencia === "normal" ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted"
+              )}
+            >
+              Normal
+              <span className="block text-xs font-normal text-muted-foreground">Prazo padrão (~2 dias)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => escolherUrgencia("emergencial")}
+              className={cn(
+                "rounded-lg border px-3 py-3 text-left text-sm transition-colors",
+                urgencia === "emergencial"
+                  ? "border-destructive bg-destructive/10 font-medium text-destructive"
+                  : "hover:bg-muted"
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                <Siren className="h-4 w-4" /> Emergencial
+              </span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Paralisa o canteiro
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="prazoDesejado">Entregar até</Label>
+          <CampoData
+            id="prazoDesejado"
+            name="prazoDesejado"
+            value={prazo}
+            aoMudar={(iso) => {
+              setPrazo(iso);
+              setPrazoEditado(true);
+            }}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Itens ({itens.length})</h3>
+          <p className="text-xs text-muted-foreground">
+            Descreva com suas palavras — o comprador vincula ao catálogo.
+          </p>
+        </div>
+
+        <datalist id="unidades-requisicao">
+          {UNIDADES_SUGERIDAS.map((u) => (
+            <option key={u} value={u} />
+          ))}
+        </datalist>
+
+        {itens.map((item, indice) => (
+          <div key={item.chave} className="rounded-lg border bg-card p-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Item {indice + 1}</span>
+              {itens.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remover item ${indice + 1}`}
+                  onClick={() => setItens((atual) => atual.filter((i) => i.chave !== item.chave))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <Input
+              aria-label={`Descrição do item ${indice + 1}`}
+              placeholder="Material, peça ou serviço"
+              value={item.descricao}
+              onChange={(e) => alterarItem(item.chave, "descricao", e.target.value)}
+              className="h-10"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                aria-label={`Quantidade do item ${indice + 1}`}
+                placeholder="Quantidade"
+                inputMode="decimal"
+                value={item.quantidade}
+                onChange={(e) => alterarItem(item.chave, "quantidade", e.target.value)}
+                className="h-10"
+              />
+              <Input
+                aria-label={`Unidade do item ${indice + 1}`}
+                placeholder="Unidade"
+                list="unidades-requisicao"
+                value={item.unidade}
+                onChange={(e) => alterarItem(item.chave, "unidade", e.target.value.toUpperCase())}
+                className="h-10"
+              />
+            </div>
+            <Textarea
+              aria-label={`Especificações do item ${indice + 1}`}
+              placeholder="Especificações técnicas / observações (opcional)"
+              value={item.especificacao}
+              onChange={(e) => alterarItem(item.chave, "especificacao", e.target.value)}
+              rows={2}
+            />
+          </div>
+        ))}
+
+        {itens.length < ITENS_POR_REQUISICAO_MAX && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setItens((atual) => [...atual, itemVazio()])}
+            className="self-start"
+          >
+            <Plus className="h-4 w-4" /> Adicionar item
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="observacoes">Observações gerais (opcional)</Label>
+        <Textarea
+          id="observacoes"
+          name="observacoes"
+          rows={3}
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+        />
+      </div>
+
+      {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
+
+      <div>
+        <Button type="submit" disabled={pendente} size="lg">
+          {pendente ? "Enviando..." : "Enviar requisição"}
+        </Button>
+      </div>
+    </form>
+  );
+}

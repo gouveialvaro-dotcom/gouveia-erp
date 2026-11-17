@@ -16,6 +16,7 @@ export type Modulo =
   | "programacao" // programação de saída, indisponibilidades e envios
   | "veiculos" // frota: placa, modelo e tipo
   | "obras"
+  | "suprimentos" // requisição, cotação, aprovação, pedido e recebimento de compras
   | "dashboards"
   | "chat"
   | "administracao"
@@ -135,6 +136,19 @@ const MATRIZ: Record<Modulo, Record<Perfil, NivelAcesso>> = {
     // Leitura porque a obra é o destino da programação: a logística precisa
     // escolher para onde a equipe vai, não mexer no acompanhamento da obra.
     logistica: "leitura",
+    admin: "escrita",
+  },
+  // Qualquer pessoa pode pedir material para a obra, então a linha é uniforme.
+  // O que cada um faz DENTRO do módulo (cotar, aprovar, receber) não sai daqui:
+  // vem dos papéis em PapelUsuarioSuprimentos (ver lib/suprimentos-auth.ts),
+  // porque a mesma pessoa acumula papéis e um perfil novo obrigaria a revisar
+  // esta matriz inteira.
+  suprimentos: {
+    comercial: "escrita",
+    engenharia: "escrita",
+    obra: "escrita",
+    atendimento: "escrita",
+    logistica: "escrita",
     admin: "escrita",
   },
   dashboards: {

@@ -263,6 +263,66 @@ export type Database = {
           },
         ]
       }
+      Aprovacao: {
+        Row: {
+          anexoCaminho: string | null
+          anexoNome: string | null
+          aprovadorId: string
+          comentario: string | null
+          decididoEm: string
+          decisao: Database["public"]["Enums"]["DecisaoAprovacao"]
+          id: string
+          nivel: Database["public"]["Enums"]["NivelAlcada"]
+          proprioRequisitante: boolean
+          requisicaoId: string
+          rodada: number
+          valorTotal: number
+        }
+        Insert: {
+          anexoCaminho?: string | null
+          anexoNome?: string | null
+          aprovadorId: string
+          comentario?: string | null
+          decididoEm?: string
+          decisao: Database["public"]["Enums"]["DecisaoAprovacao"]
+          id?: string
+          nivel: Database["public"]["Enums"]["NivelAlcada"]
+          proprioRequisitante?: boolean
+          requisicaoId: string
+          rodada: number
+          valorTotal: number
+        }
+        Update: {
+          anexoCaminho?: string | null
+          anexoNome?: string | null
+          aprovadorId?: string
+          comentario?: string | null
+          decididoEm?: string
+          decisao?: Database["public"]["Enums"]["DecisaoAprovacao"]
+          id?: string
+          nivel?: Database["public"]["Enums"]["NivelAlcada"]
+          proprioRequisitante?: boolean
+          requisicaoId?: string
+          rodada?: number
+          valorTotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Aprovacao_aprovadorId_fkey"
+            columns: ["aprovadorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Aprovacao_requisicaoId_fkey"
+            columns: ["requisicaoId"]
+            isOneToOne: false
+            referencedRelation: "Requisicao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Chamado: {
         Row: {
           abertoEm: string
@@ -646,6 +706,121 @@ export type Database = {
           },
         ]
       }
+      Cotacao: {
+        Row: {
+          aliquotaDifal: number | null
+          coletaPropria: boolean
+          condicaoPagamento: string
+          criadoEm: string
+          criadoPorId: string | null
+          fornecedorId: string
+          frete: Database["public"]["Enums"]["ModalidadeFrete"]
+          id: string
+          incideDifal: boolean
+          observacoes: string | null
+          prazoEntregaDias: number | null
+          requisicaoId: string
+          ufOrigem: string | null
+          valorDifal: number
+          valorFrete: number
+          vendedor: string | null
+        }
+        Insert: {
+          aliquotaDifal?: number | null
+          coletaPropria?: boolean
+          condicaoPagamento: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          fornecedorId: string
+          frete?: Database["public"]["Enums"]["ModalidadeFrete"]
+          id?: string
+          incideDifal?: boolean
+          observacoes?: string | null
+          prazoEntregaDias?: number | null
+          requisicaoId: string
+          ufOrigem?: string | null
+          valorDifal?: number
+          valorFrete?: number
+          vendedor?: string | null
+        }
+        Update: {
+          aliquotaDifal?: number | null
+          coletaPropria?: boolean
+          condicaoPagamento?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          fornecedorId?: string
+          frete?: Database["public"]["Enums"]["ModalidadeFrete"]
+          id?: string
+          incideDifal?: boolean
+          observacoes?: string | null
+          prazoEntregaDias?: number | null
+          requisicaoId?: string
+          ufOrigem?: string | null
+          valorDifal?: number
+          valorFrete?: number
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Cotacao_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Cotacao_fornecedorId_fkey"
+            columns: ["fornecedorId"]
+            isOneToOne: false
+            referencedRelation: "Fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Cotacao_requisicaoId_fkey"
+            columns: ["requisicaoId"]
+            isOneToOne: false
+            referencedRelation: "Requisicao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      CotacaoItem: {
+        Row: {
+          cotacaoId: string
+          id: string
+          precoUnitario: number
+          requisicaoItemId: string
+        }
+        Insert: {
+          cotacaoId: string
+          id?: string
+          precoUnitario: number
+          requisicaoItemId: string
+        }
+        Update: {
+          cotacaoId?: string
+          id?: string
+          precoUnitario?: number
+          requisicaoItemId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CotacaoItem_cotacaoId_fkey"
+            columns: ["cotacaoId"]
+            isOneToOne: false
+            referencedRelation: "Cotacao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "CotacaoItem_requisicaoItemId_fkey"
+            columns: ["requisicaoItemId"]
+            isOneToOne: false
+            referencedRelation: "RequisicaoItem"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       DescricaoPadrao: {
         Row: {
           atualizadoEm: string
@@ -677,6 +852,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "DescricaoPadrao_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      EmpresaGrupo: {
+        Row: {
+          ativo: boolean
+          cnpj: string
+          criadoEm: string
+          criadoPorId: string | null
+          id: string
+          nomeFantasia: string | null
+          razaoSocial: string
+          uf: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          nomeFantasia?: string | null
+          razaoSocial: string
+          uf?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          nomeFantasia?: string | null
+          razaoSocial?: string
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "EmpresaGrupo_criadoPorId_fkey"
             columns: ["criadoPorId"]
             isOneToOne: false
             referencedRelation: "Usuario"
@@ -794,6 +1010,62 @@ export type Database = {
             columns: ["usinaMonitoradaId"]
             isOneToOne: false
             referencedRelation: "UsinaMonitorada"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Fornecedor: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          cnpj: string | null
+          criadoEm: string
+          criadoPorId: string | null
+          email: string | null
+          id: string
+          nomeFantasia: string | null
+          observacoes: string | null
+          razaoSocial: string
+          telefone: string | null
+          uf: string | null
+          vendedor: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          email?: string | null
+          id?: string
+          nomeFantasia?: string | null
+          observacoes?: string | null
+          razaoSocial: string
+          telefone?: string | null
+          uf?: string | null
+          vendedor?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
+          criadoEm?: string
+          criadoPorId?: string | null
+          email?: string | null
+          id?: string
+          nomeFantasia?: string | null
+          observacoes?: string | null
+          razaoSocial?: string
+          telefone?: string | null
+          uf?: string | null
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Fornecedor_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
             referencedColumns: ["id"]
           },
         ]
@@ -1487,6 +1759,77 @@ export type Database = {
           },
         ]
       }
+      NotificacaoSuprimentos: {
+        Row: {
+          criadoEm: string
+          detalhe: string | null
+          geradaPorId: string | null
+          id: string
+          lidaEm: string | null
+          pedidoCompraId: string | null
+          referencia: string
+          requisicaoId: string | null
+          tipo: Database["public"]["Enums"]["TipoNotificacaoSuprimentos"]
+          titulo: string
+          usuarioId: string
+        }
+        Insert: {
+          criadoEm?: string
+          detalhe?: string | null
+          geradaPorId?: string | null
+          id?: string
+          lidaEm?: string | null
+          pedidoCompraId?: string | null
+          referencia: string
+          requisicaoId?: string | null
+          tipo: Database["public"]["Enums"]["TipoNotificacaoSuprimentos"]
+          titulo: string
+          usuarioId: string
+        }
+        Update: {
+          criadoEm?: string
+          detalhe?: string | null
+          geradaPorId?: string | null
+          id?: string
+          lidaEm?: string | null
+          pedidoCompraId?: string | null
+          referencia?: string
+          requisicaoId?: string | null
+          tipo?: Database["public"]["Enums"]["TipoNotificacaoSuprimentos"]
+          titulo?: string
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "NotificacaoSuprimentos_geradaPorId_fkey"
+            columns: ["geradaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoSuprimentos_pedidoCompraId_fkey"
+            columns: ["pedidoCompraId"]
+            isOneToOne: false
+            referencedRelation: "PedidoCompra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoSuprimentos_requisicaoId_fkey"
+            columns: ["requisicaoId"]
+            isOneToOne: false
+            referencedRelation: "Requisicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "NotificacaoSuprimentos_usuarioId_fkey"
+            columns: ["usuarioId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Obra: {
         Row: {
           atualizadoEm: string
@@ -1556,6 +1899,49 @@ export type Database = {
             columns: ["oportunidadeId"]
             isOneToOne: true
             referencedRelation: "Oportunidade"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ObraFaturamento: {
+        Row: {
+          atualizadoEm: string
+          atualizadoPorId: string | null
+          empresaId: string
+          obraId: string
+        }
+        Insert: {
+          atualizadoEm?: string
+          atualizadoPorId?: string | null
+          empresaId: string
+          obraId: string
+        }
+        Update: {
+          atualizadoEm?: string
+          atualizadoPorId?: string | null
+          empresaId?: string
+          obraId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ObraFaturamento_atualizadoPorId_fkey"
+            columns: ["atualizadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ObraFaturamento_empresaId_fkey"
+            columns: ["empresaId"]
+            isOneToOne: false
+            referencedRelation: "EmpresaGrupo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ObraFaturamento_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: true
+            referencedRelation: "Obra"
             referencedColumns: ["id"]
           },
         ]
@@ -1787,6 +2173,45 @@ export type Database = {
           },
         ]
       }
+      PapelUsuarioSuprimentos: {
+        Row: {
+          criadoEm: string
+          criadoPorId: string | null
+          id: string
+          papel: Database["public"]["Enums"]["PapelSuprimentos"]
+          usuarioId: string
+        }
+        Insert: {
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          papel: Database["public"]["Enums"]["PapelSuprimentos"]
+          usuarioId: string
+        }
+        Update: {
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          papel?: Database["public"]["Enums"]["PapelSuprimentos"]
+          usuarioId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "PapelUsuarioSuprimentos_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PapelUsuarioSuprimentos_usuarioId_fkey"
+            columns: ["usuarioId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ParametroGeral: {
         Row: {
           atualizadoEm: string
@@ -1864,6 +2289,41 @@ export type Database = {
           },
         ]
       }
+      ParametroSuprimentos: {
+        Row: {
+          atualizadoEm: string
+          atualizadoPorId: string | null
+          id: string
+          limiteComprador: number
+          limiteGerencia: number
+          minimoCotacoes: number
+        }
+        Insert: {
+          atualizadoEm?: string
+          atualizadoPorId?: string | null
+          id?: string
+          limiteComprador?: number
+          limiteGerencia?: number
+          minimoCotacoes?: number
+        }
+        Update: {
+          atualizadoEm?: string
+          atualizadoPorId?: string | null
+          id?: string
+          limiteComprador?: number
+          limiteGerencia?: number
+          minimoCotacoes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ParametroSuprimentos_atualizadoPorId_fkey"
+            columns: ["atualizadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ParticipanteConversa: {
         Row: {
           conversaId: string
@@ -1899,6 +2359,247 @@ export type Database = {
             columns: ["usuarioId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      PedidoCompra: {
+        Row: {
+          codigo: string
+          coletaPropria: boolean
+          condicaoPagamento: string
+          cotacaoId: string
+          emitidoEm: string
+          emitidoPorId: string | null
+          empresaId: string | null
+          fornecedorId: string
+          frete: Database["public"]["Enums"]["ModalidadeFrete"]
+          id: string
+          prazoEntregaDias: number | null
+          requisicaoId: string
+          statusEntrega: Database["public"]["Enums"]["StatusEntregaPedido"]
+          valorDifal: number
+          valorFrete: number
+          valorItens: number
+          valorTotal: number
+        }
+        Insert: {
+          codigo: string
+          coletaPropria?: boolean
+          condicaoPagamento: string
+          cotacaoId: string
+          emitidoEm?: string
+          emitidoPorId?: string | null
+          empresaId?: string | null
+          fornecedorId: string
+          frete: Database["public"]["Enums"]["ModalidadeFrete"]
+          id?: string
+          prazoEntregaDias?: number | null
+          requisicaoId: string
+          statusEntrega?: Database["public"]["Enums"]["StatusEntregaPedido"]
+          valorDifal?: number
+          valorFrete?: number
+          valorItens: number
+          valorTotal: number
+        }
+        Update: {
+          codigo?: string
+          coletaPropria?: boolean
+          condicaoPagamento?: string
+          cotacaoId?: string
+          emitidoEm?: string
+          emitidoPorId?: string | null
+          empresaId?: string | null
+          fornecedorId?: string
+          frete?: Database["public"]["Enums"]["ModalidadeFrete"]
+          id?: string
+          prazoEntregaDias?: number | null
+          requisicaoId?: string
+          statusEntrega?: Database["public"]["Enums"]["StatusEntregaPedido"]
+          valorDifal?: number
+          valorFrete?: number
+          valorItens?: number
+          valorTotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "PedidoCompra_cotacaoId_fkey"
+            columns: ["cotacaoId"]
+            isOneToOne: false
+            referencedRelation: "Cotacao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PedidoCompra_emitidoPorId_fkey"
+            columns: ["emitidoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PedidoCompra_empresaId_fkey"
+            columns: ["empresaId"]
+            isOneToOne: false
+            referencedRelation: "EmpresaGrupo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PedidoCompra_fornecedorId_fkey"
+            columns: ["fornecedorId"]
+            isOneToOne: false
+            referencedRelation: "Fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PedidoCompra_requisicaoId_fkey"
+            columns: ["requisicaoId"]
+            isOneToOne: false
+            referencedRelation: "Requisicao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      PedidoCompraItem: {
+        Row: {
+          descricao: string
+          especificacao: string | null
+          id: string
+          ordem: number
+          pedidoCompraId: string
+          precoTotal: number
+          precoUnitario: number
+          quantidade: number
+          requisicaoItemId: string | null
+          unidade: string
+        }
+        Insert: {
+          descricao: string
+          especificacao?: string | null
+          id?: string
+          ordem: number
+          pedidoCompraId: string
+          precoTotal: number
+          precoUnitario: number
+          quantidade: number
+          requisicaoItemId?: string | null
+          unidade: string
+        }
+        Update: {
+          descricao?: string
+          especificacao?: string | null
+          id?: string
+          ordem?: number
+          pedidoCompraId?: string
+          precoTotal?: number
+          precoUnitario?: number
+          quantidade?: number
+          requisicaoItemId?: string | null
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "PedidoCompraItem_pedidoCompraId_fkey"
+            columns: ["pedidoCompraId"]
+            isOneToOne: false
+            referencedRelation: "PedidoCompra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PedidoCompraItem_requisicaoItemId_fkey"
+            columns: ["requisicaoItemId"]
+            isOneToOne: false
+            referencedRelation: "RequisicaoItem"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Produto: {
+        Row: {
+          ativo: boolean
+          atualizadoEm: string
+          categoria: string | null
+          chaveDescricao: string
+          criadoEm: string
+          criadoPorId: string | null
+          descricao: string
+          id: string
+          numero: number
+          observacoes: string | null
+          revisar: boolean
+          tipo: Database["public"]["Enums"]["TipoProdutoSuprimentos"]
+          unidade: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizadoEm?: string
+          categoria?: string | null
+          chaveDescricao: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao: string
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          revisar?: boolean
+          tipo?: Database["public"]["Enums"]["TipoProdutoSuprimentos"]
+          unidade: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizadoEm?: string
+          categoria?: string | null
+          chaveDescricao?: string
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao?: string
+          id?: string
+          numero?: number
+          observacoes?: string | null
+          revisar?: boolean
+          tipo?: Database["public"]["Enums"]["TipoProdutoSuprimentos"]
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Produto_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ProdutoCodigoExterno: {
+        Row: {
+          codigo: string
+          criadoEm: string
+          ean: string | null
+          id: string
+          origem: string
+          produtoId: string
+        }
+        Insert: {
+          codigo: string
+          criadoEm?: string
+          ean?: string | null
+          id?: string
+          origem: string
+          produtoId: string
+        }
+        Update: {
+          codigo?: string
+          criadoEm?: string
+          ean?: string | null
+          id?: string
+          origem?: string
+          produtoId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ProdutoCodigoExterno_produtoId_fkey"
+            columns: ["produtoId"]
+            isOneToOne: false
+            referencedRelation: "Produto"
             referencedColumns: ["id"]
           },
         ]
@@ -2265,6 +2966,245 @@ export type Database = {
           },
         ]
       }
+      Recebimento: {
+        Row: {
+          documentoRecebedor: string | null
+          id: string
+          nomeRecebedor: string
+          observacao: string | null
+          pedidoCompraId: string
+          recebidoEm: string
+          registradoPorId: string | null
+          situacao: Database["public"]["Enums"]["SituacaoRecebimento"]
+        }
+        Insert: {
+          documentoRecebedor?: string | null
+          id?: string
+          nomeRecebedor: string
+          observacao?: string | null
+          pedidoCompraId: string
+          recebidoEm?: string
+          registradoPorId?: string | null
+          situacao: Database["public"]["Enums"]["SituacaoRecebimento"]
+        }
+        Update: {
+          documentoRecebedor?: string | null
+          id?: string
+          nomeRecebedor?: string
+          observacao?: string | null
+          pedidoCompraId?: string
+          recebidoEm?: string
+          registradoPorId?: string | null
+          situacao?: Database["public"]["Enums"]["SituacaoRecebimento"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Recebimento_pedidoCompraId_fkey"
+            columns: ["pedidoCompraId"]
+            isOneToOne: false
+            referencedRelation: "PedidoCompra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Recebimento_registradoPorId_fkey"
+            columns: ["registradoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      RecebimentoFoto: {
+        Row: {
+          caminho: string
+          criadoEm: string
+          id: string
+          mime: string | null
+          nome: string
+          recebimentoId: string
+          tamanho: number | null
+        }
+        Insert: {
+          caminho: string
+          criadoEm?: string
+          id?: string
+          mime?: string | null
+          nome: string
+          recebimentoId: string
+          tamanho?: number | null
+        }
+        Update: {
+          caminho?: string
+          criadoEm?: string
+          id?: string
+          mime?: string | null
+          nome?: string
+          recebimentoId?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "RecebimentoFoto_recebimentoId_fkey"
+            columns: ["recebimentoId"]
+            isOneToOne: false
+            referencedRelation: "Recebimento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Requisicao: {
+        Row: {
+          atualizadoEm: string
+          canceladaEm: string | null
+          canceladaPorId: string | null
+          compradorId: string | null
+          criadoEm: string
+          dataSolicitacao: string
+          enviadaAprovacaoEm: string | null
+          id: string
+          motivoCancelamento: string | null
+          nivelAlcada: Database["public"]["Enums"]["NivelAlcada"] | null
+          numero: number
+          obraId: string
+          observacoes: string | null
+          prazoDesejado: string
+          requisitanteId: string
+          rodadaAprovacao: number
+          status: Database["public"]["Enums"]["StatusRequisicao"]
+          urgencia: Database["public"]["Enums"]["UrgenciaRequisicao"]
+          valorTotal: number | null
+        }
+        Insert: {
+          atualizadoEm?: string
+          canceladaEm?: string | null
+          canceladaPorId?: string | null
+          compradorId?: string | null
+          criadoEm?: string
+          dataSolicitacao?: string
+          enviadaAprovacaoEm?: string | null
+          id?: string
+          motivoCancelamento?: string | null
+          nivelAlcada?: Database["public"]["Enums"]["NivelAlcada"] | null
+          numero?: number
+          obraId: string
+          observacoes?: string | null
+          prazoDesejado: string
+          requisitanteId: string
+          rodadaAprovacao?: number
+          status?: Database["public"]["Enums"]["StatusRequisicao"]
+          urgencia?: Database["public"]["Enums"]["UrgenciaRequisicao"]
+          valorTotal?: number | null
+        }
+        Update: {
+          atualizadoEm?: string
+          canceladaEm?: string | null
+          canceladaPorId?: string | null
+          compradorId?: string | null
+          criadoEm?: string
+          dataSolicitacao?: string
+          enviadaAprovacaoEm?: string | null
+          id?: string
+          motivoCancelamento?: string | null
+          nivelAlcada?: Database["public"]["Enums"]["NivelAlcada"] | null
+          numero?: number
+          obraId?: string
+          observacoes?: string | null
+          prazoDesejado?: string
+          requisitanteId?: string
+          rodadaAprovacao?: number
+          status?: Database["public"]["Enums"]["StatusRequisicao"]
+          urgencia?: Database["public"]["Enums"]["UrgenciaRequisicao"]
+          valorTotal?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Requisicao_canceladaPorId_fkey"
+            columns: ["canceladaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Requisicao_compradorId_fkey"
+            columns: ["compradorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Requisicao_obraId_fkey"
+            columns: ["obraId"]
+            isOneToOne: false
+            referencedRelation: "Obra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Requisicao_requisitanteId_fkey"
+            columns: ["requisitanteId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      RequisicaoItem: {
+        Row: {
+          cotacaoItemVencedorId: string | null
+          descricao: string
+          especificacao: string | null
+          id: string
+          ordem: number
+          produtoId: string | null
+          quantidade: number
+          requisicaoId: string
+          unidade: string
+        }
+        Insert: {
+          cotacaoItemVencedorId?: string | null
+          descricao: string
+          especificacao?: string | null
+          id?: string
+          ordem: number
+          produtoId?: string | null
+          quantidade: number
+          requisicaoId: string
+          unidade: string
+        }
+        Update: {
+          cotacaoItemVencedorId?: string | null
+          descricao?: string
+          especificacao?: string | null
+          id?: string
+          ordem?: number
+          produtoId?: string | null
+          quantidade?: number
+          requisicaoId?: string
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "RequisicaoItem_cotacaoItemVencedorId_fkey"
+            columns: ["cotacaoItemVencedorId"]
+            isOneToOne: false
+            referencedRelation: "CotacaoItem"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RequisicaoItem_produtoId_fkey"
+            columns: ["produtoId"]
+            isOneToOne: false
+            referencedRelation: "Produto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RequisicaoItem_requisicaoId_fkey"
+            columns: ["requisicaoId"]
+            isOneToOne: false
+            referencedRelation: "Requisicao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       TipoProblemaPosVenda: {
         Row: {
           ativo: boolean
@@ -2570,8 +3510,44 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: undefined
       }
+      suprimentos_decidir_aprovacao: {
+        Args: {
+          p_anexo_caminho: string | null
+          p_anexo_nome: string | null
+          p_comentario: string | null
+          p_decisao: Database["public"]["Enums"]["DecisaoAprovacao"]
+          p_nivel: Database["public"]["Enums"]["NivelAlcada"]
+          p_requisicao_id: string
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
+      suprimentos_emitir_pedidos: {
+        Args: { p_requisicao_id: string; p_usuario_id: string }
+        Returns: undefined
+      }
+      suprimentos_enviar_aprovacao: {
+        Args: { p_requisicao_id: string; p_usuario_id: string }
+        Returns: Json
+      }
+      suprimentos_registrar_recebimento: {
+        Args: {
+          p_documento_recebedor: string | null
+          p_nome_recebedor: string
+          p_observacao: string | null
+          p_pedido_id: string
+          p_situacao: Database["public"]["Enums"]["SituacaoRecebimento"]
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
+      suprimentos_total_escolha: {
+        Args: { p_requisicao_id: string }
+        Returns: number
+      }
     }
     Enums: {
+      DecisaoAprovacao: "aprovada" | "devolvida" | "recusada"
       DirecaoInteracao: "cliente" | "concessionaria" | "interno"
       DirecaoMensagemWhatsapp: "entrada" | "saida"
       EstagioChamado:
@@ -2588,13 +3564,20 @@ export type Database = {
         | "aprovada"
         | "perdida"
       JanelaColetaUsina: "manha" | "meio_dia" | "fim_tarde"
+      ModalidadeFrete: "cif" | "fob"
       MotivoInativacaoUsina: "plano_encerrado" | "manual"
+      NivelAlcada: "comprador" | "gerencia" | "diretoria"
       OrigemObra: "funil" | "manual"
       PapelDestinatario:
         | "responsavel"
         | "motorista_novo"
         | "motorista_removido"
         | "alerta_usina"
+      PapelSuprimentos:
+        | "comprador"
+        | "aprovador_gerencia"
+        | "aprovador_diretoria"
+        | "recebedor"
       PerfilUsuario:
         | "comercial"
         | "engenharia"
@@ -2605,9 +3588,23 @@ export type Database = {
       PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
       RamoCliente: "energia_solar" | "redes_subestacoes"
       SituacaoAlertaUsina: "aberto" | "resolvido" | "ignorado"
+      SituacaoRecebimento: "conforme" | "inconforme"
+      StatusEntregaPedido:
+        | "pendente"
+        | "recebido_conforme"
+        | "recebido_inconforme"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
       StatusProgramacao: "rascunho" | "publicada" | "cancelada"
+      StatusRequisicao:
+        | "pendente"
+        | "em_cotacao"
+        | "aguardando_aprovacao"
+        | "aprovada"
+        | "recusada"
+        | "pedido_emitido"
+        | "concluida"
+        | "cancelada"
       TipoAlertaUsina:
         | "falha"
         | "sem_comunicacao"
@@ -2638,7 +3635,16 @@ export type Database = {
         | "chamado_direcionado"
         | "responsavel_alterado"
         | "chamado_sem_movimento"
+      TipoNotificacaoSuprimentos:
+        | "nova_requisicao"
+        | "aprovacao_pendente"
+        | "requisicao_devolvida"
+        | "requisicao_recusada"
+        | "requisicao_cancelada"
+        | "pedido_emitido"
+        | "recebimento_registrado"
       TipoOrcamentoItem: "material" | "kit"
+      TipoProdutoSuprimentos: "material" | "servico" | "locacao"
       TipoProposta: "usina_solar" | "redes"
       TipoUnidadeConsumidora: "geradora" | "beneficiaria"
       TipoVeiculo:
@@ -2648,6 +3654,7 @@ export type Database = {
         | "caminhao"
         | "carro_passeio"
         | "outro"
+      UrgenciaRequisicao: "normal" | "emergencial"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2775,6 +3782,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      DecisaoAprovacao: ["aprovada", "devolvida", "recusada"],
       DirecaoInteracao: ["cliente", "concessionaria", "interno"],
       DirecaoMensagemWhatsapp: ["entrada", "saida"],
       EstagioChamado: [
@@ -2793,13 +3801,21 @@ export const Constants = {
         "perdida",
       ],
       JanelaColetaUsina: ["manha", "meio_dia", "fim_tarde"],
+      ModalidadeFrete: ["cif", "fob"],
       MotivoInativacaoUsina: ["plano_encerrado", "manual"],
+      NivelAlcada: ["comprador", "gerencia", "diretoria"],
       OrigemObra: ["funil", "manual"],
       PapelDestinatario: [
         "responsavel",
         "motorista_novo",
         "motorista_removido",
         "alerta_usina",
+      ],
+      PapelSuprimentos: [
+        "comprador",
+        "aprovador_gerencia",
+        "aprovador_diretoria",
+        "recebedor",
       ],
       PerfilUsuario: [
         "comercial",
@@ -2812,9 +3828,25 @@ export const Constants = {
       PrioridadeChamado: ["baixa", "media", "alta", "critica"],
       RamoCliente: ["energia_solar", "redes_subestacoes"],
       SituacaoAlertaUsina: ["aberto", "resolvido", "ignorado"],
+      SituacaoRecebimento: ["conforme", "inconforme"],
+      StatusEntregaPedido: [
+        "pendente",
+        "recebido_conforme",
+        "recebido_inconforme",
+      ],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
       StatusProgramacao: ["rascunho", "publicada", "cancelada"],
+      StatusRequisicao: [
+        "pendente",
+        "em_cotacao",
+        "aguardando_aprovacao",
+        "aprovada",
+        "recusada",
+        "pedido_emitido",
+        "concluida",
+        "cancelada",
+      ],
       TipoAlertaUsina: [
         "falha",
         "sem_comunicacao",
@@ -2848,7 +3880,17 @@ export const Constants = {
         "responsavel_alterado",
         "chamado_sem_movimento",
       ],
+      TipoNotificacaoSuprimentos: [
+        "nova_requisicao",
+        "aprovacao_pendente",
+        "requisicao_devolvida",
+        "requisicao_recusada",
+        "requisicao_cancelada",
+        "pedido_emitido",
+        "recebimento_registrado",
+      ],
       TipoOrcamentoItem: ["material", "kit"],
+      TipoProdutoSuprimentos: ["material", "servico", "locacao"],
       TipoProposta: ["usina_solar", "redes"],
       TipoUnidadeConsumidora: ["geradora", "beneficiaria"],
       TipoVeiculo: [
@@ -2859,6 +3901,7 @@ export const Constants = {
         "carro_passeio",
         "outro",
       ],
+      UrgenciaRequisicao: ["normal", "emergencial"],
     },
   },
 } as const

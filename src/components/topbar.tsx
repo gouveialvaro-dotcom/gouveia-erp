@@ -4,6 +4,7 @@ import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SinoNotificacoes } from "@/components/pos-venda/sino-notificacoes";
+import { SinoSuprimentos } from "@/components/suprimentos/sino-suprimentos";
 import { Button } from "@/components/ui/button";
 import {
   Avatar,
@@ -61,6 +62,9 @@ export function Topbar({
 
       <div className="flex items-center gap-3">
         {mostrarNotificacoes && <SinoNotificacoes />}
+        {/* Suprimentos é aberto a todos os perfis (qualquer um requisita), então
+            o sino dele não depende de permissão como o do pós-venda. */}
+        <SinoSuprimentos />
         {/* O nome some no estreito: com título na barra, os dois brigam pela
             mesma linha e o título é que precisa da largura. */}
         <div className="hidden flex-col items-end leading-tight sm:flex">

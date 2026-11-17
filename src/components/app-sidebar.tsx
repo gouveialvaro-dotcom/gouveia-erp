@@ -12,6 +12,7 @@ import {
   MessageCircle,
   ShieldCheck,
   MessagesSquare,
+  ShoppingCart,
   SunMedium,
   Truck,
   Zap,
@@ -57,6 +58,7 @@ const ITENS: ItemNav[] = [
   },
   { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
   { titulo: "Programação", href: "/programacao", icone: Truck, modulos: ["programacao"] },
+  { titulo: "Suprimentos", href: "/suprimentos", icone: ShoppingCart, modulos: ["suprimentos"] },
   { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"] },
   { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
   // Visível para todo mundo por causa de "conta": quem não é admin entra só
