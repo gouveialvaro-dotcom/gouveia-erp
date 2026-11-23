@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos } from "@/lib/suprimentos-auth";
 import { STATUS_COTACAO_ABERTA } from "@/lib/suprimentos";
-import type { FornecedorOpcao } from "@/components/suprimentos/cotacao-form";
+import type { FaturamentoOpcoes, FornecedorOpcao } from "@/components/suprimentos/cotacao-form";
 
 // Dados comuns das páginas "nova cotação" e "editar cotação". Server-only.
 
@@ -12,13 +12,13 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
 
   const { data: r } = await supabase
     .from("Requisicao")
-    .select("id, numero, status")
+    .select("id, numero, status, obraId, obra:Obra(cliente:Cliente(razaoSocial))")
     .eq("id", requisicaoId)
     .maybeSingle();
   if (!r) notFound();
   if (!STATUS_COTACAO_ABERTA.includes(r.status)) redirect(`/suprimentos/requisicoes/${r.id}/cotacao`);
 
-  const [{ data: itens }, { data: fornecedores }, { data: cotacoes }] = await Promise.all([
+  const [{ data: itens }, { data: fornecedores }, { data: cotacoes }, { data: empresas }, { data: daObra }] = await Promise.all([
     supabase
       .from("RequisicaoItem")
       .select("id, ordem, descricao, quantidade, unidade")
@@ -32,6 +32,10 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
       .from("Cotacao")
       .select("*, precos:CotacaoItem(requisicaoItemId, precoUnitario)")
       .eq("requisicaoId", r.id),
+    supabase.from("EmpresaGrupo").select("id, razaoSocial, nomeFantasia, ativo").order("razaoSocial"),
+    r.obraId
+      ? supabase.from("ObraFaturamento").select("empresaId").eq("obraId", r.obraId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const cotacao = cotacaoId ? (cotacoes ?? []).find((c) => c.id === cotacaoId) : null;
@@ -49,8 +53,19 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+  // Empresa padrão: a da cotação, ou a configurada para a obra.
+  const faturamento: FaturamentoOpcoes = {
+    empresas: (empresas ?? [])
+      .filter((e) => e.ativo || e.id === cotacao?.empresaId)
+      .map((e) => ({ id: e.id, nome: e.nomeFantasia ? `${e.nomeFantasia} (${e.razaoSocial})` : e.razaoSocial })),
+    empresaPadraoId: daObra?.empresaId ?? null,
+    // Compra em nome do cliente só existe quando o centro de custo é uma obra com cliente.
+    cliente: r.obra?.cliente?.razaoSocial ?? null,
+  };
+
   return {
     requisicao: r,
+    faturamento,
     itens: (itens ?? []).map((i) => ({ ...i, quantidade: Number(i.quantidade) })),
     fornecedores: opcoes,
     cotacao: cotacao
@@ -65,6 +80,12 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
           coletaPropria: cotacao.coletaPropria,
           valorFrete: Number(cotacao.valorFrete),
           condicaoPagamento: cotacao.condicaoPagamento,
+          empresaId: cotacao.empresaId,
+          faturadoCliente: cotacao.faturadoCliente,
+          autorizacaoNome: cotacao.autorizacaoNome,
+          formaPagamento: cotacao.formaPagamento,
+          prazoPagamentoDias: cotacao.prazoPagamentoDias,
+          parcelas: cotacao.parcelas,
           prazoEntregaDias: cotacao.prazoEntregaDias,
           observacoes: cotacao.observacoes,
           precos: Object.fromEntries(cotacao.precos.map((p) => [p.requisicaoItemId, Number(p.precoUnitario)])),

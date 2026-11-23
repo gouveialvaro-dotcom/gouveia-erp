@@ -26,10 +26,13 @@ export function Topbar({
   nome,
   perfil,
   mostrarNotificacoes,
+  mostrarSuprimentos = true,
 }: {
   nome: string;
   perfil: Perfil;
   mostrarNotificacoes: boolean;
+  /** Falso quando o administrador escondeu Suprimentos desta pessoa. */
+  mostrarSuprimentos?: boolean;
 }) {
   const tituloPagina = useTituloPagina();
 
@@ -64,7 +67,7 @@ export function Topbar({
         {mostrarNotificacoes && <SinoNotificacoes />}
         {/* Suprimentos é aberto a todos os perfis (qualquer um requisita), então
             o sino dele não depende de permissão como o do pós-venda. */}
-        <SinoSuprimentos />
+        {mostrarSuprimentos && <SinoSuprimentos />}
         {/* O nome some no estreito: com título na barra, os dois brigam pela
             mesma linha e o título é que precisa da largura. */}
         <div className="hidden flex-col items-end leading-tight sm:flex">

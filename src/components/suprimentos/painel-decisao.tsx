@@ -15,20 +15,28 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function PainelDecisao({
   requisicaoId,
-  nivel,
+  niveis,
   valorTotal,
+  valorCliente,
   proprioRequisitante,
-  outroNivelPendente,
+  exigeDuasAprovacoes,
 }: {
   requisicaoId: string;
-  nivel: "gerencia" | "diretoria";
+  /**
+   * Níveis em que este usuário pode decidir agora. Quem acumula Gerência e
+   * Diretoria escolhe; o padrão é o mais alto.
+   */
+  niveis: ("gerencia" | "diretoria")[];
   valorTotal: number;
+  /** Parte faturada em nome do cliente (não sai do caixa da empresa). */
+  valorCliente: number;
   proprioRequisitante: boolean;
-  /** Nível que ainda falta além deste (compra acima da gerência). */
-  outroNivelPendente: "gerencia" | "diretoria" | null;
+  /** Alçada da diretoria: o pedido só sai com Gerência e Diretoria. */
+  exigeDuasAprovacoes: boolean;
 }) {
   const [estado, acao, pendente] = useActionState<EstadoDecisao, FormData>(decidirAprovacao, undefined);
   const [comentario, setComentario] = useState("");
+  const [nivel, setNivel] = useState(niveis[niveis.length - 1]);
 
   return (
     <form
@@ -54,9 +62,26 @@ export function PainelDecisao({
           Você também é o requisitante desta compra. Pode aprovar, mas a decisão fica marcada.
         </p>
       )}
-      {outroNivelPendente && (
+      {valorCliente > 0 && (
+        <p className="rounded-md border border-sky-300 bg-sky-50 p-2 text-sm text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
+          {moeda(valorCliente)} {valorCliente < valorTotal ? "deste total são faturados" : "faturados"} em nome do
+          cliente. Confira a autorização dele nas cotações abaixo antes de aprovar.
+        </p>
+      )}
+      {niveis.length > 1 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">Decidir como:</span>
+          {niveis.map((n) => (
+            <label key={n} className="flex items-center gap-1.5">
+              <input type="radio" name="nivelEscolhido" checked={nivel === n} onChange={() => setNivel(n)} />
+              {ROTULO_NIVEL[n]}
+            </label>
+          ))}
+        </div>
+      )}
+      {exigeDuasAprovacoes && (
         <p className="text-xs text-muted-foreground">
-          Também falta a aprovação da {ROTULO_NIVEL[outroNivelPendente]}. O pedido só sai com as duas.
+          Esta compra pede Gerência e Diretoria, de pessoas diferentes. O pedido só sai com as duas.
         </p>
       )}
 

@@ -706,8 +706,50 @@ export type Database = {
           },
         ]
       }
+      CentroCusto: {
+        Row: {
+          ativo: boolean
+          criadoEm: string
+          criadoPorId: string | null
+          descricao: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CentroCusto_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Cotacao: {
         Row: {
+          empresaId: string | null
+          faturadoCliente: boolean
+          autorizacaoCaminho: string | null
+          autorizacaoNome: string | null
+          formaPagamento: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias: number | null
+          parcelas: number | null
           aliquotaDifal: number | null
           coletaPropria: boolean
           condicaoPagamento: string
@@ -726,6 +768,13 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          empresaId?: string | null
+          faturadoCliente?: boolean
+          autorizacaoCaminho?: string | null
+          autorizacaoNome?: string | null
+          formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias?: number | null
+          parcelas?: number | null
           aliquotaDifal?: number | null
           coletaPropria?: boolean
           condicaoPagamento: string
@@ -744,6 +793,13 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          empresaId?: string | null
+          faturadoCliente?: boolean
+          autorizacaoCaminho?: string | null
+          autorizacaoNome?: string | null
+          formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias?: number | null
+          parcelas?: number | null
           aliquotaDifal?: number | null
           coletaPropria?: boolean
           condicaoPagamento?: string
@@ -762,6 +818,13 @@ export type Database = {
           vendedor?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "Cotacao_empresaId_fkey"
+            columns: ["empresaId"]
+            isOneToOne: false
+            referencedRelation: "EmpresaGrupo"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "Cotacao_criadoPorId_fkey"
             columns: ["criadoPorId"]
@@ -2365,6 +2428,12 @@ export type Database = {
       }
       PedidoCompra: {
         Row: {
+          faturadoCliente: boolean
+          formaPagamento: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias: number | null
+          parcelas: number | null
+          compraConfirmadaEm: string | null
+          compraConfirmadaPorId: string | null
           codigo: string
           coletaPropria: boolean
           condicaoPagamento: string
@@ -2384,6 +2453,12 @@ export type Database = {
           valorTotal: number
         }
         Insert: {
+          faturadoCliente?: boolean
+          formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias?: number | null
+          parcelas?: number | null
+          compraConfirmadaEm?: string | null
+          compraConfirmadaPorId?: string | null
           codigo: string
           coletaPropria?: boolean
           condicaoPagamento: string
@@ -2403,6 +2478,12 @@ export type Database = {
           valorTotal: number
         }
         Update: {
+          faturadoCliente?: boolean
+          formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
+          prazoPagamentoDias?: number | null
+          parcelas?: number | null
+          compraConfirmadaEm?: string | null
+          compraConfirmadaPorId?: string | null
           codigo?: string
           coletaPropria?: boolean
           condicaoPagamento?: string
@@ -2422,6 +2503,13 @@ export type Database = {
           valorTotal?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "PedidoCompra_compraConfirmadaPorId_fkey"
+            columns: ["compraConfirmadaPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "PedidoCompra_cotacaoId_fkey"
             columns: ["cotacaoId"]
@@ -2461,6 +2549,8 @@ export type Database = {
       }
       PedidoCompraItem: {
         Row: {
+          quantidadeRecebida: number
+          quantidadeDevolvida: number
           descricao: string
           especificacao: string | null
           id: string
@@ -2473,6 +2563,8 @@ export type Database = {
           unidade: string
         }
         Insert: {
+          quantidadeRecebida?: number
+          quantidadeDevolvida?: number
           descricao: string
           especificacao?: string | null
           id?: string
@@ -2485,6 +2577,8 @@ export type Database = {
           unidade: string
         }
         Update: {
+          quantidadeRecebida?: number
+          quantidadeDevolvida?: number
           descricao?: string
           especificacao?: string | null
           id?: string
@@ -2970,7 +3064,7 @@ export type Database = {
         Row: {
           documentoRecebedor: string | null
           id: string
-          nomeRecebedor: string
+          nomeRecebedor: string | null
           observacao: string | null
           pedidoCompraId: string
           recebidoEm: string
@@ -2980,7 +3074,7 @@ export type Database = {
         Insert: {
           documentoRecebedor?: string | null
           id?: string
-          nomeRecebedor: string
+          nomeRecebedor: string | null
           observacao?: string | null
           pedidoCompraId: string
           recebidoEm?: string
@@ -3010,6 +3104,45 @@ export type Database = {
             columns: ["registradoPorId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      RecebimentoItem: {
+        Row: {
+          id: string
+          pedidoCompraItemId: string
+          quantidadeDevolvida: number
+          quantidadeRecebida: number
+          recebimentoId: string
+        }
+        Insert: {
+          id?: string
+          pedidoCompraItemId: string
+          quantidadeDevolvida?: number
+          quantidadeRecebida?: number
+          recebimentoId: string
+        }
+        Update: {
+          id?: string
+          pedidoCompraItemId?: string
+          quantidadeDevolvida?: number
+          quantidadeRecebida?: number
+          recebimentoId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "RecebimentoItem_pedidoCompraItemId_fkey"
+            columns: ["pedidoCompraItemId"]
+            isOneToOne: false
+            referencedRelation: "PedidoCompraItem"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "RecebimentoItem_recebimentoId_fkey"
+            columns: ["recebimentoId"]
+            isOneToOne: false
+            referencedRelation: "Recebimento"
             referencedColumns: ["id"]
           },
         ]
@@ -3054,6 +3187,8 @@ export type Database = {
       }
       Requisicao: {
         Row: {
+          centroCustoId: string | null
+          valorFaturadoCliente: number
           atualizadoEm: string
           canceladaEm: string | null
           canceladaPorId: string | null
@@ -3065,7 +3200,7 @@ export type Database = {
           motivoCancelamento: string | null
           nivelAlcada: Database["public"]["Enums"]["NivelAlcada"] | null
           numero: number
-          obraId: string
+          obraId: string | null
           observacoes: string | null
           prazoDesejado: string
           requisitanteId: string
@@ -3075,6 +3210,8 @@ export type Database = {
           valorTotal: number | null
         }
         Insert: {
+          centroCustoId?: string | null
+          valorFaturadoCliente?: number
           atualizadoEm?: string
           canceladaEm?: string | null
           canceladaPorId?: string | null
@@ -3086,7 +3223,7 @@ export type Database = {
           motivoCancelamento?: string | null
           nivelAlcada?: Database["public"]["Enums"]["NivelAlcada"] | null
           numero?: number
-          obraId: string
+          obraId: string | null
           observacoes?: string | null
           prazoDesejado: string
           requisitanteId: string
@@ -3096,6 +3233,8 @@ export type Database = {
           valorTotal?: number | null
         }
         Update: {
+          centroCustoId?: string | null
+          valorFaturadoCliente?: number
           atualizadoEm?: string
           canceladaEm?: string | null
           canceladaPorId?: string | null
@@ -3107,7 +3246,7 @@ export type Database = {
           motivoCancelamento?: string | null
           nivelAlcada?: Database["public"]["Enums"]["NivelAlcada"] | null
           numero?: number
-          obraId?: string
+          obraId?: string | null
           observacoes?: string | null
           prazoDesejado?: string
           requisitanteId?: string
@@ -3117,6 +3256,13 @@ export type Database = {
           valorTotal?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "Requisicao_centroCustoId_fkey"
+            columns: ["centroCustoId"]
+            isOneToOne: false
+            referencedRelation: "CentroCusto"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "Requisicao_canceladaPorId_fkey"
             columns: ["canceladaPorId"]
@@ -3143,6 +3289,44 @@ export type Database = {
             columns: ["requisitanteId"]
             isOneToOne: false
             referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      RequisicaoItemFoto: {
+        Row: {
+          caminho: string
+          criadoEm: string
+          id: string
+          mime: string | null
+          nome: string
+          requisicaoItemId: string
+          tamanho: number | null
+        }
+        Insert: {
+          caminho: string
+          criadoEm?: string
+          id?: string
+          mime?: string | null
+          nome: string
+          requisicaoItemId: string
+          tamanho?: number | null
+        }
+        Update: {
+          caminho?: string
+          criadoEm?: string
+          id?: string
+          mime?: string | null
+          nome?: string
+          requisicaoItemId?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "RequisicaoItemFoto_requisicaoItemId_fkey"
+            columns: ["requisicaoItemId"]
+            isOneToOne: false
+            referencedRelation: "RequisicaoItem"
             referencedColumns: ["id"]
           },
         ]
@@ -3405,6 +3589,7 @@ export type Database = {
       }
       Usuario: {
         Row: {
+          modulosOcultos: string[]
           ativo: boolean
           criadoEm: string
           email: string
@@ -3419,6 +3604,7 @@ export type Database = {
           telefone: string | null
         }
         Insert: {
+          modulosOcultos?: string[]
           ativo?: boolean
           criadoEm?: string
           email: string
@@ -3433,6 +3619,7 @@ export type Database = {
           telefone?: string | null
         }
         Update: {
+          modulosOcultos?: string[]
           ativo?: boolean
           criadoEm?: string
           email?: string
@@ -3541,12 +3728,39 @@ export type Database = {
         }
         Returns: Json
       }
+      suprimentos_confirmar_compra: {
+        Args: { p_pedido_id: string; p_usuario_id: string }
+        Returns: undefined
+      }
+      suprimentos_reabrir_cotacao: {
+        Args: { p_motivo: string; p_requisicao_id: string; p_usuario_id: string }
+        Returns: Json
+      }
+      suprimentos_registrar_recebimento_itens: {
+        Args: {
+          p_avaria: boolean
+          p_encerrar: boolean
+          p_itens: Json
+          p_observacao: string | null
+          p_pedido_id: string
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
       suprimentos_total_escolha: {
         Args: { p_requisicao_id: string }
         Returns: number
       }
     }
     Enums: {
+      FormaPagamento:
+        | "boleto"
+        | "pix"
+        | "transferencia"
+        | "cartao_credito"
+        | "cartao_debito"
+        | "dinheiro"
+        | "cheque"
       DecisaoAprovacao: "aprovada" | "devolvida" | "recusada"
       DirecaoInteracao: "cliente" | "concessionaria" | "interno"
       DirecaoMensagemWhatsapp: "entrada" | "saida"
@@ -3588,11 +3802,12 @@ export type Database = {
       PrioridadeChamado: "baixa" | "media" | "alta" | "critica"
       RamoCliente: "energia_solar" | "redes_subestacoes"
       SituacaoAlertaUsina: "aberto" | "resolvido" | "ignorado"
-      SituacaoRecebimento: "conforme" | "inconforme"
+      SituacaoRecebimento: "conforme" | "inconforme" | "parcial"
       StatusEntregaPedido:
         | "pendente"
         | "recebido_conforme"
         | "recebido_inconforme"
+        | "recebido_parcial"
       StatusObra: "em_andamento" | "concluida" | "atrasada"
       StatusOrcamento: "em_elaboracao" | "finalizado" | "revisao"
       StatusProgramacao: "rascunho" | "publicada" | "cancelada"
@@ -3643,6 +3858,8 @@ export type Database = {
         | "requisicao_cancelada"
         | "pedido_emitido"
         | "recebimento_registrado"
+        | "compra_confirmada"
+        | "cotacao_reaberta"
       TipoOrcamentoItem: "material" | "kit"
       TipoProdutoSuprimentos: "material" | "servico" | "locacao"
       TipoProposta: "usina_solar" | "redes"
@@ -3782,6 +3999,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      FormaPagamento: ["boleto", "pix", "transferencia", "cartao_credito", "cartao_debito", "dinheiro", "cheque"],
       DecisaoAprovacao: ["aprovada", "devolvida", "recusada"],
       DirecaoInteracao: ["cliente", "concessionaria", "interno"],
       DirecaoMensagemWhatsapp: ["entrada", "saida"],
@@ -3828,11 +4046,12 @@ export const Constants = {
       PrioridadeChamado: ["baixa", "media", "alta", "critica"],
       RamoCliente: ["energia_solar", "redes_subestacoes"],
       SituacaoAlertaUsina: ["aberto", "resolvido", "ignorado"],
-      SituacaoRecebimento: ["conforme", "inconforme"],
+      SituacaoRecebimento: ["conforme", "inconforme", "parcial"],
       StatusEntregaPedido: [
         "pendente",
         "recebido_conforme",
         "recebido_inconforme",
+        "recebido_parcial",
       ],
       StatusObra: ["em_andamento", "concluida", "atrasada"],
       StatusOrcamento: ["em_elaboracao", "finalizado", "revisao"],
@@ -3888,6 +4107,8 @@ export const Constants = {
         "requisicao_cancelada",
         "pedido_emitido",
         "recebimento_registrado",
+        "compra_confirmada",
+        "cotacao_reaberta",
       ],
       TipoOrcamentoItem: ["material", "kit"],
       TipoProdutoSuprimentos: ["material", "servico", "locacao"],

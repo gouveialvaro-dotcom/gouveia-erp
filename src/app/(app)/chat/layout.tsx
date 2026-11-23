@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { acessoModulo, usuarioIdAtual } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
+import { exigirModuloVisivel } from "@/lib/modulos-visiveis";
 import { carregarConversas } from "@/lib/chat-consultas";
 import { ListaConversas } from "@/components/chat/lista-conversas";
 import { NovaConversa } from "@/components/chat/nova-conversa";
@@ -9,6 +10,7 @@ import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function LayoutChat({ children }: { children: React.ReactNode }) {
   const { perfil } = await acessoModulo("chat");
+  await exigirModuloVisivel("chat");
   if (!podeLer(perfil, "chat")) redirect("/");
 
   const usuarioId = await usuarioIdAtual();

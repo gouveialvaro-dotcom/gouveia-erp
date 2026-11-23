@@ -9,13 +9,14 @@ import {
 import {
   DIAS_PRAZO_PADRAO,
   ITENS_POR_REQUISICAO_MAX,
-  UNIDADES_SUGERIDAS,
+  UNIDADES_REQUISICAO,
   somarDiasIso,
   type UrgenciaRequisicao,
 } from "@/lib/suprimentos";
 import { cn } from "@/lib/utils";
 import type { ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
 import { BuscaProduto } from "@/components/suprimentos/busca-produto";
+import { SeletorFotos, type FotoLocal } from "@/components/suprimentos/seletor-fotos";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { CampoData } from "@/components/ui/campo-data";
@@ -34,7 +35,14 @@ type Item = {
   quantidade: string;
   unidade: string;
   especificacao: string;
+  /** Fotos do material, para o comprador identificar (já reduzidas). */
+  fotos: FotoLocal[];
 };
+
+/** Até 3 fotos por item: com ~300 KB cada, 20 itens cabem no limite de envio. */
+const FOTOS_POR_ITEM = 3;
+
+export type OpcaoCentroCusto = { valor: string; nome: string; grupo: "obra" | "centro" };
 
 let proximaChave = 1;
 const itemVazio = (): Item => ({
@@ -45,13 +53,15 @@ const itemVazio = (): Item => ({
   quantidade: "",
   unidade: "UN",
   especificacao: "",
+  fotos: [],
 });
 
 export function RequisicaoForm({
-  obras,
+  centros,
   hoje,
 }: {
-  obras: { id: string; nome: string }[];
+  /** Obras em andamento e centros de custo (sede, frota...). valor = "obra:id" ou "centro:id". */
+  centros: OpcaoCentroCusto[];
   /** "Hoje" calculado no servidor no fuso de Natal. */
   hoje: string;
 }) {
@@ -65,7 +75,7 @@ export function RequisicaoForm({
   const [itens, setItens] = useState<Item[]>(() => [itemVazio()]);
   // Controlados: o React limpa campos não controlados depois da action, e um
   // erro de validação apagaria a obra e as observações já preenchidas.
-  const [obraId, setObraId] = useState("");
+  const [centroCusto, setCentroCusto] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
   function escolherUrgencia(nova: UrgenciaRequisicao) {
@@ -116,6 +126,10 @@ export function RequisicaoForm({
         }
         setErroLocal(null);
         const dados = new FormData(evento.currentTarget);
+        // Fotos vão junto, com o índice do item na lista enviada.
+        itensPreenchidos.forEach((item, indice) => {
+          for (const foto of item.fotos) dados.append(`foto-${indice}`, foto.arquivo);
+        });
         startTransition(() => acao(dados));
       }}
       className="flex flex-col gap-6 max-w-3xl"
@@ -125,24 +139,40 @@ export function RequisicaoForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="obraId">Obra (centro de custo)</Label>
+          <Label htmlFor="centroCusto">Centro de custo</Label>
           <SelectNativo
-            id="obraId"
-            name="obraId"
-            value={obraId}
-            onChange={(e) => setObraId(e.target.value)}
+            id="centroCusto"
+            name="centroCusto"
+            value={centroCusto}
+            onChange={(e) => setCentroCusto(e.target.value)}
             required
             className="h-10"
           >
             <option value="" disabled>
-              Selecione a obra
+              Selecione a obra ou o centro de custo
             </option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.nome}
-              </option>
-            ))}
+            <optgroup label="Obras">
+              {centros
+                .filter((c) => c.grupo === "obra")
+                .map((c) => (
+                  <option key={c.valor} value={c.valor}>
+                    {c.nome}
+                  </option>
+                ))}
+            </optgroup>
+            <optgroup label="Outros centros de custo">
+              {centros
+                .filter((c) => c.grupo === "centro")
+                .map((c) => (
+                  <option key={c.valor} value={c.valor}>
+                    {c.nome}
+                  </option>
+                ))}
+            </optgroup>
           </SelectNativo>
+          <span className="text-xs text-muted-foreground">
+            Compra que não é de obra (sede, frota, manutenção) vai no centro de custo.
+          </span>
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -201,12 +231,6 @@ export function RequisicaoForm({
             Busque no catálogo. Não achou? Marque a caixa e descreva.
           </p>
         </div>
-
-        <datalist id="unidades-requisicao">
-          {UNIDADES_SUGERIDAS.map((u) => (
-            <option key={u} value={u} />
-          ))}
-        </datalist>
 
         {itens.map((item, indice) => (
           <div key={item.chave} className="rounded-lg border bg-card p-3 flex flex-col gap-3">
@@ -277,14 +301,22 @@ export function RequisicaoForm({
                 onChange={(e) => alterarItem(item.chave, { quantidade: e.target.value })}
                 className="h-10"
               />
-              <Input
+              <SelectNativo
                 aria-label={`Unidade do item ${indice + 1}`}
-                placeholder="Unidade"
-                list="unidades-requisicao"
                 value={item.unidade}
-                onChange={(e) => alterarItem(item.chave, { unidade: e.target.value.toUpperCase() })}
+                onChange={(e) => alterarItem(item.chave, { unidade: e.target.value })}
                 className="h-10"
-              />
+              >
+                {UNIDADES_REQUISICAO.map((u) => (
+                  <option key={u.valor} value={u.valor}>
+                    {u.rotulo}
+                  </option>
+                ))}
+                {/* Unidade do catálogo fora da lista (ex.: produto antigo em PC). */}
+                {!UNIDADES_REQUISICAO.some((u) => u.valor === item.unidade) && (
+                  <option value={item.unidade}>{item.unidade}</option>
+                )}
+              </SelectNativo>
             </div>
             <Textarea
               aria-label={`Especificações do item ${indice + 1}`}
@@ -293,6 +325,17 @@ export function RequisicaoForm({
               onChange={(e) => alterarItem(item.chave, { especificacao: e.target.value })}
               rows={2}
             />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Fotos do material (opcional, até {FOTOS_POR_ITEM}) — ajudam o comprador a achar o item certo
+              </span>
+              <SeletorFotos
+                fotos={item.fotos}
+                aoMudar={(fotos) => alterarItem(item.chave, { fotos })}
+                maximo={FOTOS_POR_ITEM}
+                rotulo={`Foto do item ${indice + 1}`}
+              />
+            </div>
           </div>
         ))}
 

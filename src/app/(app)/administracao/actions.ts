@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
 import { podeEscrever, type Perfil } from "@/lib/permissoes";
 import { chaveTelefone } from "@/lib/pos-venda-whatsapp";
+import { modulosDoPerfil } from "@/lib/modulos-menu";
 import type { EstadoExclusao } from "@/components/ui/botao-excluir";
 
 const ROTA = "/administracao";
@@ -350,5 +351,37 @@ export async function redefinirSenhaUsuario(
 
   if (error) return { erro: "Não foi possível redefinir a senha." };
 
+  return { ok: true };
+}
+
+// Módulos que a pessoa vê no menu. O formulário manda os marcados; guarda-se o
+// contrário — o que o perfil dela lê e ficou desmarcado —, para que um módulo
+// novo apareça para todos até alguém decidir escondê-lo.
+export async function atualizarModulosUsuario(
+  usuarioId: string,
+  _estado: EstadoFormUsuario,
+  formData: FormData
+): Promise<EstadoFormUsuario> {
+  await exigirPermissao("administracao", "escrita");
+
+  const { data: usuario } = await supabase
+    .from("Usuario")
+    .select("id, perfil")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (!usuario) return { erro: "Usuário não encontrado." };
+
+  const marcados = new Set(formData.getAll("modulo").map(String));
+  const ocultos = modulosDoPerfil(usuario.perfil as Perfil)
+    .map((m) => m.chave)
+    .filter((chave) => !marcados.has(chave));
+
+  const { error } = await supabase
+    .from("Usuario")
+    .update({ modulosOcultos: ocultos })
+    .eq("id", usuarioId);
+  if (error) return { erro: "Não foi possível salvar os módulos." };
+
+  revalidatePath("/", "layout");
   return { ok: true };
 }

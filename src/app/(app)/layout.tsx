@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/topbar";
 import { ProvedorTituloPagina } from "@/components/titulo-pagina";
 import { podeLer, type Perfil } from "@/lib/permissoes";
+import { modulosOcultosAtuais } from "@/lib/modulos-visiveis";
 
 export default async function AppLayout({
   children,
@@ -17,10 +18,12 @@ export default async function AppLayout({
   }
 
   const perfil = session.user.perfil as Perfil;
+  // Módulos que o administrador escondeu desta pessoa (Administração).
+  const ocultos = await modulosOcultosAtuais();
 
   return (
     <SidebarProvider>
-      <AppSidebar perfil={perfil} />
+      <AppSidebar perfil={perfil} ocultos={ocultos} />
       <SidebarInset>
         <ProvedorTituloPagina>
         <Topbar
@@ -29,7 +32,8 @@ export default async function AppLayout({
           // O sino só existe para quem enxerga o módulo; entre esses, quem
           // recebe de fato é derivado do chamado — o responsável e, conforme o
           // aviso, os administradores ativos.
-          mostrarNotificacoes={podeLer(perfil, "posVenda")}
+          mostrarNotificacoes={podeLer(perfil, "posVenda") && !ocultos.includes("posVenda")}
+          mostrarSuprimentos={!ocultos.includes("suprimentos")}
         />
         {/* min-w-0 pelo mesmo motivo do SidebarInset, e padding menor no
             estreito: com p-6 fixo, metade da largura do celular ia em margem. */}

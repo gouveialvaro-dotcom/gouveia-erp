@@ -7,7 +7,15 @@ import {
   salvarCotacao,
   type EstadoFormCotacao,
 } from "@/app/(app)/suprimentos/requisicoes/cotacao-actions";
-import { ROTULO_FRETE, UF_EMPRESA, type ModalidadeFrete } from "@/lib/suprimentos";
+import {
+  FORMAS_PAGAMENTO,
+  ROTULO_FORMA_PAGAMENTO,
+  ROTULO_FRETE,
+  UF_EMPRESA,
+  textoCondicaoPagamento,
+  type FormaPagamento,
+  type ModalidadeFrete,
+} from "@/lib/suprimentos";
 import { centavos, moeda, numeroBr, totalLinha } from "@/lib/suprimentos-cotacao";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,9 +43,24 @@ export type CotacaoInicial = {
   coletaPropria: boolean;
   valorFrete: number;
   condicaoPagamento: string;
+  empresaId: string | null;
+  faturadoCliente: boolean;
+  autorizacaoNome: string | null;
+  formaPagamento: FormaPagamento | null;
+  prazoPagamentoDias: number | null;
+  parcelas: number | null;
   prazoEntregaDias: number | null;
   observacoes: string | null;
   precos: Record<string, number>;
+};
+
+/** Para quem a nota sai: um CNPJ do grupo ou o cliente da obra. */
+export type FaturamentoOpcoes = {
+  empresas: { id: string; nome: string }[];
+  /** Empresa configurada para a obra (sugestão inicial). */
+  empresaPadraoId: string | null;
+  /** Nome do cliente da obra; nulo quando o centro de custo não é obra com cliente. */
+  cliente: string | null;
 };
 
 type ItemCotado = { id: string; ordem: number; descricao: string; quantidade: number; unidade: string };
@@ -52,8 +75,10 @@ export function CotacaoForm({
   cotacao,
   fornecedores,
   itens,
+  faturamento,
 }: {
   requisicaoId: string;
+  faturamento: FaturamentoOpcoes;
   cotacao: CotacaoInicial | null;
   /** Já sem os fornecedores que têm cotação nesta requisição (exceto o desta). */
   fornecedores: FornecedorOpcao[];
@@ -74,7 +99,22 @@ export function CotacaoForm({
   const [frete, setFrete] = useState<ModalidadeFrete>(cotacao?.frete ?? "cif");
   const [coletaPropria, setColetaPropria] = useState(cotacao?.coletaPropria ?? false);
   const [valorFrete, setValorFrete] = useState(br(cotacao?.valorFrete || null));
-  const [condicao, setCondicao] = useState(cotacao?.condicaoPagamento ?? "");
+  const [faturarPara, setFaturarPara] = useState(() => {
+    if (cotacao?.faturadoCliente) return "cliente";
+    const empresa = cotacao?.empresaId ?? faturamento.empresaPadraoId;
+    return empresa ? `empresa:${empresa}` : "";
+  });
+  const paraCliente = faturarPara === "cliente";
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | "">(cotacao?.formaPagamento ?? "");
+  const [prazoPagamento, setPrazoPagamento] = useState(br(cotacao?.prazoPagamentoDias, 0));
+  const [parcelas, setParcelas] = useState(br(cotacao?.parcelas ?? 1, 0));
+  const resumoPagamento = formaPagamento
+    ? textoCondicaoPagamento({
+        formaPagamento,
+        prazoPagamentoDias: prazoPagamento === "" ? 0 : Number(prazoPagamento),
+        parcelas: parcelas === "" ? 1 : Number(parcelas),
+      })
+    : "";
   const [prazo, setPrazo] = useState(br(cotacao?.prazoEntregaDias, 0));
   const [observacoes, setObservacoes] = useState(cotacao?.observacoes ?? "");
   const [precos, setPrecos] = useState<Record<string, string>>(() =>
@@ -123,6 +163,7 @@ export function CotacaoForm({
         const dados = new FormData(evento.currentTarget);
         startTransition(() => acao(dados));
       }}
+      encType="multipart/form-data"
       className="flex flex-col gap-6 max-w-4xl"
     >
       <input type="hidden" name="requisicaoId" value={requisicaoId} />
@@ -173,17 +214,7 @@ export function CotacaoForm({
           <Label htmlFor="vendedor">Vendedor</Label>
           <Input id="vendedor" name="vendedor" value={vendedor} onChange={(e) => setVendedor(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="condicaoPagamento">Condição de pagamento</Label>
-          <Input
-            id="condicaoPagamento"
-            name="condicaoPagamento"
-            placeholder="Ex.: 28 dias boleto, à vista PIX"
-            value={condicao}
-            onChange={(e) => setCondicao(e.target.value)}
-            required
-          />
-        </div>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="prazoEntregaDias">Prazo de entrega (dias)</Label>
           <Input
@@ -195,6 +226,110 @@ export function CotacaoForm({
             onChange={(e) => setPrazo(e.target.value.replace(/\D/g, ""))}
           />
         </div>
+      </section>
+
+      <section className="grid gap-4 rounded-md border bg-card p-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-1.5 sm:col-span-3">
+          <Label htmlFor="faturarPara">Faturar para</Label>
+          <SelectNativo
+            id="faturarPara"
+            name="faturarPara"
+            value={faturarPara}
+            onChange={(e) => setFaturarPara(e.target.value)}
+            required
+            className="h-10"
+          >
+            <option value="" disabled>
+              Selecione o CNPJ que será faturado
+            </option>
+            {faturamento.empresas.map((e) => (
+              <option key={e.id} value={`empresa:${e.id}`}>
+                {e.nome}
+              </option>
+            ))}
+            {faturamento.cliente && (
+              <option value="cliente">Em nome do cliente — {faturamento.cliente}</option>
+            )}
+          </SelectNativo>
+          {faturamento.empresas.length === 0 && (
+            <span className="text-xs text-amber-700 dark:text-amber-300">
+              Nenhuma empresa do grupo cadastrada. O administrador cadastra em Suprimentos → Empresas.
+            </span>
+          )}
+        </div>
+        {paraCliente && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-sky-300 bg-sky-50 p-3 text-sm sm:col-span-3 dark:border-sky-700 dark:bg-sky-950">
+            <Label htmlFor="autorizacao">Autorização do cliente</Label>
+            <span className="text-xs text-muted-foreground">
+              Ordem de compra, e-mail ou print da conversa em que o cliente autoriza. Obrigatória: a compra em
+              nome do cliente passa só pela Gerência, que confere este documento.
+            </span>
+            {cotacao?.autorizacaoNome && (
+              <a
+                href={`/api/suprimentos/cotacoes/${cotacao.id}/autorizacao`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm underline"
+              >
+                Anexada: {cotacao.autorizacaoNome}
+              </a>
+            )}
+            <Input
+              id="autorizacao"
+              name="autorizacao"
+              type="file"
+              accept=".pdf,image/*"
+              required={!cotacao?.autorizacaoNome}
+            />
+            <span className="text-xs text-muted-foreground">
+              {cotacao?.autorizacaoNome ? "Escolha um arquivo só para trocar o anexo. " : ""}PDF ou imagem, até 10 MB.
+            </span>
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="formaPagamento">Forma de pagamento</Label>
+          <SelectNativo
+            id="formaPagamento"
+            name="formaPagamento"
+            value={formaPagamento}
+            onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento)}
+            required
+            className="h-10"
+          >
+            <option value="" disabled>
+              Selecione
+            </option>
+            {FORMAS_PAGAMENTO.map((f) => (
+              <option key={f} value={f}>
+                {ROTULO_FORMA_PAGAMENTO[f]}
+              </option>
+            ))}
+          </SelectNativo>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="prazoPagamentoDias">Prazo (dias)</Label>
+          <Input
+            id="prazoPagamentoDias"
+            name="prazoPagamentoDias"
+            inputMode="numeric"
+            placeholder="0 = à vista"
+            value={prazoPagamento}
+            onChange={(e) => setPrazoPagamento(e.target.value.replace(/\D/g, ""))}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="parcelas">Parcelas</Label>
+          <Input
+            id="parcelas"
+            name="parcelas"
+            inputMode="numeric"
+            value={parcelas}
+            onChange={(e) => setParcelas(e.target.value.replace(/\D/g, ""))}
+          />
+        </div>
+        {resumoPagamento && (
+          <p className="text-xs text-muted-foreground sm:col-span-3">No pedido: {resumoPagamento}</p>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos } from "@/lib/suprimentos-auth";
-import { hojeSaoPaulo, somarDiasIso } from "@/lib/suprimentos";
+import { hojeSaoPaulo, somarDiasIso,
+  nomeCentroCusto,
+} from "@/lib/suprimentos";
 import { formatarData } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BadgeStatusEntrega, BadgeUrgencia } from "@/components/suprimentos/status-requisicao";
@@ -13,17 +15,20 @@ import { BadgeStatusEntrega, BadgeUrgencia } from "@/components/suprimentos/stat
 
 export default async function PaginaRecebimentos() {
   const contexto = await contextoSuprimentos();
+  contexto.exigirAba("recebimentos");
   const veTodos = contexto.tem("recebedor", "comprador");
 
   let consulta = supabase
     .from("PedidoCompra")
     .select(
-      `id, codigo, statusEntrega, emitidoEm, prazoEntregaDias,
+      `id, codigo, statusEntrega, emitidoEm, compraConfirmadaEm, prazoEntregaDias,
        fornecedor:Fornecedor(razaoSocial, nomeFantasia),
        itens:PedidoCompraItem(count),
-       requisicao:Requisicao!inner(numero, urgencia, requisitanteId, obra:Obra(nomeProjeto))`
+       requisicao:Requisicao!inner(numero, urgencia, requisitanteId, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome))`
     )
-    .in("statusEntrega", ["pendente", "recebido_inconforme"])
+    // Só o que já foi comprado e ainda espera entrega (toda ou o restante).
+    .not("compraConfirmadaEm", "is", null)
+    .in("statusEntrega", ["pendente", "recebido_parcial"])
     .limit(200);
   if (!veTodos) consulta = consulta.eq("requisicao.requisitanteId", contexto.usuarioId);
 
@@ -31,7 +36,7 @@ export default async function PaginaRecebimentos() {
   const hoje = hojeSaoPaulo();
   const pedidos = (data ?? [])
     .map((p) => {
-      const emitido = new Date(p.emitidoEm).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+      const emitido = new Date(p.compraConfirmadaEm ?? p.emitidoEm).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
       return { ...p, previsao: p.prazoEntregaDias === null ? null : somarDiasIso(emitido, p.prazoEntregaDias) };
     })
     .sort((a, b) => {
@@ -42,7 +47,7 @@ export default async function PaginaRecebimentos() {
   return (
     <div className="flex flex-col gap-3 max-w-2xl">
       <p className="text-sm text-muted-foreground">
-        Toque no pedido quando o material chegar para registrar se veio conforme.
+        Toque no pedido quando o material chegar para registrar o que veio de cada item.
       </p>
       {pedidos.map((p) => {
         const itens = p.itens[0]?.count ?? 0;
@@ -63,7 +68,7 @@ export default async function PaginaRecebimentos() {
                 {p.fornecedor?.nomeFantasia || p.fornecedor?.razaoSocial}
               </span>
               <span className="truncate text-xs text-muted-foreground">
-                {p.requisicao.obra?.nomeProjeto ?? "—"} · {itens} {itens === 1 ? "item" : "itens"}
+                {nomeCentroCusto(p.requisicao)} · {itens} {itens === 1 ? "item" : "itens"}
               </span>
               <span className={cn("text-xs", atrasado ? "font-medium text-destructive" : "text-muted-foreground")}>
                 {p.previsao ? `Previsão ${formatarData(p.previsao)}${atrasado ? " · atrasado" : ""}` : "Sem previsão"}

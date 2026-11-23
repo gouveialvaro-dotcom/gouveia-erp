@@ -15,7 +15,7 @@ export async function carregarCotacoes(requisicaoId: string) {
     supabase
       .from("Cotacao")
       .select(
-        "*, fornecedor:Fornecedor(razaoSocial, nomeFantasia), precos:CotacaoItem(id, requisicaoItemId, precoUnitario)"
+        "*, fornecedor:Fornecedor(razaoSocial, nomeFantasia), empresa:EmpresaGrupo(razaoSocial, nomeFantasia), precos:CotacaoItem(id, requisicaoItemId, precoUnitario)"
       )
       .eq("requisicaoId", requisicaoId)
       .order("criadoEm"),
@@ -37,6 +37,9 @@ export async function carregarCotacoes(requisicaoId: string) {
     incideDifal: c.incideDifal,
     condicaoPagamento: c.condicaoPagamento,
     prazoEntregaDias: c.prazoEntregaDias,
+    faturadoCliente: c.faturadoCliente,
+    empresa: c.empresa ? c.empresa.nomeFantasia || c.empresa.razaoSocial : null,
+    temAutorizacao: Boolean(c.autorizacaoCaminho),
   }));
 
   const escolhas = Object.fromEntries(itens.map((i) => [i.id, i.cotacaoItemVencedorId]));

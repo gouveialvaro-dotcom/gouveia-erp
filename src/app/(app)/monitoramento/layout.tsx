@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
+import { exigirModuloVisivel } from "@/lib/modulos-visiveis";
 import { MonitoramentoSubnav } from "@/components/monitoramento/subnav";
 import { TituloPagina } from "@/components/titulo-pagina";
 
@@ -10,6 +11,7 @@ export default async function MonitoramentoLayout({
   children: React.ReactNode;
 }) {
   const { perfil } = await acessoModulo("monitoramento");
+  await exigirModuloVisivel("monitoramento");
 
   // Obra e logística não entram. A verificação é aqui e em cada Server Action —
   // esconder o item na sidebar nunca é a garantia.

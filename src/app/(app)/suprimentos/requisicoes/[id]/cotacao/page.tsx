@@ -4,7 +4,9 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos, parametrosSuprimentos } from "@/lib/suprimentos-auth";
 import { carregarCotacoes } from "@/lib/suprimentos-cotacao-dados";
-import { ROTULO_NIVEL, STATUS_COTACAO_ABERTA, codigoRequisicao } from "@/lib/suprimentos";
+import { ROTULO_NIVEL, STATUS_COTACAO_ABERTA, codigoRequisicao,
+  nomeCentroCusto,
+} from "@/lib/suprimentos";
 import { moeda, subtotalCotacao } from "@/lib/suprimentos-cotacao";
 import { formatarData } from "@/lib/format";
 import { excluirCotacao } from "@/app/(app)/suprimentos/requisicoes/cotacao-actions";
@@ -24,7 +26,7 @@ export default async function PaginaCotacao({ params }: { params: Promise<{ id: 
 
   const { data: r } = await supabase
     .from("Requisicao")
-    .select("id, numero, status, urgencia, prazoDesejado, rodadaAprovacao, obra:Obra(nomeProjeto), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome)")
+    .select("id, numero, status, urgencia, prazoDesejado, rodadaAprovacao, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome)")
     .eq("id", id)
     .maybeSingle();
   if (!r) notFound();
@@ -57,7 +59,7 @@ export default async function PaginaCotacao({ params }: { params: Promise<{ id: 
             <BadgeUrgencia urgencia={r.urgencia} />
           </div>
           <p className="text-sm text-muted-foreground">
-            {r.obra?.nomeProjeto ?? "—"} · {r.requisitante?.nome ?? "—"} · entregar até{" "}
+            {nomeCentroCusto(r)} · {r.requisitante?.nome ?? "—"} · entregar até{" "}
             {formatarData(r.prazoDesejado)}
           </p>
           <Link href={`/suprimentos/requisicoes/${r.id}`} className="text-xs text-muted-foreground hover:underline">

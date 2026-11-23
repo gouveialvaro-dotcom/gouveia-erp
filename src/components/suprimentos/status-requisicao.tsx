@@ -1,6 +1,7 @@
 import { Siren } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
+  ROTULO_AGUARDANDO_COMPRA,
   ROTULO_STATUS_ENTREGA,
   ROTULO_STATUS_REQUISICAO,
   type StatusEntregaPedido,
@@ -34,10 +35,25 @@ export function BadgeUrgencia({ urgencia }: { urgencia: UrgenciaRequisicao }) {
 
 const VARIANTE_ENTREGA: Record<StatusEntregaPedido, "default" | "secondary" | "destructive"> = {
   pendente: "secondary",
+  recebido_parcial: "secondary",
   recebido_conforme: "default",
   recebido_inconforme: "destructive",
 };
 
-export function BadgeStatusEntrega({ status }: { status: StatusEntregaPedido }) {
+export function BadgeStatusEntrega({
+  status,
+  compraConfirmada = true,
+}: {
+  status: StatusEntregaPedido;
+  /** Sem confirmação o pedido ainda não foi comprado: não há entrega a esperar. */
+  compraConfirmada?: boolean;
+}) {
+  if (!compraConfirmada) {
+    return (
+      <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
+        {ROTULO_AGUARDANDO_COMPRA}
+      </Badge>
+    );
+  }
   return <Badge variant={VARIANTE_ENTREGA[status]}>{ROTULO_STATUS_ENTREGA[status]}</Badge>;
 }

@@ -31,36 +31,41 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { podeLer, type Modulo, type Perfil } from "@/lib/permissoes";
+import type { ChaveMenu } from "@/lib/modulos-menu";
 
 type ItemNav = {
   titulo: string;
   href: string;
   icone: React.ElementType;
   modulos: Modulo[];
+  /** Chave para a restrição por usuário (Administração); sem chave, não se esconde. */
+  chave?: ChaveMenu;
 };
 
 const ITENS: ItemNav[] = [
-  { titulo: "Cadastros", href: "/cadastros", icone: Users, modulos: ["clientes", "cadastrosGerais"] },
-  { titulo: "Orçamentos", href: "/orcamentos", icone: Calculator, modulos: ["orcamentos"] },
-  { titulo: "CRM / Propostas", href: "/crm", icone: Kanban, modulos: ["crm"] },
-  { titulo: "Pós-venda", href: "/pos-venda", icone: LifeBuoy, modulos: ["posVenda"] },
+  { titulo: "Cadastros", href: "/cadastros", icone: Users, modulos: ["clientes", "cadastrosGerais"], chave: "cadastros" },
+  { titulo: "Orçamentos", href: "/orcamentos", icone: Calculator, modulos: ["orcamentos"], chave: "orcamentos" },
+  { titulo: "CRM / Propostas", href: "/crm", icone: Kanban, modulos: ["crm"], chave: "crm" },
+  { titulo: "Pós-venda", href: "/pos-venda", icone: LifeBuoy, modulos: ["posVenda"], chave: "posVenda" },
   {
     titulo: "WhatsApp",
     href: "/pos-venda/whatsapp",
     icone: MessageCircle,
     modulos: ["posVenda"],
+    chave: "posVenda",
   },
   {
     titulo: "Monitoramento de usinas",
     href: "/monitoramento",
     icone: SunMedium,
     modulos: ["monitoramento"],
+    chave: "monitoramento",
   },
-  { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"] },
-  { titulo: "Programação", href: "/programacao", icone: Truck, modulos: ["programacao"] },
-  { titulo: "Suprimentos", href: "/suprimentos", icone: ShoppingCart, modulos: ["suprimentos"] },
-  { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"] },
-  { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"] },
+  { titulo: "Obras", href: "/obras", icone: HardHat, modulos: ["obras"], chave: "obras" },
+  { titulo: "Programação", href: "/programacao", icone: Truck, modulos: ["programacao"], chave: "programacao" },
+  { titulo: "Suprimentos", href: "/suprimentos", icone: ShoppingCart, modulos: ["suprimentos"], chave: "suprimentos" },
+  { titulo: "Chat", href: "/chat", icone: MessagesSquare, modulos: ["chat"], chave: "chat" },
+  { titulo: "Dashboards", href: "/dashboards", icone: LayoutDashboard, modulos: ["dashboards"], chave: "dashboards" },
   // Visível para todo mundo por causa de "conta": quem não é admin entra só
   // para trocar a própria senha e não vê a lista de usuários.
   {
@@ -71,11 +76,13 @@ const ITENS: ItemNav[] = [
   },
 ];
 
-export function AppSidebar({ perfil }: { perfil: Perfil }) {
+export function AppSidebar({ perfil, ocultos = [] }: { perfil: Perfil; ocultos?: ChaveMenu[] }) {
   const pathname = usePathname();
 
-  const itensVisiveis = ITENS.filter((item) =>
-    item.modulos.some((modulo) => podeLer(perfil, modulo))
+  const itensVisiveis = ITENS.filter(
+    (item) =>
+      item.modulos.some((modulo) => podeLer(perfil, modulo)) &&
+      !(item.chave && ocultos.includes(item.chave))
   );
 
   // Só o item mais específico acende. Sem isso "/pos-venda/whatsapp" marcaria

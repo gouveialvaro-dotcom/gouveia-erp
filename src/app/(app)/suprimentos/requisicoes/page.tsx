@@ -7,6 +7,7 @@ import {
   codigoRequisicao,
   hojeSaoPaulo,
   type StatusRequisicao,
+  nomeCentroCusto,
 } from "@/lib/suprimentos";
 import { formatarData } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ export default async function PaginaRequisicoes({
   let consulta = supabase
     .from("Requisicao")
     .select(
-      "id, numero, status, urgencia, prazoDesejado, dataSolicitacao, obra:Obra(nomeProjeto), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome), itens:RequisicaoItem(count)"
+      "id, numero, status, urgencia, prazoDesejado, dataSolicitacao, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome), requisitante:Usuario!Requisicao_requisitanteId_fkey(nome), itens:RequisicaoItem(count)"
     )
     // Emergencial primeiro (o enum ordena normal < emergencial), depois a mais nova.
     .order("urgencia", { ascending: false })
@@ -99,7 +100,7 @@ export default async function PaginaRequisicoes({
           <TableHeader>
             <TableRow>
               <TableHead>Requisição</TableHead>
-              <TableHead>Obra</TableHead>
+              <TableHead>Centro de custo</TableHead>
               <TableHead>Requisitante</TableHead>
               <TableHead className="text-right">Itens</TableHead>
               <TableHead>Entregar até</TableHead>
@@ -120,7 +121,7 @@ export default async function PaginaRequisicoes({
                       <BadgeUrgencia urgencia={r.urgencia} />
                     </div>
                   </TableCell>
-                  <TableCell className="whitespace-normal">{r.obra?.nomeProjeto ?? "—"}</TableCell>
+                  <TableCell className="whitespace-normal">{nomeCentroCusto(r)}</TableCell>
                   <TableCell>{r.requisitante?.nome ?? "—"}</TableCell>
                   <TableCell className="text-right">{r.itens[0]?.count ?? 0}</TableCell>
                   <TableCell className={cn(atrasada && "text-destructive font-medium")}>

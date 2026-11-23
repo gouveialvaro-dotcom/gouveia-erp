@@ -9,6 +9,8 @@ import { DocumentoPedido } from "@/components/suprimentos/documento-pedido";
 import { BadgeStatusEntrega } from "@/components/suprimentos/status-requisicao";
 import { HistoricoRecebimentos } from "@/components/suprimentos/historico-recebimentos";
 import { RegistrarRecebimento } from "@/components/suprimentos/registrar-recebimento";
+import { ConfirmarCompra } from "@/components/suprimentos/confirmar-compra";
+import { formatarDataHora } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 export default async function PaginaPedido({ params }: { params: Promise<{ id: string }> }) {
@@ -22,18 +24,32 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
 
   const { data: recebimentosBrutos } = await supabase
     .from("Recebimento")
-    .select("*, registradoPor:Usuario!Recebimento_registradoPorId_fkey(nome), fotos:RecebimentoFoto(id, nome)")
+    .select(
+      "*, registradoPor:Usuario!Recebimento_registradoPorId_fkey(nome), fotos:RecebimentoFoto(id, nome), itens:RecebimentoItem(quantidadeRecebida, quantidadeDevolvida, item:PedidoCompraItem(ordem, descricao, unidade))"
+    )
     .eq("pedidoCompraId", pedido.id)
     .order("recebidoEm", { ascending: false });
   const recebimentos = (recebimentosBrutos ?? []).map((r) => ({
     ...r,
     registradoPor: r.registradoPor?.nome ?? null,
+    itens: [...r.itens]
+      .sort((a, b) => (a.item?.ordem ?? 0) - (b.item?.ordem ?? 0))
+      .map((i) => ({
+        descricao: i.item?.descricao ?? "Item",
+        unidade: i.item?.unidade ?? "",
+        recebida: Number(i.quantidadeRecebida),
+        devolvida: Number(i.quantidadeDevolvida),
+      })),
   }));
+  const compraConfirmada = Boolean(pedido.compraConfirmadaEm);
 
   // Mesma regra da action: recebedor, comprador, admin ou o próprio requisitante.
+  // Só depois de a compra ser confirmada, e enquanto o pedido não foi encerrado.
   const podeReceber =
-    pedido.statusEntrega !== "recebido_conforme" &&
+    compraConfirmada &&
+    (pedido.statusEntrega === "pendente" || pedido.statusEntrega === "recebido_parcial") &&
     (contexto.tem("recebedor", "comprador") || pedido.requisicao.requisitanteId === contexto.usuarioId);
+  const podeConfirmar = !compraConfirmada && contexto.tem("comprador");
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,12 +57,14 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-mono text-lg font-semibold">{pedido.codigo}</h2>
-            <BadgeStatusEntrega status={pedido.statusEntrega} />
+            <BadgeStatusEntrega status={pedido.statusEntrega} compraConfirmada={compraConfirmada} />
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
-            <Link href="/suprimentos/pedidos" className="hover:underline">
-              ← Pedidos
-            </Link>
+            {contexto.veAba("pedidos") && (
+              <Link href="/suprimentos/pedidos" className="hover:underline">
+                ← Pedidos
+              </Link>
+            )}
             <Link href={`/suprimentos/requisicoes/${pedido.requisicao.id}`} className="hover:underline">
               Requisição {codigoRequisicao(pedido.requisicao.numero)}
             </Link>
@@ -62,12 +80,31 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
         </Button>
       </div>
 
+      {podeConfirmar && <ConfirmarCompra pedidoId={pedido.id} />}
+      {compraConfirmada && pedido.compraConfirmadaEm && (
+        <p className="text-xs text-muted-foreground">
+          Compra confirmada no fornecedor em {formatarDataHora(pedido.compraConfirmadaEm)}.
+        </p>
+      )}
+      {!compraConfirmada && !podeConfirmar && (
+        <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+          Aguardando o comprador confirmar a compra no fornecedor. Depois disso o recebimento fica liberado.
+        </p>
+      )}
+
       {/* No celular o formulário vem antes do documento: é o que a obra veio fazer. */}
       {podeReceber && (
         <RegistrarRecebimento
           pedidoId={pedido.id}
-          nomePadrao={contexto.nome}
-          reentrega={pedido.statusEntrega === "recebido_inconforme"}
+          nomeUsuario={contexto.nome}
+          itens={pedido.itens.map((i) => ({
+            id: i.id,
+            ordem: i.ordem,
+            descricao: i.descricao,
+            unidade: i.unidade,
+            quantidade: i.quantidade,
+            recebida: i.quantidadeRecebida,
+          }))}
         />
       )}
 

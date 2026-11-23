@@ -14,9 +14,10 @@ export async function carregarPedido(id: string) {
        empresa:EmpresaGrupo(razaoSocial, nomeFantasia, cnpj, uf),
        cotacao:Cotacao(vendedor, observacoes),
        emitidoPor:Usuario!PedidoCompra_emitidoPorId_fkey(nome),
-       itens:PedidoCompraItem(id, ordem, descricao, especificacao, quantidade, unidade, precoUnitario, precoTotal),
+       itens:PedidoCompraItem(id, ordem, descricao, especificacao, quantidade, unidade, precoUnitario, precoTotal, quantidadeRecebida, quantidadeDevolvida),
        requisicao:Requisicao(id, numero, requisitanteId, urgencia, prazoDesejado, observacoes,
-         obra:Obra(nomeProjeto, cliente:Cliente(razaoSocial)),
+         obra:Obra(nomeProjeto, cliente:Cliente(razaoSocial, cnpj)),
+         centroCusto:CentroCusto(nome),
          requisitante:Usuario!Requisicao_requisitanteId_fkey(nome),
          comprador:Usuario!Requisicao_compradorId_fkey(nome))`
     )
@@ -24,7 +25,10 @@ export async function carregarPedido(id: string) {
     .maybeSingle();
   if (!p || !p.requisicao) return null;
 
-  const emitidoEmIso = new Date(p.emitidoEm).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  // O prazo do fornecedor conta da compra fechada (ou da emissão, se ainda não foi).
+  const baseIso = new Date(p.compraConfirmadaEm ?? p.emitidoEm).toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
   return {
     ...p,
     requisicao: p.requisicao,
@@ -35,12 +39,14 @@ export async function carregarPedido(id: string) {
         quantidade: Number(i.quantidade),
         precoUnitario: Number(i.precoUnitario),
         precoTotal: Number(i.precoTotal),
+        quantidadeRecebida: Number(i.quantidadeRecebida),
+        quantidadeDevolvida: Number(i.quantidadeDevolvida),
       })),
     valorItens: Number(p.valorItens),
     valorFrete: Number(p.valorFrete),
     valorDifal: Number(p.valorDifal),
     valorTotal: Number(p.valorTotal),
-    previsaoEntrega: p.prazoEntregaDias === null ? null : somarDiasIso(emitidoEmIso, p.prazoEntregaDias),
+    previsaoEntrega: p.prazoEntregaDias === null ? null : somarDiasIso(baseIso, p.prazoEntregaDias),
   };
 }
 

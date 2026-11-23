@@ -491,8 +491,10 @@ o destinatário do aviso de pós-venda passou a ser derivado do próprio chamado
 ### 6.9 Suprimentos
 
 Requisição → cotação → aprovação por alçada → pedido de compra → recebimento
-na obra. Schema inteiro em `scripts/sql/015-suprimentos.sql`, que **só cria
-objetos novos** (nada existente é alterado). Código em
+na obra. Schema em `scripts/sql/015-suprimentos.sql`, que **só cria
+objetos novos** (nada existente é alterado), e nos ajustes da reunião em
+`scripts/sql/016-suprimentos-ajustes.sql` (centro de custo, faturamento,
+recebimento por item, módulos por usuário). Código em
 `src/app/(app)/suprimentos`, `src/components/suprimentos` e
 `src/lib/suprimentos*.ts`; impressão do pedido em `/pedidos-compra/[id]`
 (fora do grupo `(app)`, como `/propostas/[id]`).
@@ -501,7 +503,18 @@ objetos novos** (nada existente é alterado). Código em
   aprova e recebe sai da tabela `PapelUsuarioSuprimentos` (comprador,
   aprovador_gerencia, aprovador_diretoria, recebedor), configurada pelo admin em
   Suprimentos → Configuração. O admin passa em qualquer checagem de papel.
-  Quem não tem papel vê só as próprias requisições e pedidos.
+  Quem não tem papel vê só as próprias requisições e pedidos. As abas seguem o
+  papel (`PAPEIS_DA_ABA` em `suprimentos-auth.ts`): solicitante vê só
+  Requisições; recebedor, Requisições e Recebimentos; comprador, também
+  Pedidos, Produtos e Fornecedores; aprovadores, Aprovações e Pedidos.
+- **Módulos por usuário** — em Administração → "Módulos", o admin desmarca os
+  módulos do menu que a pessoa não deve ver (`Usuario.modulosOcultos`, lista
+  das chaves escondidas de `lib/modulos-menu.ts`). Só restringe o que o perfil
+  já permite. Vale no menu, no layout de cada módulo (`exigirModuloVisivel`) e
+  nas ações de Suprimentos.
+- **Destino** — a requisição é de uma obra **ou** de um centro de custo
+  (`CentroCusto`: Sede, Frota, Manutenção). Unidade em lista fixa
+  (`UNIDADES_REQUISICAO`) e até 3 fotos por item (`RequisicaoItemFoto`).
 - **Catálogo** — `Produto` (chave de duplicidade `chaveDescricao`: maiúsculas,
   sem acento) com códigos do Conta Azul em `ProdutoCodigoExterno`, importados
   dos CSVs de cada CNPJ. O requisitante escreve texto livre; o comprador vincula
@@ -510,23 +523,34 @@ objetos novos** (nada existente é alterado). Código em
   (marcado por padrão para fornecedor fora do RN) e preço por item. Escolha por
   item (compra dividida) ou "tudo de um fornecedor". Abaixo de
   `minimoCotacoes` segue, com alerta para comprador, requisitante e aprovadores.
+  O comprador escolhe o CNPJ faturado (`Cotacao.empresaId`) ou fatura em nome
+  do cliente da obra, com autorização anexada (OC ou print). Pagamento em forma,
+  prazo e parcelas (`textoCondicaoPagamento`).
 - **Alçada** — total = itens + frete + DIFAL de cada fornecedor usado. Até
   `limiteComprador` (R$ 500) a remessa já fecha a compra; até `limiteGerencia`
-  (R$ 3.000) aprova a Gerência; acima, Gerência e Diretoria (qualquer ordem,
-  pessoas diferentes). Devolver volta para cotação; recusar encerra. Aprovar a
+  (R$ 3.000) aprova a Gerência (ou a Diretoria no lugar); acima, Gerência e
+  Diretoria (qualquer ordem, pessoas diferentes). Valor faturado ao cliente sai
+  do total da alçada, mas qualquer compra no nome do cliente pede ao menos a
+  Gerência. Depois de aprovada, a Diretoria pode voltar a compra para a cotação
+  (`suprimentos_reabrir_cotacao`) enquanto nenhum pedido foi confirmado. Devolver volta para cotação; recusar encerra. Aprovar a
   própria requisição é permitido e fica marcado (`proprioRequisitante`).
 - **Funções no banco** — `suprimentos_enviar_aprovacao`,
   `suprimentos_decidir_aprovacao`, `suprimentos_emitir_pedidos`,
   `suprimentos_registrar_recebimento` e `suprimentos_total_escolha`. Travam a
   requisição (`for update`) para dois cliques simultâneos não emitirem pedido
   duas vezes; execução só pela `service_role`.
-- **Pedido** — um por fornecedor (`PED-0001-A`), faturado pela empresa de
-  `ObraFaturamento`, com retrato dos itens em `PedidoCompraItem`. O documento
+- **Pedido** — um por fornecedor (`PED-0001-A`), faturado pela empresa da
+  cotação (padrão: a de `ObraFaturamento`) ou pelo cliente. Nasce "aguardando
+  confirmação": o comprador confirma a compra no fornecedor
+  (`suprimentos_confirmar_compra`) e só então a obra recebe. Retrato dos itens em `PedidoCompraItem`. O documento
   ao fornecedor mostra itens + frete CIF; frete FOB e DIFAL ficam como custo
   interno.
-- **Recebimento** — conforme/inconforme (observação obrigatória) com fotos
-  reduzidas no navegador. Parcial = inconforme, e o pedido aceita novo registro
-  até chegar conforme. A requisição conclui quando nenhum pedido está pendente.
+- **Recebimento** — por item (`RecebimentoItem`): quanto chegou e foi aceito e
+  quanto foi devolvido (`suprimentos_registrar_recebimento_itens`). O devolvido
+  continua pendente para reposição. Situação conforme, parcial ou inconforme
+  (avaria/devolução: observação e foto obrigatórias); o pedido pode ser
+  encerrado com o que chegou. Quem recebe é o usuário logado. A requisição
+  conclui quando nenhum pedido está pendente ou parcial.
 - **Avisos** — sino próprio (`NotificacaoSuprimentos`, ícone de carrinho) ao
   lado do sino do pós-venda.
 - **Storage** — bucket privado **`suprimentos`** (10 MB): documentos assinados

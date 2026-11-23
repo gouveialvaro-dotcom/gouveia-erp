@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos } from "@/lib/suprimentos-auth";
-import { PAPEIS, ROTULO_PAPEL, STATUS_EM_ANDAMENTO, codigoRequisicao } from "@/lib/suprimentos";
+import { PAPEIS, ROTULO_PAPEL, STATUS_EM_ANDAMENTO, codigoRequisicao,
+  nomeCentroCusto,
+} from "@/lib/suprimentos";
 import { formatarData } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,8 @@ function Indicador({ titulo, valor, href }: { titulo: string; valor: number; hre
 }
 
 export default async function PaginaSuprimentos() {
-  const { usuarioId, papeis, ehAdmin, tem } = await contextoSuprimentos();
+  const { usuarioId, papeis, ehAdmin, tem, exigirAba } = await contextoSuprimentos();
+  exigirAba("inicio");
   const comprador = tem("comprador");
 
   const contar = (status: "pendente" | "em_cotacao") =>
@@ -33,7 +36,7 @@ export default async function PaginaSuprimentos() {
   const [minhas, pendentes, emCotacao, revisar] = await Promise.all([
     supabase
       .from("Requisicao")
-      .select("id, numero, status, urgencia, prazoDesejado, obra:Obra(nomeProjeto)")
+      .select("id, numero, status, urgencia, prazoDesejado, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome)")
       .eq("requisitanteId", usuarioId)
       .in("status", STATUS_EM_ANDAMENTO)
       .order("numero", { ascending: false })
@@ -100,7 +103,7 @@ export default async function PaginaSuprimentos() {
                 >
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm font-medium">{codigoRequisicao(r.numero)}</span>
-                    <span className="text-sm text-muted-foreground">{r.obra?.nomeProjeto}</span>
+                    <span className="text-sm text-muted-foreground">{nomeCentroCusto(r)}</span>
                     <BadgeUrgencia urgencia={r.urgencia} />
                   </span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">

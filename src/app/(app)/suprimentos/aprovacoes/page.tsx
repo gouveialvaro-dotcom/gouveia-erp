@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos, parametrosSuprimentos } from "@/lib/suprimentos-auth";
 import {
@@ -7,7 +6,9 @@ import {
   ROTULO_DECISAO,
   ROTULO_NIVEL,
   codigoRequisicao,
+  niveisEmAberto,
   niveisExigidos,
+  nomeCentroCusto,
 } from "@/lib/suprimentos";
 import { moeda } from "@/lib/suprimentos-cotacao";
 import { formatarData, formatarDataHora } from "@/lib/format";
@@ -19,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function PaginaAprovacoes() {
   const contexto = await contextoSuprimentos();
-  if (!contexto.tem("aprovador_gerencia", "aprovador_diretoria")) redirect("/suprimentos");
+  contexto.exigirAba("aprovacoes");
 
   const [{ data: pendentesBrutas }, { data: minhas }, { minimoCotacoes }] = await Promise.all([
     supabase
@@ -27,6 +28,7 @@ export default async function PaginaAprovacoes() {
       .select(
         `id, numero, urgencia, prazoDesejado, valorTotal, nivelAlcada, rodadaAprovacao, requisitanteId, enviadaAprovacaoEm,
          obra:Obra(nomeProjeto),
+         centroCusto:CentroCusto(nome),
          requisitante:Usuario!Requisicao_requisitanteId_fkey(nome),
          comprador:Usuario!Requisicao_compradorId_fkey(nome),
          aprovacoes:Aprovacao(rodada, nivel, aprovadorId),
@@ -37,7 +39,7 @@ export default async function PaginaAprovacoes() {
       .order("enviadaAprovacaoEm"),
     supabase
       .from("Aprovacao")
-      .select("id, decisao, nivel, valorTotal, decididoEm, requisicao:Requisicao(id, numero, obra:Obra(nomeProjeto))")
+      .select("id, decisao, nivel, valorTotal, decididoEm, requisicao:Requisicao(id, numero, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome))")
       .eq("aprovadorId", contexto.usuarioId)
       .neq("nivel", "comprador")
       .order("decididoEm", { ascending: false })
@@ -49,8 +51,13 @@ export default async function PaginaAprovacoes() {
     const daRodada = r.aprovacoes.filter((a) => a.rodada === r.rodadaAprovacao);
     const faltam = niveisExigidos(r.nivelAlcada).filter((n) => !daRodada.some((a) => a.nivel === n));
     const jaDecidi = daRodada.some((a) => a.aprovadorId === contexto.usuarioId);
+    // Na alçada da gerência a Diretoria também pode decidir.
     const minha =
-      !jaDecidi && faltam.some((n) => n !== "comprador" && contexto.tem(PAPEL_DO_NIVEL[n]));
+      !jaDecidi &&
+      niveisEmAberto(
+        r.nivelAlcada,
+        daRodada.map((a) => a.nivel)
+      ).some((n) => contexto.tem(PAPEL_DO_NIVEL[n]));
     return { r, faltam, minha };
   });
   const minhasPendentes = linhas.filter((l) => l.minha);
@@ -70,7 +77,7 @@ export default async function PaginaAprovacoes() {
             <span className="font-mono font-medium">{codigoRequisicao(r.numero)}</span>
             <BadgeUrgencia urgencia={r.urgencia} />
             <span className="min-w-0 flex-1">
-              {r.obra?.nomeProjeto ?? "—"}
+              {nomeCentroCusto(r)}
               <span className="block text-xs text-muted-foreground">
                 {r.requisitante?.nome ?? "—"} · comprador {r.comprador?.nome ?? "—"} · entregar até{" "}
                 {formatarData(r.prazoDesejado)}
@@ -86,6 +93,7 @@ export default async function PaginaAprovacoes() {
               <span className="block font-semibold tabular-nums">{moeda(Number(r.valorTotal))}</span>
               <span className="block text-xs text-muted-foreground">
                 falta {faltam.map((n) => ROTULO_NIVEL[n]).join(" e ")}
+                {r.nivelAlcada === "gerencia" ? " (ou Diretoria)" : ""}
               </span>
             </span>
           </Link>
@@ -118,7 +126,7 @@ export default async function PaginaAprovacoes() {
                 className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm hover:bg-muted"
               >
                 <span className="font-mono">{a.requisicao ? codigoRequisicao(a.requisicao.numero) : "—"}</span>
-                <span className="flex-1 text-muted-foreground">{a.requisicao?.obra?.nomeProjeto ?? "—"}</span>
+                <span className="flex-1 text-muted-foreground">{a.requisicao ? nomeCentroCusto(a.requisicao) : "—"}</span>
                 <Badge variant={a.decisao === "recusada" ? "destructive" : a.decisao === "aprovada" ? "default" : "outline"}>
                   {ROTULO_DECISAO[a.decisao]}
                 </Badge>

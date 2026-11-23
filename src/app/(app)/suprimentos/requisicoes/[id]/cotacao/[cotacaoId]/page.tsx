@@ -9,7 +9,7 @@ export default async function PaginaEditarCotacao({
   params: Promise<{ id: string; cotacaoId: string }>;
 }) {
   const { id, cotacaoId } = await params;
-  const { requisicao, itens, fornecedores, cotacao } = await dadosFormCotacao(id, cotacaoId);
+  const { requisicao, itens, fornecedores, cotacao, faturamento } = await dadosFormCotacao(id, cotacaoId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -24,7 +24,13 @@ export default async function PaginaEditarCotacao({
           ← Cotação
         </Link>
       </div>
-      <CotacaoForm requisicaoId={requisicao.id} cotacao={cotacao} fornecedores={fornecedores} itens={itens} />
+      <CotacaoForm
+        requisicaoId={requisicao.id}
+        cotacao={cotacao}
+        fornecedores={fornecedores}
+        itens={itens}
+        faturamento={faturamento}
+      />
     </div>
   );
 }
