@@ -31,10 +31,12 @@ export type CotacaoMatriz = CotacaoParaCalculo & {
   incideDifal: boolean;
   condicaoPagamento: string;
   prazoEntregaDias: number | null;
-  /** Faturada direto em nome do cliente da obra. */
+  /** Faturada direto em nome de um cliente do cadastro. */
   faturadoCliente: boolean;
   /** Empresa do grupo faturada (nome curto). */
   empresa: string | null;
+  /** Razão social do cliente, quando faturada em nome dele. */
+  cliente: string | null;
   temAutorizacao: boolean;
 };
 
@@ -221,7 +223,7 @@ export function MatrizCotacao({
                   (c: CotacaoMatriz) =>
                     c.faturadoCliente ? (
                       <span>
-                        Cliente{" "}
+                        {c.cliente ?? "Cliente"}{" "}
                         {c.temAutorizacao ? (
                           <a
                             href={`/api/suprimentos/cotacoes/${c.id}/autorizacao`}

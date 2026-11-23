@@ -3,32 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { podeLer, type Modulo, type Perfil } from "@/lib/permissoes";
 
-const ITENS: { titulo: string; href: string; modulo: Modulo }[] = [
-  // Cada ramo tem seu próprio cadastro: energia solar tem unidades e contrato
-  // de manutenção; redes/subestações é só o cadastro de contato.
-  { titulo: "Clientes · Energia solar", href: "/cadastros/clientes/solar", modulo: "clientes" },
-  { titulo: "Clientes · Redes/Subestações", href: "/cadastros/clientes/redes", modulo: "clientes" },
-  { titulo: "Materiais", href: "/cadastros/materiais", modulo: "cadastrosGerais" },
-  { titulo: "Kits", href: "/cadastros/kits", modulo: "cadastrosGerais" },
-  { titulo: "Funções", href: "/cadastros/funcoes", modulo: "cadastrosGerais" },
-  { titulo: "Funcionários", href: "/cadastros/funcionarios", modulo: "cadastrosGerais" },
-  // A frota tem módulo próprio ("veiculos"): quem a mantém é a logística, que
-  // em cadastrosGerais só lê.
-  { titulo: "Veículos", href: "/cadastros/veiculos", modulo: "veiculos" },
-  { titulo: "Tipos de problema", href: "/cadastros/tipos-problema", modulo: "posVenda" },
-  { titulo: "Descrições padrão", href: "/cadastros/descricoes", modulo: "cadastrosGerais" },
-  { titulo: "Parâmetros gerais", href: "/cadastros/parametros", modulo: "cadastrosGerais" },
-];
-
-export function CadastrosSubnav({ perfil }: { perfil: Perfil }) {
+// As abas chegam já filtradas pelo layout (perfil + marcações da pessoa em
+// Administração → Módulos; ver lib/modulos-menu.ts).
+export function CadastrosSubnav({ abas }: { abas: { titulo: string; href: string }[] }) {
   const pathname = usePathname();
-  const itens = ITENS.filter((item) => podeLer(perfil, item.modulo));
 
   return (
-    <nav className="mt-3 flex gap-1 border-b">
-      {itens.map((item) => {
+    <nav className="mt-3 flex flex-wrap gap-1 border-b">
+      {abas.map((item) => {
         const ativo = pathname?.startsWith(item.href);
         return (
           <Link

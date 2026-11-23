@@ -494,7 +494,9 @@ Requisição → cotação → aprovação por alçada → pedido de compra → 
 na obra. Schema em `scripts/sql/015-suprimentos.sql`, que **só cria
 objetos novos** (nada existente é alterado), e nos ajustes da reunião em
 `scripts/sql/016-suprimentos-ajustes.sql` (centro de custo, faturamento,
-recebimento por item, módulos por usuário). Código em
+recebimento por item, módulos por usuário) e
+`scripts/sql/017-centros-custo-cadastro.sql` (cadastro de centros de custo,
+cliente escolhido na cotação, cadastros liberados por pessoa). Código em
 `src/app/(app)/suprimentos`, `src/components/suprimentos` e
 `src/lib/suprimentos*.ts`; impressão do pedido em `/pedidos-compra/[id]`
 (fora do grupo `(app)`, como `/propostas/[id]`).
@@ -507,13 +509,16 @@ recebimento por item, módulos por usuário). Código em
   papel (`PAPEIS_DA_ABA` em `suprimentos-auth.ts`): solicitante vê só
   Requisições; recebedor, Requisições e Recebimentos; comprador, também
   Pedidos, Produtos e Fornecedores; aprovadores, Aprovações e Pedidos.
-- **Módulos por usuário** — em Administração → "Módulos", o admin desmarca os
-  módulos do menu que a pessoa não deve ver (`Usuario.modulosOcultos`, lista
-  das chaves escondidas de `lib/modulos-menu.ts`). Só restringe o que o perfil
-  já permite. Vale no menu, no layout de cada módulo (`exigirModuloVisivel`) e
-  nas ações de Suprimentos.
-- **Destino** — a requisição é de uma obra **ou** de um centro de custo
-  (`CentroCusto`: Sede, Frota, Manutenção). Unidade em lista fixa
+- **Módulos por usuário** — em Administração → "Módulos", o admin marca os
+  módulos do menu e os **tipos de cadastro** que a pessoa vê (`lib/modulos-menu.ts`).
+  Para o que o perfil já dá, desmarcar esconde (`Usuario.modulosOcultos`).
+  Centros de custo não depende do perfil: é liberado por pessoa
+  (`Usuario.modulosLiberados`); o admin vê sempre. Vale no menu, no layout de
+  cada módulo e de cada cadastro (`exigirModuloVisivel`,
+  `exigirCadastroVisivel`) e nas ações de Suprimentos e de centros de custo.
+- **Destino** — a requisição aponta para um centro de custo de
+  Cadastros → Centros de custo (`CentroCusto`, com código opcional). As
+  requisições antigas, de antes do 017, continuam com a obra (`obraId`). Unidade em lista fixa
   (`UNIDADES_REQUISICAO`) e até 3 fotos por item (`RequisicaoItemFoto`).
 - **Catálogo** — `Produto` (chave de duplicidade `chaveDescricao`: maiúsculas,
   sem acento) com códigos do Conta Azul em `ProdutoCodigoExterno`, importados
@@ -524,7 +529,8 @@ recebimento por item, módulos por usuário). Código em
   item (compra dividida) ou "tudo de um fornecedor". Abaixo de
   `minimoCotacoes` segue, com alerta para comprador, requisitante e aprovadores.
   O comprador escolhe o CNPJ faturado (`Cotacao.empresaId`) ou fatura em nome
-  do cliente da obra, com autorização anexada (OC ou print). Pagamento em forma,
+  de um cliente do cadastro (`Cotacao.clienteId`, copiado para o pedido), com
+  autorização anexada (OC ou print). Pagamento em forma,
   prazo e parcelas (`textoCondicaoPagamento`).
 - **Alçada** — total = itens + frete + DIFAL de cada fornecedor usado. Até
   `limiteComprador` (R$ 500) a remessa já fecha a compra; até `limiteGerencia`

@@ -43,7 +43,7 @@ type ItemNav = {
 };
 
 const ITENS: ItemNav[] = [
-  { titulo: "Cadastros", href: "/cadastros", icone: Users, modulos: ["clientes", "cadastrosGerais"], chave: "cadastros" },
+  { titulo: "Cadastros", href: "/cadastros", icone: Users, modulos: ["clientes", "cadastrosGerais"] },
   { titulo: "Orçamentos", href: "/orcamentos", icone: Calculator, modulos: ["orcamentos"], chave: "orcamentos" },
   { titulo: "CRM / Propostas", href: "/crm", icone: Kanban, modulos: ["crm"], chave: "crm" },
   { titulo: "Pós-venda", href: "/pos-venda", icone: LifeBuoy, modulos: ["posVenda"], chave: "posVenda" },
@@ -76,13 +76,24 @@ const ITENS: ItemNav[] = [
   },
 ];
 
-export function AppSidebar({ perfil, ocultos = [] }: { perfil: Perfil; ocultos?: ChaveMenu[] }) {
+export function AppSidebar({
+  perfil,
+  ocultos = [],
+  mostrarCadastros,
+}: {
+  perfil: Perfil;
+  ocultos?: ChaveMenu[];
+  /** Cadastros aparece quando a pessoa vê ao menos um tipo de cadastro — o que
+   *  depende do perfil e das marcações dela, não de um módulo só. */
+  mostrarCadastros: boolean;
+}) {
   const pathname = usePathname();
 
-  const itensVisiveis = ITENS.filter(
-    (item) =>
-      item.modulos.some((modulo) => podeLer(perfil, modulo)) &&
-      !(item.chave && ocultos.includes(item.chave))
+  const itensVisiveis = ITENS.filter((item) =>
+    item.href === "/cadastros"
+      ? mostrarCadastros
+      : item.modulos.some((modulo) => podeLer(perfil, modulo)) &&
+        !(item.chave && ocultos.includes(item.chave))
   );
 
   // Só o item mais específico acende. Sem isso "/pos-venda/whatsapp" marcaria

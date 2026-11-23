@@ -15,7 +15,7 @@ export async function carregarCotacoes(requisicaoId: string) {
     supabase
       .from("Cotacao")
       .select(
-        "*, fornecedor:Fornecedor(razaoSocial, nomeFantasia), empresa:EmpresaGrupo(razaoSocial, nomeFantasia), precos:CotacaoItem(id, requisicaoItemId, precoUnitario)"
+        "*, fornecedor:Fornecedor(razaoSocial, nomeFantasia), empresa:EmpresaGrupo(razaoSocial, nomeFantasia), cliente:Cliente(razaoSocial), precos:CotacaoItem(id, requisicaoItemId, precoUnitario)"
       )
       .eq("requisicaoId", requisicaoId)
       .order("criadoEm"),
@@ -39,6 +39,7 @@ export async function carregarCotacoes(requisicaoId: string) {
     prazoEntregaDias: c.prazoEntregaDias,
     faturadoCliente: c.faturadoCliente,
     empresa: c.empresa ? c.empresa.nomeFantasia || c.empresa.razaoSocial : null,
+    cliente: c.cliente?.razaoSocial ?? null,
     temAutorizacao: Boolean(c.autorizacaoCaminho),
   }));
 

@@ -28,6 +28,7 @@ export type UsuarioLinhaValores = {
   telefone: string | null;
   recebeProgramacao: boolean;
   modulosOcultos: string[];
+  modulosLiberados: string[];
 };
 
 export function UsuarioLinha({
@@ -86,6 +87,7 @@ export function UsuarioLinha({
           nome={usuario.nome}
           perfil={usuario.perfil}
           ocultos={usuario.modulosOcultos}
+          liberados={usuario.modulosLiberados}
         />
       </div>
 

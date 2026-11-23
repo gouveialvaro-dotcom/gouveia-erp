@@ -6,7 +6,12 @@ import {
   atualizarModulosUsuario,
   type EstadoFormUsuario,
 } from "@/app/(app)/administracao/actions";
-import { modulosDoPerfil } from "@/lib/modulos-menu";
+import {
+  cadastrosConfiguraveis,
+  cadastrosVisiveis,
+  chaveCadastro,
+  modulosDoPerfil,
+} from "@/lib/modulos-menu";
 import type { Perfil } from "@/lib/permissoes";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,23 +25,29 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Caixa de marcação dos módulos que a pessoa vê. Só aparecem os módulos que o
-// perfil dela já lê: aqui se restringe, não se libera. Administração não entra
-// na lista porque é por ela que cada um troca a própria senha.
+// Caixa de marcação dos módulos e dos tipos de cadastro que a pessoa vê. Para
+// o que o perfil já dá, desmarcar esconde. Centros de custo não depende do
+// perfil: é liberado aqui, pessoa a pessoa. Administração não entra na lista
+// porque é por ela que cada um troca a própria senha.
 export function ModulosUsuarioDialog({
   usuarioId,
   nome,
   perfil,
   ocultos,
+  liberados,
 }: {
   usuarioId: string;
   nome: string;
   perfil: Perfil;
   ocultos: string[];
+  liberados: string[];
 }) {
   const [aberto, setAberto] = useState(false);
-  const disponiveis = modulosDoPerfil(perfil);
-  const escondidos = disponiveis.filter((m) => ocultos.includes(m.chave)).length;
+  const modulos = modulosDoPerfil(perfil);
+  const cadastros = cadastrosConfiguraveis(perfil);
+  const visiveis = new Set(cadastrosVisiveis(perfil, ocultos, liberados).map((c) => c.tipo));
+  const restritos =
+    modulos.filter((m) => ocultos.includes(m.chave)).length + cadastros.filter((c) => !visiveis.has(c.tipo)).length;
 
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
@@ -48,26 +59,29 @@ export function ModulosUsuarioDialog({
             variant="link"
             size="sm"
             className="h-auto px-0 text-xs"
-            title={escondidos ? `${escondidos} módulo(s) escondido(s)` : "Vê todos os módulos do perfil"}
+            title={restritos ? `${restritos} item(ns) sem acesso` : "Vê tudo o que o perfil permite"}
           >
-            Módulos{escondidos ? ` (−${escondidos})` : ""}
+            Módulos{restritos ? ` (−${restritos})` : ""}
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Módulos de {nome}</DialogTitle>
           <DialogDescription>
-            Desmarque o que esta pessoa não deve ver no menu. A lista mostra só o que o perfil
-            dela permite; dentro de Suprimentos, as abas seguem os papéis definidos em
+            Marque o que esta pessoa pode ver. A lista mostra só o que o perfil dela permite, mais os
+            cadastros liberados por pessoa. Dentro de Suprimentos, as abas seguem os papéis de
             Suprimentos → Configuração.
           </DialogDescription>
         </DialogHeader>
         <FormModulos
           usuarioId={usuarioId}
           nome={nome}
-          disponiveis={disponiveis}
+          perfil={perfil}
+          modulos={modulos}
+          cadastros={cadastros}
           ocultos={ocultos}
+          visiveis={visiveis}
           aoSalvar={() => setAberto(false)}
         />
       </DialogContent>
@@ -78,14 +92,20 @@ export function ModulosUsuarioDialog({
 function FormModulos({
   usuarioId,
   nome,
-  disponiveis,
+  perfil,
+  modulos,
+  cadastros,
   ocultos,
+  visiveis,
   aoSalvar,
 }: {
   usuarioId: string;
   nome: string;
-  disponiveis: ReturnType<typeof modulosDoPerfil>;
+  perfil: Perfil;
+  modulos: ReturnType<typeof modulosDoPerfil>;
+  cadastros: ReturnType<typeof cadastrosConfiguraveis>;
   ocultos: string[];
+  visiveis: Set<string>;
   aoSalvar: () => void;
 }) {
   const salvar = atualizarModulosUsuario.bind(null, usuarioId);
@@ -99,23 +119,48 @@ function FormModulos({
   }, [estado, nome, aoSalvar]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      {disponiveis.length === 0 ? (
-        <p className="text-sm text-muted-foreground">O perfil desta pessoa não tem módulos para escolher.</p>
-      ) : (
+    <form action={formAction} className="flex flex-col gap-4">
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-medium">Módulos</legend>
+        {modulos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">O perfil desta pessoa não tem módulos para escolher.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {modulos.map((m) => (
+              <Label key={m.chave} className="flex items-center gap-2 text-sm font-normal">
+                <Checkbox name="modulo" value={m.chave} defaultChecked={!ocultos.includes(m.chave)} />
+                {m.titulo}
+              </Label>
+            ))}
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-medium">Cadastros</legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {disponiveis.map((m) => (
-            <Label key={m.chave} className="flex items-center gap-2 text-sm font-normal">
-              <Checkbox name="modulo" value={m.chave} defaultChecked={!ocultos.includes(m.chave)} />
-              {m.titulo}
-            </Label>
-          ))}
+          {cadastros.map((c) => {
+            // O admin vê todos os cadastros; não há o que desmarcar no liberado por pessoa.
+            const fixo = !c.modulo && perfil === "admin";
+            return (
+              <Label key={c.tipo} className="flex items-center gap-2 text-sm font-normal">
+                <Checkbox
+                  name="modulo"
+                  value={chaveCadastro(c.tipo)}
+                  defaultChecked={visiveis.has(c.tipo)}
+                  disabled={fixo}
+                />
+                {c.titulo}
+                {!c.modulo && !fixo && <span className="text-xs text-muted-foreground">(por pessoa)</span>}
+              </Label>
+            );
+          })}
         </div>
-      )}
+      </fieldset>
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
 
-      <Button type="submit" disabled={pendente || disponiveis.length === 0}>
+      <Button type="submit" disabled={pendente}>
         {pendente ? "Salvando..." : "Salvar módulos"}
       </Button>
     </form>

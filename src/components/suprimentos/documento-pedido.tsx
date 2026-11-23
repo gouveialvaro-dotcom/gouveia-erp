@@ -53,10 +53,10 @@ export function DocumentoPedido({ pedido }: { pedido: PedidoCarregado }) {
         <Bloco titulo="Faturar para">
           {pedido.faturadoCliente ? (
             <>
-              <span className="font-medium">{r.obra?.cliente?.razaoSocial ?? "Cliente da obra"}</span>
-              {r.obra?.cliente?.cnpj && (
+              <span className="font-medium">{pedido.cliente?.razaoSocial ?? "Cliente"}</span>
+              {pedido.cliente?.cnpj && (
                 <span>
-                  {rotuloDocumento(r.obra.cliente.cnpj)} {formatarCnpj(r.obra.cliente.cnpj)}
+                  {rotuloDocumento(pedido.cliente.cnpj)} {formatarCnpj(pedido.cliente.cnpj)}
                 </span>
               )}
               <span className="text-neutral-600">Faturamento direto em nome do cliente</span>

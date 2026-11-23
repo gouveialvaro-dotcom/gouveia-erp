@@ -5,7 +5,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Topbar } from "@/components/topbar";
 import { ProvedorTituloPagina } from "@/components/titulo-pagina";
 import { podeLer, type Perfil } from "@/lib/permissoes";
-import { modulosOcultosAtuais } from "@/lib/modulos-visiveis";
+import { acessosAtuais } from "@/lib/modulos-visiveis";
+import { cadastrosVisiveis, ehChaveMenu } from "@/lib/modulos-menu";
 
 export default async function AppLayout({
   children,
@@ -19,11 +20,13 @@ export default async function AppLayout({
 
   const perfil = session.user.perfil as Perfil;
   // Módulos que o administrador escondeu desta pessoa (Administração).
-  const ocultos = await modulosOcultosAtuais();
+  const acessos = await acessosAtuais();
+  const ocultos = acessos.ocultos.filter(ehChaveMenu);
+  const temCadastros = cadastrosVisiveis(perfil, acessos.ocultos, acessos.liberados).length > 0;
 
   return (
     <SidebarProvider>
-      <AppSidebar perfil={perfil} ocultos={ocultos} />
+      <AppSidebar perfil={perfil} ocultos={ocultos} mostrarCadastros={temCadastros} />
       <SidebarInset>
         <ProvedorTituloPagina>
         <Topbar

@@ -54,13 +54,15 @@ export type CotacaoInicial = {
   precos: Record<string, number>;
 };
 
-/** Para quem a nota sai: um CNPJ do grupo ou o cliente da obra. */
+/** Para quem a nota sai: um CNPJ do grupo ou um cliente do cadastro. */
 export type FaturamentoOpcoes = {
   empresas: { id: string; nome: string }[];
-  /** Empresa configurada para a obra (sugestão inicial). */
+  /** Empresa sugerida de início (requisições antigas, de obra). */
   empresaPadraoId: string | null;
-  /** Nome do cliente da obra; nulo quando o centro de custo não é obra com cliente. */
-  cliente: string | null;
+  /** Clientes do cadastro, para a compra em nome do cliente. */
+  clientes: { id: string; nome: string }[];
+  /** Cliente já escolhido (ou o da obra, nas requisições antigas). */
+  clientePadraoId: string | null;
 };
 
 type ItemCotado = { id: string; ordem: number; descricao: string; quantidade: number; unidade: string };
@@ -105,6 +107,7 @@ export function CotacaoForm({
     return empresa ? `empresa:${empresa}` : "";
   });
   const paraCliente = faturarPara === "cliente";
+  const [clienteId, setClienteId] = useState(faturamento.clientePadraoId ?? "");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | "">(cotacao?.formaPagamento ?? "");
   const [prazoPagamento, setPrazoPagamento] = useState(br(cotacao?.prazoPagamentoDias, 0));
   const [parcelas, setParcelas] = useState(br(cotacao?.parcelas ?? 1, 0));
@@ -247,9 +250,7 @@ export function CotacaoForm({
                 {e.nome}
               </option>
             ))}
-            {faturamento.cliente && (
-              <option value="cliente">Em nome do cliente — {faturamento.cliente}</option>
-            )}
+            {faturamento.clientes.length > 0 && <option value="cliente">Em nome de um cliente</option>}
           </SelectNativo>
           {faturamento.empresas.length === 0 && (
             <span className="text-xs text-amber-700 dark:text-amber-300">
@@ -259,7 +260,27 @@ export function CotacaoForm({
         </div>
         {paraCliente && (
           <div className="flex flex-col gap-1.5 rounded-md border border-sky-300 bg-sky-50 p-3 text-sm sm:col-span-3 dark:border-sky-700 dark:bg-sky-950">
-            <Label htmlFor="autorizacao">Autorização do cliente</Label>
+            <Label htmlFor="clienteId">Cliente</Label>
+            <SelectNativo
+              id="clienteId"
+              name="clienteId"
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              required
+              className="h-10 bg-background"
+            >
+              <option value="" disabled>
+                Selecione o cliente (digite para buscar)
+              </option>
+              {faturamento.clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </SelectNativo>
+            <Label htmlFor="autorizacao" className="mt-2">
+              Autorização do cliente
+            </Label>
             <span className="text-xs text-muted-foreground">
               Ordem de compra, e-mail ou print da conversa em que o cliente autoriza. Obrigatória: a compra em
               nome do cliente passa só pela Gerência, que confere este documento.

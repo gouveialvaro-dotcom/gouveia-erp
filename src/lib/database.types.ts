@@ -709,6 +709,7 @@ export type Database = {
       CentroCusto: {
         Row: {
           ativo: boolean
+          codigo: string | null
           criadoEm: string
           criadoPorId: string | null
           descricao: string | null
@@ -717,6 +718,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          codigo?: string | null
           criadoEm?: string
           criadoPorId?: string | null
           descricao?: string | null
@@ -725,6 +727,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          codigo?: string | null
           criadoEm?: string
           criadoPorId?: string | null
           descricao?: string | null
@@ -743,6 +746,7 @@ export type Database = {
       }
       Cotacao: {
         Row: {
+          clienteId: string | null
           empresaId: string | null
           faturadoCliente: boolean
           autorizacaoCaminho: string | null
@@ -768,6 +772,7 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          clienteId?: string | null
           empresaId?: string | null
           faturadoCliente?: boolean
           autorizacaoCaminho?: string | null
@@ -793,6 +798,7 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          clienteId?: string | null
           empresaId?: string | null
           faturadoCliente?: boolean
           autorizacaoCaminho?: string | null
@@ -818,6 +824,13 @@ export type Database = {
           vendedor?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "Cotacao_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "Cotacao_empresaId_fkey"
             columns: ["empresaId"]
@@ -2428,6 +2441,7 @@ export type Database = {
       }
       PedidoCompra: {
         Row: {
+          clienteId: string | null
           faturadoCliente: boolean
           formaPagamento: Database["public"]["Enums"]["FormaPagamento"] | null
           prazoPagamentoDias: number | null
@@ -2453,6 +2467,7 @@ export type Database = {
           valorTotal: number
         }
         Insert: {
+          clienteId?: string | null
           faturadoCliente?: boolean
           formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
           prazoPagamentoDias?: number | null
@@ -2478,6 +2493,7 @@ export type Database = {
           valorTotal: number
         }
         Update: {
+          clienteId?: string | null
           faturadoCliente?: boolean
           formaPagamento?: Database["public"]["Enums"]["FormaPagamento"] | null
           prazoPagamentoDias?: number | null
@@ -2503,6 +2519,13 @@ export type Database = {
           valorTotal?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "PedidoCompra_clienteId_fkey"
+            columns: ["clienteId"]
+            isOneToOne: false
+            referencedRelation: "Cliente"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "PedidoCompra_compraConfirmadaPorId_fkey"
             columns: ["compraConfirmadaPorId"]
@@ -3223,7 +3246,7 @@ export type Database = {
           motivoCancelamento?: string | null
           nivelAlcada?: Database["public"]["Enums"]["NivelAlcada"] | null
           numero?: number
-          obraId: string | null
+          obraId?: string | null
           observacoes?: string | null
           prazoDesejado: string
           requisitanteId: string
@@ -3589,6 +3612,7 @@ export type Database = {
       }
       Usuario: {
         Row: {
+          modulosLiberados: string[]
           modulosOcultos: string[]
           ativo: boolean
           criadoEm: string
@@ -3604,6 +3628,7 @@ export type Database = {
           telefone: string | null
         }
         Insert: {
+          modulosLiberados?: string[]
           modulosOcultos?: string[]
           ativo?: boolean
           criadoEm?: string
@@ -3619,6 +3644,7 @@ export type Database = {
           telefone?: string | null
         }
         Update: {
+          modulosLiberados?: string[]
           modulosOcultos?: string[]
           ativo?: boolean
           criadoEm?: string
