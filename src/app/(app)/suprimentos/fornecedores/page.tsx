@@ -20,7 +20,8 @@ export default async function PaginaFornecedores({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { tem } = await contextoSuprimentos();
+  const { tem, exigirAba } = await contextoSuprimentos();
+  exigirAba("fornecedores");
   const podeEditar = tem("comprador");
   const { q } = await searchParams;
   const termo = termoBusca(q);

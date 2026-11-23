@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { CadastrosSubnav } from "@/components/cadastros/subnav";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
+import { exigirModuloVisivel } from "@/lib/modulos-visiveis";
 import { TituloPagina } from "@/components/titulo-pagina";
 
 export default async function CadastrosLayout({
@@ -10,6 +11,7 @@ export default async function CadastrosLayout({
   children: React.ReactNode;
 }) {
   const { perfil } = await acessoModulo("clientes");
+  await exigirModuloVisivel("cadastros");
 
   if (
     !podeLer(perfil, "clientes") &&

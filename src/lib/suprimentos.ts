@@ -14,6 +14,7 @@ export type NivelAlcada = Enums["NivelAlcada"];
 export type DecisaoAprovacao = Enums["DecisaoAprovacao"];
 export type StatusEntregaPedido = Enums["StatusEntregaPedido"];
 export type SituacaoRecebimento = Enums["SituacaoRecebimento"];
+export type FormaPagamento = Enums["FormaPagamento"];
 
 export const ROTULO_PAPEL: Record<PapelSuprimentos, string> = {
   comprador: "Comprador",
@@ -24,9 +25,10 @@ export const ROTULO_PAPEL: Record<PapelSuprimentos, string> = {
 
 export const DESCRICAO_PAPEL: Record<PapelSuprimentos, string> = {
   comprador: "Cota, escolhe fornecedores, aprova até o limite dele e emite pedidos.",
-  aprovador_gerencia: "Aprova compras acima do limite do comprador.",
-  aprovador_diretoria: "Dá a segunda aprovação nas compras acima do limite da gerência.",
-  recebedor: "Registra na obra se o material chegou conforme ou não.",
+  aprovador_gerencia: "Aprova compras acima do limite do comprador e as faturadas para o cliente.",
+  aprovador_diretoria:
+    "Dá a segunda aprovação acima do limite da gerência, pode aprovar no lugar da gerência e voltar uma compra aprovada para a cotação.",
+  recebedor: "Almoxarife: registra na obra o que chegou, por item.",
 };
 
 export const PAPEIS: PapelSuprimentos[] = [
@@ -77,9 +79,46 @@ export const ROTULO_DECISAO: Record<DecisaoAprovacao, string> = {
 
 export const ROTULO_STATUS_ENTREGA: Record<StatusEntregaPedido, string> = {
   pendente: "Entrega pendente",
+  recebido_parcial: "Recebido parcial",
   recebido_conforme: "Recebido conforme",
-  recebido_inconforme: "Recebido inconforme",
+  recebido_inconforme: "Recebido com ocorrência",
 };
+
+/** Pedido emitido que o comprador ainda não fechou no fornecedor. */
+export const ROTULO_AGUARDANDO_COMPRA = "Aguardando confirmação da compra";
+
+export const ROTULO_SITUACAO_RECEBIMENTO: Record<SituacaoRecebimento, string> = {
+  conforme: "Conforme",
+  parcial: "Parcial",
+  inconforme: "Inconforme",
+};
+
+export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
+  boleto: "Boleto",
+  pix: "Pix",
+  transferencia: "Transferência",
+  cartao_credito: "Cartão de crédito",
+  cartao_debito: "Cartão de débito",
+  dinheiro: "Dinheiro",
+  cheque: "Cheque",
+};
+
+export const FORMAS_PAGAMENTO = Object.keys(ROTULO_FORMA_PAGAMENTO) as FormaPagamento[];
+
+/** Texto da condição de pagamento, montado dos campos (vai para o pedido impresso). */
+export function textoCondicaoPagamento(c: {
+  formaPagamento: FormaPagamento | null;
+  prazoPagamentoDias: number | null;
+  parcelas: number | null;
+}) {
+  if (!c.formaPagamento) return "";
+  const partes = [ROTULO_FORMA_PAGAMENTO[c.formaPagamento]];
+  const parcelas = c.parcelas ?? 1;
+  const prazo = c.prazoPagamentoDias ?? 0;
+  if (parcelas > 1) partes.push(`${parcelas}x`);
+  partes.push(prazo === 0 ? (parcelas > 1 ? "1ª à vista" : "à vista") : `${parcelas > 1 ? "1ª em " : ""}${prazo} dias`);
+  return partes.join(" · ");
+}
 
 export const UFS = [
   "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA",
@@ -88,6 +127,21 @@ export const UFS = [
 
 /** UF da Gouveia. Fornecedor de fora dela acende o alerta de DIFAL na cotação. */
 export const UF_EMPRESA = "RN";
+
+/**
+ * Unidades da requisição: lista fechada, para não haver "SACO", "SC" e "sc"
+ * para a mesma coisa nos relatórios. M³ entra porque o catálogo já usa
+ * (areia, brita).
+ */
+export const UNIDADES_REQUISICAO: { valor: string; rotulo: string }[] = [
+  { valor: "UN", rotulo: "Unidade" },
+  { valor: "SC", rotulo: "Saco" },
+  { valor: "M", rotulo: "Metro" },
+  { valor: "M2", rotulo: "Metro quadrado (m²)" },
+  { valor: "M3", rotulo: "Metro cúbico (m³)" },
+  { valor: "KG", rotulo: "Quilo (kg)" },
+  { valor: "T", rotulo: "Tonelada" },
+];
 
 export const UNIDADES_SUGERIDAS = [
   "UN", "PC", "CX", "PCT", "KG", "G", "T", "M", "M2", "M3", "L", "ML",
@@ -230,11 +284,39 @@ export function nivelExigido(
   return "diretoria";
 }
 
-/** Níveis que precisam aprovar uma compra (acima da gerência, os dois). */
+/**
+ * Níveis que precisam aprovar uma compra (acima da gerência, os dois). Na
+ * alçada da gerência, a diretoria também pode decidir (no lugar dela).
+ */
 export function niveisExigidos(nivel: NivelAlcada | null | undefined): NivelAlcada[] {
   if (nivel === "gerencia") return ["gerencia"];
   if (nivel === "diretoria") return ["gerencia", "diretoria"];
   return [];
+}
+
+/**
+ * Em quais níveis ainda dá para decidir nesta rodada. Na alçada da gerência
+ * basta uma decisão, da gerência ou da diretoria; na da diretoria, cada nível
+ * decide uma vez (e por pessoas diferentes — conferido no banco).
+ */
+export function niveisEmAberto(
+  nivelAlcada: NivelAlcada | null | undefined,
+  decididos: NivelAlcada[]
+): ("gerencia" | "diretoria")[] {
+  if (nivelAlcada === "gerencia") return decididos.length > 0 ? [] : ["gerencia", "diretoria"];
+  if (nivelAlcada === "diretoria") {
+    return (["gerencia", "diretoria"] as const).filter((n) => !decididos.includes(n));
+  }
+  return [];
+}
+
+/** Nome do centro de custo de uma requisição: a obra ou o centro cadastrado. */
+export function nomeCentroCusto(r: {
+  obra?: { nomeProjeto: string | null } | null;
+  centroCusto?: { nome: string } | null;
+}) {
+  if (r.centroCusto) return r.centroCusto.nome;
+  return r.obra?.nomeProjeto ?? "Obra sem nome";
 }
 
 /** Papel que decide em cada nível de aprovação. */
@@ -264,4 +346,6 @@ export const ROTULO_AVISO: Record<string, string> = {
   requisicao_cancelada: "Cancelada",
   pedido_emitido: "Pedido emitido",
   recebimento_registrado: "Recebimento",
+  compra_confirmada: "Compra confirmada",
+  cotacao_reaberta: "Voltou para cotação",
 };

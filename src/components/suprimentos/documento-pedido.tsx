@@ -1,4 +1,10 @@
-import { ROTULO_FRETE, codigoRequisicao, formatarCnpj, rotuloDocumento } from "@/lib/suprimentos";
+import {
+  ROTULO_FRETE,
+  codigoRequisicao,
+  formatarCnpj,
+  rotuloDocumento,
+  textoCondicaoPagamento,
+} from "@/lib/suprimentos";
 import { moeda, precoUnitarioBr } from "@/lib/suprimentos-cotacao";
 import { formatarData, formatarDataHora } from "@/lib/format";
 import type { PedidoCarregado } from "@/lib/suprimentos-pedidos";
@@ -45,13 +51,23 @@ export function DocumentoPedido({ pedido }: { pedido: PedidoCarregado }) {
 
       <div className="grid gap-3 sm:grid-cols-2 print:grid-cols-2">
         <Bloco titulo="Faturar para">
-          {e ? (
+          {pedido.faturadoCliente ? (
+            <>
+              <span className="font-medium">{r.obra?.cliente?.razaoSocial ?? "Cliente da obra"}</span>
+              {r.obra?.cliente?.cnpj && (
+                <span>
+                  {rotuloDocumento(r.obra.cliente.cnpj)} {formatarCnpj(r.obra.cliente.cnpj)}
+                </span>
+              )}
+              <span className="text-neutral-600">Faturamento direto em nome do cliente</span>
+            </>
+          ) : e ? (
             <>
               <span className="font-medium">{e.razaoSocial}</span>
               <span>CNPJ {formatarCnpj(e.cnpj)}</span>
             </>
           ) : (
-            <span className="text-amber-700">Empresa de faturamento não definida para esta obra.</span>
+            <span className="text-amber-700">Empresa de faturamento não definida.</span>
           )}
         </Bloco>
         <Bloco titulo="Fornecedor">
@@ -66,13 +82,21 @@ export function DocumentoPedido({ pedido }: { pedido: PedidoCarregado }) {
           )}
         </Bloco>
         <Bloco titulo="Entrega">
-          <span className="font-medium">Obra: {r.obra?.nomeProjeto ?? "—"}</span>
-          {r.obra?.cliente?.razaoSocial && <span className="text-neutral-600">{r.obra.cliente.razaoSocial}</span>}
+          {r.centroCusto ? (
+            <span className="font-medium">Centro de custo: {r.centroCusto.nome}</span>
+          ) : (
+            <>
+              <span className="font-medium">Obra: {r.obra?.nomeProjeto ?? "—"}</span>
+              {r.obra?.cliente?.razaoSocial && (
+                <span className="text-neutral-600">{r.obra.cliente.razaoSocial}</span>
+              )}
+            </>
+          )}
           <span>Solicitante: {r.requisitante?.nome ?? "—"}</span>
           {r.urgencia === "emergencial" && <span className="font-semibold text-red-700">URGENTE — emergencial</span>}
         </Bloco>
         <Bloco titulo="Condições">
-          <span>Pagamento: {pedido.condicaoPagamento}</span>
+          <span>Pagamento: {textoCondicaoPagamento(pedido) || pedido.condicaoPagamento}</span>
           <span>Frete: {freteTexto}</span>
           <span>
             Prazo:{" "}

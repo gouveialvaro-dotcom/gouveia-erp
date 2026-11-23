@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { contextoSuprimentos } from "@/lib/suprimentos-auth";
-import { ROTULO_STATUS_ENTREGA, codigoRequisicao, hojeSaoPaulo, somarDiasIso, type StatusEntregaPedido } from "@/lib/suprimentos";
+import { ROTULO_STATUS_ENTREGA, codigoRequisicao, hojeSaoPaulo, somarDiasIso, type StatusEntregaPedido,
+  nomeCentroCusto,
+} from "@/lib/suprimentos";
 import { moeda } from "@/lib/suprimentos-cotacao";
 import { termoBusca } from "@/lib/suprimentos-busca";
 import { formatarData } from "@/lib/format";
@@ -27,23 +29,30 @@ export default async function PaginaPedidos({
 }: {
   searchParams: Promise<{ entrega?: string; q?: string }>;
 }) {
-  const { usuarioId, veTodasRequisicoes } = await contextoSuprimentos();
+  const { usuarioId, veTodasRequisicoes, exigirAba } = await contextoSuprimentos();
+  exigirAba("pedidos");
   const filtros = await searchParams;
-  const entrega = filtros.entrega ?? "pendente";
+  const entrega = filtros.entrega ?? "abertos";
   const termo = termoBusca(filtros.q);
 
   let consulta = supabase
     .from("PedidoCompra")
     .select(
-      `id, codigo, statusEntrega, valorTotal, valorItens, valorFrete, frete, emitidoEm, prazoEntregaDias,
+      `id, codigo, statusEntrega, compraConfirmadaEm, valorTotal, valorItens, valorFrete, frete, emitidoEm, prazoEntregaDias,
        fornecedor:Fornecedor!inner(razaoSocial, nomeFantasia),
-       requisicao:Requisicao!inner(id, numero, urgencia, requisitanteId, obra:Obra(nomeProjeto))`
+       requisicao:Requisicao!inner(id, numero, urgencia, requisitanteId, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome))`
     )
-    .order("emitidoEm", { ascending: entrega !== "pendente" ? false : true })
+    .order("emitidoEm", { ascending: entrega === "abertos" || entrega === "pendente" || entrega === "a_comprar" })
     .limit(200);
 
   if (!veTodasRequisicoes) consulta = consulta.eq("requisicao.requisitanteId", usuarioId);
-  if (entrega in ROTULO_STATUS_ENTREGA) consulta = consulta.eq("statusEntrega", entrega as StatusEntregaPedido);
+  if (entrega === "abertos") consulta = consulta.in("statusEntrega", ["pendente", "recebido_parcial"]);
+  else if (entrega === "a_comprar") consulta = consulta.is("compraConfirmadaEm", null);
+  else if (entrega === "pendente") {
+    consulta = consulta.not("compraConfirmadaEm", "is", null).in("statusEntrega", ["pendente", "recebido_parcial"]);
+  } else if (entrega in ROTULO_STATUS_ENTREGA) {
+    consulta = consulta.eq("statusEntrega", entrega as StatusEntregaPedido);
+  }
   if (termo) {
     consulta = consulta.or(
       `razaoSocial.ilike.%${termo}%,nomeFantasia.ilike.%${termo}%`,
@@ -60,9 +69,11 @@ export default async function PaginaPedidos({
       <form className="flex flex-wrap items-center gap-2">
         <Input name="q" defaultValue={filtros.q ?? ""} placeholder="Fornecedor" className="w-56" />
         <SelectNativo name="entrega" defaultValue={entrega} className="w-48">
-          <option value="pendente">Aguardando entrega</option>
+          <option value="abertos">Em aberto</option>
+          <option value="a_comprar">Aguardando confirmação da compra</option>
+          <option value="pendente">Entrega pendente</option>
           <option value="recebido_conforme">Recebidos conforme</option>
-          <option value="recebido_inconforme">Recebidos inconforme</option>
+          <option value="recebido_inconforme">Encerrados com pendência</option>
           <option value="todos">Todos</option>
         </SelectNativo>
         <Button type="submit" variant="outline">
@@ -76,7 +87,7 @@ export default async function PaginaPedidos({
             <TableRow>
               <TableHead>Pedido</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead>Obra</TableHead>
+              <TableHead>Centro de custo</TableHead>
               <TableHead>Emitido</TableHead>
               <TableHead>Previsão</TableHead>
               <TableHead className="text-right">Custo total</TableHead>
@@ -103,7 +114,7 @@ export default async function PaginaPedidos({
                   </TableCell>
                   <TableCell className="whitespace-normal">
                     <span className="flex flex-wrap items-center gap-1">
-                      {p.requisicao.obra?.nomeProjeto ?? "—"}
+                      {nomeCentroCusto(p.requisicao)}
                       <BadgeUrgencia urgencia={p.requisicao.urgencia} />
                     </span>
                   </TableCell>
@@ -114,7 +125,7 @@ export default async function PaginaPedidos({
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{moeda(Number(p.valorTotal))}</TableCell>
                   <TableCell>
-                    <BadgeStatusEntrega status={p.statusEntrega} />
+                    <BadgeStatusEntrega status={p.statusEntrega} compraConfirmada={Boolean(p.compraConfirmadaEm)} />
                   </TableCell>
                 </TableRow>
               );

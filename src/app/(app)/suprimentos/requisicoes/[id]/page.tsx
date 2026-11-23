@@ -9,6 +9,7 @@ import {
   STATUS_COTACAO_ABERTA,
   PAPEL_DO_NIVEL,
   codigoRequisicao,
+  niveisEmAberto,
   niveisExigidos,
 } from "@/lib/suprimentos";
 import { formatarData, formatarDataHora } from "@/lib/format";
@@ -23,6 +24,7 @@ import { AlertaMinimoCotacoes } from "@/components/suprimentos/alerta-cotacoes";
 import { MatrizCotacao } from "@/components/suprimentos/matriz-cotacao";
 import { HistoricoAprovacoes } from "@/components/suprimentos/historico-aprovacoes";
 import { PainelDecisao } from "@/components/suprimentos/painel-decisao";
+import { ReabrirCotacao } from "@/components/suprimentos/reabrir-cotacao";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -51,10 +53,11 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
     .select(
       `*,
        obra:Obra(nomeProjeto, cliente:Cliente(razaoSocial)),
+       centroCusto:CentroCusto(nome),
        requisitante:Usuario!Requisicao_requisitanteId_fkey(nome),
        comprador:Usuario!Requisicao_compradorId_fkey(nome),
        canceladaPor:Usuario!Requisicao_canceladaPorId_fkey(nome),
-       itens:RequisicaoItem(id, ordem, descricao, quantidade, unidade, especificacao, produto:Produto(descricao, unidade))`
+       itens:RequisicaoItem(id, ordem, descricao, quantidade, unidade, especificacao, produto:Produto(descricao, unidade), fotos:RequisicaoItemFoto(id, nome))`
     )
     .eq("id", id)
     .maybeSingle();
@@ -77,7 +80,7 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
       .eq("requisicaoId", r.id),
     supabase
       .from("PedidoCompra")
-      .select("id, codigo, statusEntrega, valorTotal, fornecedor:Fornecedor(razaoSocial, nomeFantasia)")
+      .select("id, codigo, statusEntrega, compraConfirmadaEm, valorTotal, fornecedor:Fornecedor(razaoSocial, nomeFantasia)")
       .eq("requisicaoId", r.id)
       .order("codigo"),
   ]);
@@ -94,11 +97,26 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
       ? niveisExigidos(r.nivelAlcada).filter((n) => !daRodada.some((a) => a.nivel === n))
       : [];
   const jaDecidiu = daRodada.some((a) => a.aprovadorId === contexto.usuarioId);
-  const meuNivel = jaDecidiu
-    ? undefined
-    : aguardando.find(
-        (n): n is "gerencia" | "diretoria" => n !== "comprador" && contexto.tem(PAPEL_DO_NIVEL[n])
-      );
+  // Níveis em que o usuário pode decidir. Quem acumula Gerência e Diretoria (o
+  // admin, por exemplo) escolhe no painel; na alçada da gerência a Diretoria
+  // também pode decidir.
+  const emAberto =
+    r.status === "aguardando_aprovacao"
+      ? niveisEmAberto(
+          r.nivelAlcada,
+          daRodada.map((a) => a.nivel)
+        )
+      : [];
+  const meusNiveis = jaDecidiu ? [] : emAberto.filter((n) => contexto.tem(PAPEL_DO_NIVEL[n]));
+  // Já decidiu um nível e só falta o outro, que tem de ser outra pessoa.
+  const aguardaOutraPessoa =
+    jaDecidiu && emAberto.some((n) => contexto.tem(PAPEL_DO_NIVEL[n])) ? emAberto : [];
+  // Diretoria pode voltar a compra aprovada para a cotação enquanto nenhum
+  // pedido foi confirmado no fornecedor.
+  const podeReabrir =
+    r.status === "pedido_emitido" &&
+    contexto.tem("aprovador_diretoria") &&
+    (pedidos ?? []).every((p) => !p.compraConfirmadaEm && p.statusEntrega === "pendente");
   const podeCancelar =
     (contexto.tem("comprador") && STATUS_CANCELAVEL_COMPRADOR.includes(r.status)) ||
     (ehRequisitante && STATUS_CANCELAVEL_REQUISITANTE.includes(r.status));
@@ -127,6 +145,7 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
             </Button>
           )}
           {podeCancelar && <CancelarRequisicao requisicaoId={r.id} codigo={codigo} />}
+          {podeReabrir && <ReabrirCotacao requisicaoId={r.id} />}
         </div>
       </div>
 
@@ -139,8 +158,8 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
       )}
 
       <div className="grid gap-4 rounded-md border bg-card p-4 sm:grid-cols-3">
-        <Dado rotulo="Obra">
-          {r.obra?.nomeProjeto ?? "—"}
+        <Dado rotulo="Centro de custo">
+          {r.centroCusto?.nome ?? r.obra?.nomeProjeto ?? "—"}
           {r.obra?.cliente?.razaoSocial && (
             <span className="block text-xs text-muted-foreground">{r.obra.cliente.razaoSocial}</span>
           )}
@@ -152,6 +171,11 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
         {r.valorTotal !== null && (
           <Dado rotulo={r.status === "aguardando_aprovacao" ? "Valor para aprovação" : "Valor da compra"}>
             {Number(r.valorTotal).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            {Number(r.valorFaturadoCliente) > 0 && (
+              <span className="block text-xs text-muted-foreground">
+                {moeda(Number(r.valorFaturadoCliente))} faturados em nome do cliente
+              </span>
+            )}
           </Dado>
         )}
         {r.observacoes && (
@@ -187,6 +211,27 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
                         {item.especificacao}
                       </span>
                     )}
+                    {item.fotos.length > 0 && (
+                      <span className="mt-1 flex flex-wrap gap-1.5">
+                        {item.fotos.map((f, i) => (
+                          <a
+                            key={f.id}
+                            href={`/api/suprimentos/requisicoes/fotos/${f.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={f.nome}
+                            className="block h-14 w-14 overflow-hidden rounded border"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do bucket privado */}
+                            <img
+                              src={`/api/suprimentos/requisicoes/fotos/${f.id}`}
+                              alt={`Foto ${i + 1} do item ${item.ordem}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     {Number(item.quantidade).toLocaleString("pt-BR")}
@@ -202,16 +247,22 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
         </div>
       </section>
 
-      {meuNivel && r.valorTotal !== null && (
+      {meusNiveis.length > 0 && r.valorTotal !== null && (
         <PainelDecisao
           requisicaoId={r.id}
-          nivel={meuNivel}
+          niveis={meusNiveis}
           valorTotal={Number(r.valorTotal)}
+          valorCliente={Number(r.valorFaturadoCliente)}
           proprioRequisitante={ehRequisitante}
-          outroNivelPendente={
-            (aguardando.find((n) => n !== meuNivel) as "gerencia" | "diretoria" | undefined) ?? null
-          }
+          exigeDuasAprovacoes={r.nivelAlcada === "diretoria" && emAberto.length === 2}
         />
+      )}
+      {aguardaOutraPessoa.length > 0 && (
+        <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+          Você já decidiu esta compra. Falta a aprovação da{" "}
+          {aguardaOutraPessoa.map((n) => (n === "gerencia" ? "Gerência" : "Diretoria")).join(" / ")}, que
+          precisa ser de outra pessoa.
+        </p>
       )}
 
       {(pedidos ?? []).length > 0 && (
@@ -227,7 +278,7 @@ export default async function PaginaRequisicao({ params }: { params: Promise<{ i
                 <span className="font-mono font-medium">{p.codigo}</span>
                 <span className="flex-1">{p.fornecedor?.nomeFantasia || p.fornecedor?.razaoSocial}</span>
                 <span className="tabular-nums">{moeda(Number(p.valorTotal))}</span>
-                <BadgeStatusEntrega status={p.statusEntrega} />
+                <BadgeStatusEntrega status={p.statusEntrega} compraConfirmada={Boolean(p.compraConfirmadaEm)} />
               </Link>
             ))}
           </div>

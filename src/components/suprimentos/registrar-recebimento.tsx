@@ -1,98 +1,85 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle2, X, XCircle } from "lucide-react";
+import { startTransition, useActionState, useState } from "react";
+import { CheckCheck } from "lucide-react";
 import {
   registrarRecebimento,
   type EstadoRecebimento,
 } from "@/app/(app)/suprimentos/pedidos/actions";
-import type { SituacaoRecebimento } from "@/lib/suprimentos";
+import { numeroBr } from "@/lib/suprimentos-cotacao";
 import { cn } from "@/lib/utils";
+import { SeletorFotos, type FotoLocal } from "@/components/suprimentos/seletor-fotos";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-// Registro na obra, pensado para o celular: dois botões grandes, observação
-// quando há problema, fotos da câmera e quem recebeu.
-//
-// Foto de celular tem 3–6 MB e o envio aceita 11 MB no total: cada foto é
-// reduzida aqui (lado maior 1600 px, JPEG) antes de subir, ficando ~300 KB.
+// Registro na obra, pensado para o celular. Para cada item: quanto chegou e
+// foi aceito, e quanto voltou com o fornecedor (avaria, item errado). O que
+// não chegou continua pendente para uma próxima entrega, a não ser que o
+// pedido seja encerrado. Foto só é obrigatória quando há problema. Quem
+// recebe é o usuário logado.
+
+export type ItemParaReceber = {
+  id: string;
+  ordem: number;
+  descricao: string;
+  unidade: string;
+  quantidade: number;
+  /** Já aceito em entregas anteriores. */
+  recebida: number;
+};
 
 const FOTOS_MAX = 8;
-const LADO_MAX = 1600;
-
-async function reduzir(arquivo: File): Promise<File> {
-  try {
-    const imagem = await createImageBitmap(arquivo);
-    const escala = Math.min(1, LADO_MAX / Math.max(imagem.width, imagem.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(imagem.width * escala);
-    canvas.height = Math.round(imagem.height * escala);
-    canvas.getContext("2d")!.drawImage(imagem, 0, 0, canvas.width, canvas.height);
-    imagem.close();
-    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.8));
-    if (!blob) return arquivo;
-    const nome = arquivo.name.replace(/\.[^.]+$/, "") + ".jpg";
-    return new File([blob], nome, { type: "image/jpeg" });
-  } catch {
-    // Formato que o navegador não decodifica (ex.: HEIC em alguns aparelhos):
-    // segue o original e o servidor confere o tamanho.
-    return arquivo;
-  }
-}
-
-type Foto = { arquivo: File; url: string };
+const qtd = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 
 export function RegistrarRecebimento({
   pedidoId,
-  nomePadrao,
-  reentrega,
+  itens,
+  nomeUsuario,
 }: {
   pedidoId: string;
-  /** Nome de quem está logado, sugerido como recebedor. */
-  nomePadrao: string;
-  /** Já houve recebimento inconforme: este registra o restante/correção. */
-  reentrega: boolean;
+  itens: ItemParaReceber[];
+  nomeUsuario: string;
 }) {
   const [estado, acao, pendente] = useActionState<EstadoRecebimento, FormData>(registrarRecebimento, undefined);
-  const [situacao, setSituacao] = useState<SituacaoRecebimento | null>(null);
+  const pendentes = itens.filter((i) => i.quantidade - i.recebida > 0);
+  const [aceitos, setAceitos] = useState<Record<string, string>>({});
+  const [devolvidos, setDevolvidos] = useState<Record<string, string>>({});
+  const [avaria, setAvaria] = useState(false);
+  const [encerrar, setEncerrar] = useState(false);
   const [observacao, setObservacao] = useState("");
-  const [nome, setNome] = useState(nomePadrao);
-  const [documento, setDocumento] = useState("");
-  const [fotos, setFotos] = useState<Foto[]>([]);
-  const [preparando, setPreparando] = useState(false);
+  const [fotos, setFotos] = useState<FotoLocal[]>([]);
 
-  // Libera as prévias (blob:) ao sair da tela; as removidas são liberadas na hora.
-  const urls = useRef(new Set<string>());
-  useEffect(() => {
-    const ativas = urls.current;
-    return () => ativas.forEach((u) => URL.revokeObjectURL(u));
-  }, []);
+  const linhas = pendentes.map((i) => {
+    const saldo = i.quantidade - i.recebida;
+    const recebida = numeroBr(aceitos[i.id] ?? "") ?? 0;
+    const devolvida = numeroBr(devolvidos[i.id] ?? "") ?? 0;
+    return { item: i, saldo, recebida, devolvida, excede: recebida + devolvida > saldo + 1e-9 };
+  });
+  const algumaQuantidade = linhas.some((l) => l.recebida > 0 || l.devolvida > 0);
+  const devolveu = linhas.some((l) => l.devolvida > 0);
+  const comProblema = avaria || devolveu;
+  const faltaraAlgo = linhas.some((l) => l.recebida < l.saldo);
+  const precisaTexto = comProblema || encerrar;
 
-  async function adicionarFotos(lista: FileList | null) {
-    if (!lista?.length) return;
-    setPreparando(true);
-    const novas = await Promise.all(
-      [...lista].slice(0, FOTOS_MAX - fotos.length).map(async (f) => {
-        const arquivo = await reduzir(f);
-        const url = URL.createObjectURL(arquivo);
-        urls.current.add(url);
-        return { arquivo, url };
-      })
-    );
-    setFotos((atual) => [...atual, ...novas]);
-    setPreparando(false);
+  function chegouTudo() {
+    setAceitos(Object.fromEntries(pendentes.map((i) => [i.id, qtd(i.quantidade - i.recebida)])));
+    setDevolvidos({});
   }
 
   function enviar(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const dados = new FormData();
     dados.set("pedidoId", pedidoId);
-    dados.set("situacao", situacao ?? "");
+    dados.set(
+      "itens",
+      JSON.stringify(linhas.map((l) => ({ item: l.item.id, recebida: l.recebida, devolvida: l.devolvida })))
+    );
+    if (avaria) dados.set("avaria", "on");
+    if (encerrar && faltaraAlgo) dados.set("encerrar", "on");
     dados.set("observacao", observacao);
-    dados.set("nomeRecebedor", nome);
-    dados.set("documentoRecebedor", documento);
     for (const f of fotos) dados.append("fotos", f.arquivo);
     startTransition(() => acao(dados));
   }
@@ -100,57 +87,102 @@ export function RegistrarRecebimento({
   if (estado?.ok) {
     return (
       <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
-        Recebimento registrado. O requisitante e o comprador foram avisados.
+        Recebimento registrado
+        {estado.situacao === "parcial" ? " (parcial — o restante continua pendente)" : ""}. O requisitante e o
+        comprador foram avisados.
       </div>
     );
   }
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-4 rounded-md border-2 border-primary/40 bg-card p-4">
-      <div>
-        <h3 className="text-base font-semibold">{reentrega ? "Registrar nova entrega" : "Registrar recebimento"}</h3>
-        <p className="text-xs text-muted-foreground">
-          Confira quantidade e estado de cada item. Faltou algo ou chegou avariado? Marque inconforme.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold">Registrar recebimento</h3>
+          <p className="text-xs text-muted-foreground">
+            Informe quanto chegou de cada item. O que faltar continua pendente.
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={chegouTudo}>
+          <CheckCheck className="h-4 w-4" /> Chegou tudo
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setSituacao("conforme")}
-          className={cn(
-            "flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-4 text-sm font-medium transition-colors",
-            situacao === "conforme"
-              ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-              : "hover:bg-muted"
-          )}
-        >
-          <CheckCircle2 className="h-7 w-7" />
-          Conforme
-          <span className="text-xs font-normal text-muted-foreground">Tudo certo</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setSituacao("inconforme")}
-          className={cn(
-            "flex flex-col items-center gap-1 rounded-lg border-2 px-3 py-4 text-sm font-medium transition-colors",
-            situacao === "inconforme" ? "border-destructive bg-destructive/10 text-destructive" : "hover:bg-muted"
-          )}
-        >
-          <XCircle className="h-7 w-7" />
-          Inconforme
-          <span className="text-xs font-normal text-muted-foreground">Parcial, avaria, errado</span>
-        </button>
+      <div className="flex flex-col divide-y rounded-md border">
+        {linhas.map(({ item, saldo, recebida, devolvida, excede }) => (
+          <div key={item.id} className="flex flex-col gap-2 p-3">
+            <div className="text-sm">
+              <span className="mr-1 text-muted-foreground">{item.ordem}.</span>
+              <span className="font-medium">{item.descricao}</span>
+              <span className="block text-xs text-muted-foreground">
+                Pedido {qtd(item.quantidade)} {item.unidade}
+                {item.recebida > 0 ? ` · já recebido ${qtd(item.recebida)}` : ""} · falta {qtd(saldo)}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`aceito-${item.id}`} className="text-xs">
+                  Chegou e aceito ({item.unidade})
+                </Label>
+                <Input
+                  id={`aceito-${item.id}`}
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={aceitos[item.id] ?? ""}
+                  onChange={(e) => setAceitos((a) => ({ ...a, [item.id]: e.target.value }))}
+                  className={cn("h-11 text-base", excede && "border-destructive")}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`devolvido-${item.id}`} className="text-xs">
+                  Devolvido ({item.unidade})
+                </Label>
+                <Input
+                  id={`devolvido-${item.id}`}
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={devolvidos[item.id] ?? ""}
+                  onChange={(e) => setDevolvidos((d) => ({ ...d, [item.id]: e.target.value }))}
+                  className={cn("h-11 text-base", excede && "border-destructive")}
+                />
+              </div>
+            </div>
+            {excede && (
+              <span className="text-xs text-destructive">
+                Aceito + devolvido passa do que falta ({qtd(saldo)}).
+              </span>
+            )}
+            {!excede && recebida > 0 && recebida < saldo && devolvida === 0 && (
+              <span className="text-xs text-muted-foreground">Parcial: faltarão {qtd(saldo - recebida)}.</span>
+            )}
+          </div>
+        ))}
       </div>
 
-      {situacao === "inconforme" && (
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox checked={avaria} onCheckedChange={(v) => setAvaria(Boolean(v))} />
+        Chegou com avaria ou outro problema
+      </label>
+      {faltaraAlgo && (
+        <label className="flex items-start gap-2 text-sm">
+          <Checkbox className="mt-0.5" checked={encerrar} onCheckedChange={(v) => setEncerrar(Boolean(v))} />
+          <span>
+            Encerrar o pedido com o que chegou
+            <span className="block text-xs text-muted-foreground">
+              Marque só se o restante não vai mais ser entregue.
+            </span>
+          </span>
+        </label>
+      )}
+
+      {precisaTexto && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="observacao">O que aconteceu?</Label>
           <Textarea
             id="observacao"
             rows={3}
             required
-            placeholder="Ex.: chegaram 80 de 120 m de cabo; 2 terminais amassados"
+            placeholder="Ex.: 2 sacos rasgados, devolvidos ao motorista; o restante do cabo não virá"
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
           />
@@ -158,72 +190,31 @@ export function RegistrarRecebimento({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label>Fotos ({fotos.length}/{FOTOS_MAX})</Label>
-        <div className="flex flex-wrap gap-2">
-          {fotos.map((f, i) => (
-            <div key={f.url} className="relative h-20 w-20 overflow-hidden rounded-md border">
-              {/* eslint-disable-next-line @next/next/no-img-element -- prévia local (blob:) */}
-              <img src={f.url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
-              <button
-                type="button"
-                aria-label={`Remover foto ${i + 1}`}
-                onClick={() => {
-                  URL.revokeObjectURL(f.url);
-                  urls.current.delete(f.url);
-                  setFotos((atual) => atual.filter((x) => x.url !== f.url));
-                }}
-                className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-          {fotos.length < FOTOS_MAX && (
-            <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed text-xs text-muted-foreground hover:bg-muted">
-              <Camera className="h-5 w-5" />
-              {preparando ? "..." : "Adicionar"}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="sr-only"
-                onChange={(e) => {
-                  adicionarFotos(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          )}
-        </div>
+        <Label>
+          Fotos ({fotos.length}/{FOTOS_MAX}){" "}
+          <span className={cn("font-normal", comProblema ? "text-destructive" : "text-muted-foreground")}>
+            {comProblema ? "— obrigatória: fotografe a avaria ou o material devolvido" : "— opcional"}
+          </span>
+        </Label>
+        <SeletorFotos fotos={fotos} aoMudar={setFotos} maximo={FOTOS_MAX} rotulo="Foto do recebimento" />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="nomeRecebedor">Quem recebeu</Label>
-          <Input
-            id="nomeRecebedor"
-            required
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            className="h-10"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="documentoRecebedor">Documento (opcional)</Label>
-          <Input
-            id="documentoRecebedor"
-            placeholder="CPF, RG ou matrícula"
-            value={documento}
-            onChange={(e) => setDocumento(e.target.value)}
-            className="h-10"
-          />
-        </div>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Recebido por <span className="font-medium text-foreground">{nomeUsuario}</span> (usuário logado).
+      </p>
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
 
-      <Button type="submit" size="lg" disabled={pendente || preparando || !situacao}>
+      <Button
+        type="submit"
+        size="lg"
+        disabled={
+          pendente ||
+          linhas.some((l) => l.excede) ||
+          (!algumaQuantidade && !encerrar) ||
+          (comProblema && fotos.length === 0)
+        }
+      >
         {pendente ? "Registrando..." : "Registrar recebimento"}
       </Button>
     </form>

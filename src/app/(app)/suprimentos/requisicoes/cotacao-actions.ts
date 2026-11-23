@@ -6,7 +6,16 @@ import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import { exigirPapelSuprimentos, mensagemDeErro } from "@/lib/suprimentos-auth";
 import { buscarProdutos, type ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
-import { STATUS_COTACAO_ABERTA, chaveDescricao } from "@/lib/suprimentos";
+import {
+  FORMAS_PAGAMENTO,
+  STATUS_COTACAO_ABERTA,
+  chaveDescricao,
+  textoCondicaoPagamento,
+} from "@/lib/suprimentos";
+import { nomeSeguro } from "@/lib/pos-venda";
+
+const BUCKET = "suprimentos";
+const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024;
 import { numeroBr } from "@/lib/suprimentos-cotacao";
 
 // Trabalho do comprador sobre uma requisição: vincular itens ao catálogo,
@@ -159,7 +168,11 @@ const cotacaoSchema = z.object({
   frete: z.enum(["cif", "fob"]),
   coletaPropria: z.boolean(),
   valorFrete: dinheiro("Valor do frete"),
-  condicaoPagamento: z.string().trim().min(1, "Informe a condição de pagamento.").max(200),
+  // "empresa:<id>" ou "cliente".
+  faturarPara: z.string().regex(/^(empresa:.+|cliente)$/, "Escolha o CNPJ que será faturado."),
+  formaPagamento: z.enum(FORMAS_PAGAMENTO as [string, ...string[]], { message: "Escolha a forma de pagamento." }),
+  prazoPagamentoDias: z.number().int("Prazo de pagamento em dias inteiros.").min(0).max(720),
+  parcelas: z.number().int("Número de parcelas inteiro.").min(1, "Pelo menos 1 parcela.").max(60),
   prazoEntregaDias: z.number().int("Prazo de entrega em dias inteiros.").min(0).nullable(),
   observacoes: z.string().trim().max(2000).optional(),
 });
@@ -188,7 +201,10 @@ export async function salvarCotacao(
       frete,
       coletaPropria: frete === "fob" && marcado("coletaPropria"),
       valorFrete: numeroBr(texto("valorFrete")) ?? 0,
-      condicaoPagamento: texto("condicaoPagamento"),
+      faturarPara: texto("faturarPara"),
+      formaPagamento: texto("formaPagamento"),
+      prazoPagamentoDias: numeroBr(texto("prazoPagamentoDias")) ?? 0,
+      parcelas: numeroBr(texto("parcelas")) ?? 1,
       prazoEntregaDias: numeroBr(texto("prazoEntregaDias")),
       observacoes: texto("observacoes") || undefined,
     });
@@ -224,8 +240,67 @@ export async function salvarCotacao(
       .maybeSingle();
     if (!fornecedor) return { erro: "Fornecedor não encontrado." };
 
+    // Faturamento: CNPJ do grupo (ativo) ou o cliente da obra, com autorização.
+    const faturadoCliente = dados.data.faturarPara === "cliente";
+    let empresaId: string | null = null;
+    if (faturadoCliente) {
+      const { data: req } = await supabase
+        .from("Requisicao")
+        .select("obra:Obra(clienteId)")
+        .eq("id", requisicaoId)
+        .maybeSingle();
+      if (!req?.obra?.clienteId) return { erro: "Só compra de obra com cliente pode ser faturada em nome dele." };
+    } else {
+      const { data: empresa } = await supabase
+        .from("EmpresaGrupo")
+        .select("id, ativo")
+        .eq("id", dados.data.faturarPara.slice("empresa:".length))
+        .maybeSingle();
+      if (!empresa) return { erro: "Empresa de faturamento não encontrada." };
+      empresaId = empresa.id;
+    }
+    const anexo = formData.get("autorizacao");
+    const arquivoAutorizacao = anexo instanceof File && anexo.size > 0 ? anexo : null;
+    if (arquivoAutorizacao && arquivoAutorizacao.size > TAMANHO_MAXIMO_ANEXO) {
+      return { erro: "A autorização passa de 10 MB." };
+    }
+    let autorizacaoAnterior: string | null = null;
+    if (faturadoCliente && !arquivoAutorizacao) {
+      const { data: atual } = cotacaoId
+        ? await supabase.from("Cotacao").select("autorizacaoCaminho").eq("id", cotacaoId).maybeSingle()
+        : { data: null };
+      if (!atual?.autorizacaoCaminho) {
+        return { erro: "Anexe a autorização do cliente (ordem de compra ou print da conversa)." };
+      }
+    }
+    if (cotacaoId && (arquivoAutorizacao || !faturadoCliente)) {
+      const { data: atual } = await supabase
+        .from("Cotacao")
+        .select("autorizacaoCaminho")
+        .eq("id", cotacaoId)
+        .maybeSingle();
+      autorizacaoAnterior = atual?.autorizacaoCaminho ?? null;
+    }
+
     const aberta = await abrirCotacao(requisicaoId, usuarioId);
     if ("erro" in aberta) return { erro: aberta.erro };
+
+    let autorizacao: { autorizacaoCaminho: string | null; autorizacaoNome: string | null } | null = null;
+    if (faturadoCliente && arquivoAutorizacao) {
+      const caminho = `cotacoes/${requisicaoId}/${crypto.randomUUID()}-${nomeSeguro(arquivoAutorizacao.name)}`;
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(caminho, arquivoAutorizacao, { contentType: arquivoAutorizacao.type || undefined });
+      if (error) return { erro: "Falha ao enviar a autorização do cliente." };
+      autorizacao = { autorizacaoCaminho: caminho, autorizacaoNome: arquivoAutorizacao.name };
+    } else if (!faturadoCliente) {
+      autorizacao = { autorizacaoCaminho: null, autorizacaoNome: null };
+    }
+    const pagamento = {
+      formaPagamento: dados.data.formaPagamento as (typeof FORMAS_PAGAMENTO)[number],
+      prazoPagamentoDias: dados.data.prazoPagamentoDias,
+      parcelas: dados.data.parcelas,
+    };
 
     const registro = {
       fornecedorId: fornecedor.id,
@@ -238,7 +313,11 @@ export async function salvarCotacao(
       frete: dados.data.frete,
       coletaPropria: dados.data.coletaPropria,
       valorFrete: dados.data.valorFrete,
-      condicaoPagamento: dados.data.condicaoPagamento,
+      condicaoPagamento: textoCondicaoPagamento(pagamento),
+      ...pagamento,
+      empresaId,
+      faturadoCliente,
+      ...(autorizacao ?? {}),
       prazoEntregaDias: dados.data.prazoEntregaDias,
       observacoes: dados.data.observacoes ?? null,
     };
@@ -274,6 +353,11 @@ export async function salvarCotacao(
       { onConflict: "cotacaoId,requisicaoItemId" }
     );
     if (erroPrecos) return { erro: erroPrecos.message };
+
+    // Anexo trocado ou compra que deixou de ser para o cliente: o antigo sai do bucket.
+    if (autorizacao && autorizacaoAnterior && autorizacaoAnterior !== autorizacao.autorizacaoCaminho) {
+      await supabase.storage.from(BUCKET).remove([autorizacaoAnterior]);
+    }
 
     const semPreco = (itens ?? []).map((i) => i.id).filter((itemId) => !precos.has(itemId));
     if (semPreco.length > 0) {

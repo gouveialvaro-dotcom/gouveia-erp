@@ -9,6 +9,7 @@ import {
   PAPEL_DO_NIVEL,
   ROTULO_NIVEL,
   codigoRequisicao,
+  nomeCentroCusto,
   type DecisaoAprovacao,
   type NivelAlcada,
   type StatusRequisicao,
@@ -33,7 +34,9 @@ function erroDoBanco(error: { code?: string; message: string }) {
 async function dadosAviso(requisicaoId: string) {
   const { data } = await supabase
     .from("Requisicao")
-    .select("id, numero, requisitanteId, compradorId, valorTotal, rodadaAprovacao, obra:Obra(nomeProjeto)")
+    .select(
+      "id, numero, requisitanteId, compradorId, valorTotal, rodadaAprovacao, obra:Obra(nomeProjeto), centroCusto:CentroCusto(nome)"
+    )
     .eq("id", requisicaoId)
     .single();
   return data!;
@@ -56,7 +59,7 @@ export async function enviarParaAprovacao(requisicaoId: string): Promise<Resulta
 
     const r = await dadosAviso(requisicaoId);
     const codigo = codigoRequisicao(r.numero);
-    const obra = r.obra?.nomeProjeto ?? "obra";
+    const obra = nomeCentroCusto(r);
 
     if (resultado.status === "pedido_emitido") {
       await notificar([r.requisitanteId], {
@@ -172,7 +175,7 @@ export async function decidirAprovacao(_estado: EstadoDecisao, formData: FormDat
       await notificar([...comprador, r.requisitanteId], {
         tipo: "pedido_emitido",
         titulo: `${codigo} aprovada — pedido emitido`,
-        detalhe: `${moeda(Number(r.valorTotal))} · ${r.obra?.nomeProjeto ?? "obra"}`,
+        detalhe: `${moeda(Number(r.valorTotal))} · ${nomeCentroCusto(r)}`,
         requisicaoId: r.id,
         referencia: `${r.id}:pedidos`,
         geradaPorId: usuarioId,
@@ -184,6 +187,43 @@ export async function decidirAprovacao(_estado: EstadoDecisao, formData: FormDat
     return { ok: true };
   } catch (erro) {
     if (caminhoAnexo) await supabase.storage.from(BUCKET).remove([caminhoAnexo]);
+    return { erro: mensagemDeErro(erro) };
+  }
+}
+
+/**
+ * Diretoria volta para a cotação uma compra já aprovada, enquanto o comprador
+ * não confirmou nenhum pedido no fornecedor. Os pedidos emitidos são apagados.
+ */
+export async function reabrirCotacao(_estado: EstadoDecisao, formData: FormData): Promise<EstadoDecisao> {
+  try {
+    const requisicaoId = String(formData.get("requisicaoId") ?? "");
+    const motivo = String(formData.get("motivo") ?? "").trim().slice(0, 2000);
+    if (!motivo) return { erro: "Explique o motivo de voltar para a cotação." };
+
+    const { usuarioId } = await exigirPapelSuprimentos("aprovador_diretoria");
+
+    const { error } = await supabase.rpc("suprimentos_reabrir_cotacao", {
+      p_requisicao_id: requisicaoId,
+      p_usuario_id: usuarioId,
+      p_motivo: motivo,
+    });
+    if (error) return { erro: erroDoBanco(error) };
+
+    const r = await dadosAviso(requisicaoId);
+    const comprador = r.compradorId ? [r.compradorId] : await usuariosComPapel("comprador");
+    await notificar([...comprador, r.requisitanteId], {
+      tipo: "cotacao_reaberta",
+      titulo: `${codigoRequisicao(r.numero)} voltou para cotação (Diretoria)`,
+      detalhe: motivo,
+      requisicaoId: r.id,
+      referencia: `${r.id}:${r.rodadaAprovacao}:reaberta`,
+      geradaPorId: usuarioId,
+    });
+
+    revalidar();
+    return { ok: true };
+  } catch (erro) {
     return { erro: mensagemDeErro(erro) };
   }
 }

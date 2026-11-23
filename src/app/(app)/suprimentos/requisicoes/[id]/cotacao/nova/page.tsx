@@ -5,7 +5,7 @@ import { CotacaoForm } from "@/components/suprimentos/cotacao-form";
 
 export default async function PaginaNovaCotacao({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { requisicao, itens, fornecedores } = await dadosFormCotacao(id, null);
+  const { requisicao, itens, fornecedores, faturamento } = await dadosFormCotacao(id, null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -20,7 +20,13 @@ export default async function PaginaNovaCotacao({ params }: { params: Promise<{ 
           ← Cotação
         </Link>
       </div>
-      <CotacaoForm requisicaoId={requisicao.id} cotacao={null} fornecedores={fornecedores} itens={itens} />
+      <CotacaoForm
+        requisicaoId={requisicao.id}
+        cotacao={null}
+        fornecedores={fornecedores}
+        itens={itens}
+        faturamento={faturamento}
+      />
     </div>
   );
 }

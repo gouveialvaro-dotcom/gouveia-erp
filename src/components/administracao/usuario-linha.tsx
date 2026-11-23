@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { SelectNativo } from "@/components/ui/select-nativo";
 import { COLUNAS_USUARIO } from "@/components/administracao/colunas";
 import { RedefinirSenhaDialog } from "@/components/administracao/redefinir-senha-dialog";
+import { ModulosUsuarioDialog } from "@/components/administracao/modulos-usuario-dialog";
 
 export type UsuarioLinhaValores = {
   id: string;
@@ -26,6 +27,7 @@ export type UsuarioLinhaValores = {
   notificaWhatsappSemDono: boolean;
   telefone: string | null;
   recebeProgramacao: boolean;
+  modulosOcultos: string[];
 };
 
 export function UsuarioLinha({
@@ -72,10 +74,20 @@ export function UsuarioLinha({
         ))}
       </SelectNativo>
 
-      <Label className="flex items-center gap-2 text-sm">
-        <Checkbox name="ativo" defaultChecked={usuario.ativo} />
-        Ativo
-      </Label>
+      {/* Módulos mora aqui, e não junto das ações, para a linha caber em 1280 px
+          com a sidebar aberta. */}
+      <div className="flex flex-col items-start gap-1">
+        <Label className="flex items-center gap-2 text-sm">
+          <Checkbox name="ativo" defaultChecked={usuario.ativo} />
+          Ativo
+        </Label>
+        <ModulosUsuarioDialog
+          usuarioId={usuario.id}
+          nome={usuario.nome}
+          perfil={usuario.perfil}
+          ocultos={usuario.modulosOcultos}
+        />
+      </div>
 
       {/* O aviso de conversa parada vai para todo mundo com escrita em
           posVenda, sem depender do flag acima — fila parada é problema do time.

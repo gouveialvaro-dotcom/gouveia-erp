@@ -23,7 +23,8 @@ export default async function PaginaProdutos({
 }: {
   searchParams: Promise<{ q?: string; revisar?: string; tipo?: string; inativos?: string; pagina?: string }>;
 }) {
-  const { tem } = await contextoSuprimentos();
+  const { tem, exigirAba } = await contextoSuprimentos();
+  exigirAba("produtos");
   const podeEditar = tem("comprador");
   const filtros = await searchParams;
   const termo = termoBusca(filtros.q);

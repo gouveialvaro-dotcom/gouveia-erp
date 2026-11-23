@@ -1,25 +1,29 @@
-import { contextoSuprimentos } from "@/lib/suprimentos-auth";
+import { contextoSuprimentos, type AbaSuprimentos } from "@/lib/suprimentos-auth";
 import { SuprimentosSubnav, type ItemSubnavSuprimentos } from "@/components/suprimentos/subnav";
 import { TituloPagina } from "@/components/titulo-pagina";
+import { exigirModuloVisivel } from "@/lib/modulos-visiveis";
 
 export default async function SuprimentosLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { ehAdmin, tem } = await contextoSuprimentos();
+  await exigirModuloVisivel("suprimentos");
+  const { ehAdmin, veAba } = await contextoSuprimentos();
 
-  const itens: ItemSubnavSuprimentos[] = [
-    { titulo: "Início", href: "/suprimentos" },
+  // Cada um vê as abas do próprio papel (PAPEIS_DA_ABA); o admin vê todas.
+  const todas: (ItemSubnavSuprimentos & { aba?: AbaSuprimentos })[] = [
+    { titulo: "Início", href: "/suprimentos", aba: "inicio" },
     { titulo: "Requisições", href: "/suprimentos/requisicoes" },
-    ...(tem("aprovador_gerencia", "aprovador_diretoria")
-      ? [{ titulo: "Aprovações", href: "/suprimentos/aprovacoes" }]
-      : []),
-    { titulo: "Pedidos", href: "/suprimentos/pedidos" },
-    { titulo: "Recebimentos", href: "/suprimentos/recebimentos" },
-    { titulo: "Produtos", href: "/suprimentos/produtos" },
-    { titulo: "Fornecedores", href: "/suprimentos/fornecedores" },
+    { titulo: "Aprovações", href: "/suprimentos/aprovacoes", aba: "aprovacoes" },
+    { titulo: "Pedidos", href: "/suprimentos/pedidos", aba: "pedidos" },
+    { titulo: "Recebimentos", href: "/suprimentos/recebimentos", aba: "recebimentos" },
+    { titulo: "Produtos", href: "/suprimentos/produtos", aba: "produtos" },
+    { titulo: "Fornecedores", href: "/suprimentos/fornecedores", aba: "fornecedores" },
   ];
+  const itens: ItemSubnavSuprimentos[] = todas
+    .filter((i) => !i.aba || veAba(i.aba))
+    .map(({ titulo, href }) => ({ titulo, href }));
   if (ehAdmin) {
     itens.push({ titulo: "Empresas", href: "/suprimentos/empresas" });
     itens.push({ titulo: "Configuração", href: "/suprimentos/configuracao" });

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { acessoModulo } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
+import { exigirModuloVisivel } from "@/lib/modulos-visiveis";
 import { ProgramacaoSubnav } from "@/components/programacao/subnav";
 import { TituloPagina } from "@/components/titulo-pagina";
 
@@ -10,6 +11,7 @@ export default async function ProgramacaoLayout({
   children: React.ReactNode;
 }) {
   const { perfil } = await acessoModulo("programacao");
+  await exigirModuloVisivel("programacao");
 
   // Engenharia e obra leem tudo; atendimento e comercial não entram. A
   // verificação é aqui e em cada Server Action — esconder o item na sidebar

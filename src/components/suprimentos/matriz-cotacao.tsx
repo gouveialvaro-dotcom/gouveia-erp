@@ -31,6 +31,11 @@ export type CotacaoMatriz = CotacaoParaCalculo & {
   incideDifal: boolean;
   condicaoPagamento: string;
   prazoEntregaDias: number | null;
+  /** Faturada direto em nome do cliente da obra. */
+  faturadoCliente: boolean;
+  /** Empresa do grupo faturada (nome curto). */
+  empresa: string | null;
+  temAutorizacao: boolean;
 };
 
 type ItemMatriz = { id: string; ordem: number; descricao: string; quantidade: number; unidade: string };
@@ -91,7 +96,24 @@ export function MatrizCotacao({
     return <p className="text-sm text-muted-foreground">Nenhuma cotação lançada ainda.</p>;
   }
 
-  const nivel = resumo.fornecedores.length > 0 ? nivelExigido(resumo.total, limites) : null;
+  // Mesma regra do banco: a alçada olha o que sai do caixa da empresa; compra
+  // faturada para o cliente passa ao menos pela gerência.
+  const totalCliente = resumo.fornecedores
+    .filter((f) => cotacoes.find((c) => c.id === f.cotacaoId)?.faturadoCliente)
+    .reduce((soma, f) => soma + f.total, 0);
+  const nivelEmpresa = nivelExigido(resumo.total - totalCliente, limites);
+  const nivel =
+    resumo.fornecedores.length === 0
+      ? null
+      : totalCliente > 0 && nivelEmpresa === "comprador"
+        ? "gerencia"
+        : nivelEmpresa;
+  const semAutorizacao = resumo.fornecedores.filter(
+    (f) => {
+      const c = cotacoes.find((x) => x.id === f.cotacaoId);
+      return c?.faturadoCliente && !c.temAutorizacao;
+    }
+  ).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -194,7 +216,30 @@ export function MatrizCotacao({
                     `${moeda(c.valorFrete)} · ${c.frete === "fob" && c.coletaPropria ? "FOB, coleta própria" : ROTULO_FRETE[c.frete]}`,
                 ],
                 ["DIFAL", (c: CotacaoMatriz) => (c.incideDifal ? moeda(c.valorDifal) : "Não incide")],
-                ["Pagamento", (c: CotacaoMatriz) => c.condicaoPagamento],
+                [
+                  "Faturar para",
+                  (c: CotacaoMatriz) =>
+                    c.faturadoCliente ? (
+                      <span>
+                        Cliente{" "}
+                        {c.temAutorizacao ? (
+                          <a
+                            href={`/api/suprimentos/cotacoes/${c.id}/autorizacao`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                          >
+                            (ver autorização)
+                          </a>
+                        ) : (
+                          <span className="text-destructive">(sem autorização)</span>
+                        )}
+                      </span>
+                    ) : (
+                      (c.empresa ?? "—")
+                    ),
+                ],
+                ["Pagamento", (c: CotacaoMatriz) => c.condicaoPagamento || "—"],
                 [
                   "Entrega",
                   (c: CotacaoMatriz) =>
@@ -320,6 +365,7 @@ export function MatrizCotacao({
               ? [`${resumo.semVencedor} ${resumo.semVencedor === 1 ? "item" : "itens"} sem fornecedor escolhido`]
               : []),
             ...(alterado ? ["Salve a escolha antes de enviar"] : []),
+            ...(semAutorizacao > 0 ? ["Anexe a autorização do cliente na cotação faturada em nome dele"] : []),
           ]}
         />
       )}

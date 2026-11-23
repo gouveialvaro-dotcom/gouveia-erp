@@ -4,6 +4,22 @@ import { ApiAuthError, exigirPermissao } from "@/lib/api-auth";
 import { acessoModulo, usuarioIdAtual } from "@/lib/pagina-auth";
 import { podeLer } from "@/lib/permissoes";
 import type { PapelSuprimentos } from "@/lib/suprimentos";
+import { modulosOcultosAtuais } from "@/lib/modulos-visiveis";
+
+// Quem vê cada aba do módulo. Requisições é de todos: qualquer um pede material,
+// e o solicitante comum vê só ela (e as próprias requisições lá dentro). O
+// requisitante sem papel ainda registra o recebimento do que pediu, pela página
+// da requisição → pedido.
+export const PAPEIS_DA_ABA = {
+  inicio: ["comprador", "aprovador_gerencia", "aprovador_diretoria"],
+  aprovacoes: ["aprovador_gerencia", "aprovador_diretoria"],
+  pedidos: ["comprador", "aprovador_gerencia", "aprovador_diretoria"],
+  recebimentos: ["recebedor", "comprador"],
+  produtos: ["comprador"],
+  fornecedores: ["comprador"],
+} satisfies Record<string, PapelSuprimentos[]>;
+
+export type AbaSuprimentos = keyof typeof PAPEIS_DA_ABA;
 
 // Autorização DENTRO do módulo Suprimentos.
 //
@@ -39,9 +55,17 @@ export async function contextoSuprimentos() {
 
   const tem = (...exigidos: PapelSuprimentos[]) => temAlgum(papeis, ehAdmin, exigidos);
 
+  const veAba = (aba: AbaSuprimentos) => tem(...PAPEIS_DA_ABA[aba]);
+  /** Para a página de uma aba: sem o papel, volta para Requisições. */
+  const exigirAba = (aba: AbaSuprimentos) => {
+    if (!veAba(aba)) redirect("/suprimentos/requisicoes");
+  };
+
   return {
     usuarioId,
     nome,
+    veAba,
+    exigirAba,
     perfil,
     papeis,
     ehAdmin,
@@ -59,6 +83,10 @@ export async function contextoSuprimentos() {
  */
 export async function exigirPapelSuprimentos(...exigidos: PapelSuprimentos[]) {
   const contexto = await exigirPermissao("suprimentos", "escrita");
+  // Módulo escondido desta pessoa na Administração vale também para as ações.
+  if ((await modulosOcultosAtuais()).includes("suprimentos")) {
+    throw new ApiAuthError(403, "Suprimentos não está liberado para você.");
+  }
   const papeis = await papeisDoUsuario(contexto.usuarioId);
   const ehAdmin = contexto.perfil === "admin";
 

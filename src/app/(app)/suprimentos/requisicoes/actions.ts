@@ -7,13 +7,19 @@ import { supabase } from "@/lib/supabase";
 import { exigirPapelSuprimentos, mensagemDeErro } from "@/lib/suprimentos-auth";
 import { notificar, usuariosComPapel } from "@/lib/suprimentos-notificacoes";
 import { buscarProdutos, type ProdutoEncontrado } from "@/lib/suprimentos-catalogo";
+import { nomeSeguro } from "@/lib/pos-venda";
 import {
   ITENS_POR_REQUISICAO_MAX,
   STATUS_CANCELAVEL_COMPRADOR,
   STATUS_CANCELAVEL_REQUISITANTE,
+  UNIDADES_REQUISICAO,
   codigoRequisicao,
   hojeSaoPaulo,
 } from "@/lib/suprimentos";
+
+const BUCKET = "suprimentos";
+const FOTOS_POR_ITEM = 3;
+const TAMANHO_MAXIMO_FOTO = 10 * 1024 * 1024;
 
 export type EstadoFormRequisicao = { erro?: string } | undefined;
 
@@ -34,7 +40,8 @@ const itemSchema = z.object({
 });
 
 const requisicaoSchema = z.object({
-  obraId: z.string().min(1, "Selecione a obra (centro de custo)."),
+  // "obra:<id>" ou "centro:<id>".
+  centroCusto: z.string().regex(/^(obra|centro):.+$/, "Selecione a obra ou o centro de custo."),
   prazoDesejado: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o prazo desejado."),
   urgencia: z.enum(["normal", "emergencial"]),
   observacoes: z.string().trim().max(2000).optional(),
@@ -62,7 +69,7 @@ export async function criarRequisicao(
     }
 
     const dados = requisicaoSchema.safeParse({
-      obraId: formData.get("obraId"),
+      centroCusto: formData.get("centroCusto"),
       prazoDesejado: formData.get("prazoDesejado"),
       urgencia: formData.get("urgencia"),
       observacoes: String(formData.get("observacoes") ?? "").trim() || undefined,
@@ -74,13 +81,48 @@ export async function criarRequisicao(
       return { erro: "O prazo desejado não pode ser uma data passada." };
     }
 
-    const { data: obra } = await supabase
-      .from("Obra")
-      .select("id, nomeProjeto, status")
-      .eq("id", dados.data.obraId)
-      .maybeSingle();
-    if (!obra) return { erro: "Obra não encontrada." };
-    if (obra.status === "concluida") return { erro: "Esta obra já está concluída." };
+    // Centro de custo: uma obra em andamento ou um centro cadastrado e ativo.
+    const separador = dados.data.centroCusto.indexOf(":");
+    const tipoCentro = dados.data.centroCusto.slice(0, separador);
+    const idCentro = dados.data.centroCusto.slice(separador + 1);
+    let obraId: string | null = null;
+    let centroCustoId: string | null = null;
+    let nomeCentro: string;
+    if (tipoCentro === "obra") {
+      const { data: obra } = await supabase
+        .from("Obra")
+        .select("id, nomeProjeto, status")
+        .eq("id", idCentro)
+        .maybeSingle();
+      if (!obra) return { erro: "Obra não encontrada." };
+      if (obra.status === "concluida") return { erro: "Esta obra já está concluída." };
+      obraId = obra.id;
+      nomeCentro = obra.nomeProjeto ?? "obra";
+    } else {
+      const { data: centro } = await supabase
+        .from("CentroCusto")
+        .select("id, nome, ativo")
+        .eq("id", idCentro)
+        .maybeSingle();
+      if (!centro?.ativo) return { erro: "Centro de custo não encontrado." };
+      centroCustoId = centro.id;
+      nomeCentro = centro.nome;
+    }
+
+    // Unidade da lista fechada; só a do próprio produto do catálogo foge dela.
+    const unidadesValidas = new Set(UNIDADES_REQUISICAO.map((u) => u.valor));
+
+    // Fotos de cada item (campo "foto-<índice do item>").
+    const fotosPorItem = dados.data.itens.map((_, indice) =>
+      formData.getAll(`foto-${indice}`).filter((f): f is File => f instanceof File && f.size > 0)
+    );
+    for (const [indice, fotos] of fotosPorItem.entries()) {
+      if (fotos.length > FOTOS_POR_ITEM) return { erro: `No máximo ${FOTOS_POR_ITEM} fotos por item.` };
+      for (const foto of fotos) {
+        if (!foto.type.startsWith("image/")) return { erro: `A foto do item ${indice + 1} não é uma imagem.` };
+        if (foto.size > TAMANHO_MAXIMO_FOTO) return { erro: `Uma foto do item ${indice + 1} passa de 10 MB.` };
+      }
+    }
 
     // Produto escolhido precisa existir e estar ativo. A descrição gravada é a
     // do catálogo, não a que veio do navegador.
@@ -97,12 +139,20 @@ export async function criarRequisicao(
         return { erro: "Um dos produtos escolhidos não está mais no catálogo. Escolha de novo." };
       }
     }
+    for (const [indice, item] of dados.data.itens.entries()) {
+      const unidade = item.unidade.toUpperCase();
+      const doProduto = item.produtoId ? produtos.get(item.produtoId)?.unidade.toUpperCase() : undefined;
+      if (!unidadesValidas.has(unidade) && unidade !== doProduto) {
+        return { erro: `Escolha a unidade do item ${indice + 1} na lista.` };
+      }
+    }
 
     const { data: requisicao, error } = await supabase
       .from("Requisicao")
       .insert({
         requisitanteId: usuarioId,
-        obraId: obra.id,
+        obraId,
+        centroCustoId,
         prazoDesejado: dados.data.prazoDesejado,
         urgencia: dados.data.urgencia,
         observacoes: dados.data.observacoes ?? null,
@@ -112,7 +162,7 @@ export async function criarRequisicao(
       .single();
     if (error || !requisicao) return { erro: error?.message ?? "Falha ao criar a requisição." };
 
-    const { error: erroItens } = await supabase.from("RequisicaoItem").insert(
+    const { data: itensCriados, error: erroItens } = await supabase.from("RequisicaoItem").insert(
       dados.data.itens.map((item, indice) => {
         const produto = item.produtoId ? produtos.get(item.produtoId) : undefined;
         return {
@@ -127,18 +177,46 @@ export async function criarRequisicao(
           especificacao: item.especificacao || null,
         };
       })
-    );
-    if (erroItens) {
+    ).select("id, ordem");
+    if (erroItens || !itensCriados) {
       // Sem itens a requisição não existe: desfaz o cabeçalho em vez de deixar
       // uma requisição vazia na fila do comprador.
       await supabase.from("Requisicao").delete().eq("id", requisicao.id);
-      return { erro: erroItens.message };
+      return { erro: erroItens?.message ?? "Falha ao gravar os itens." };
+    }
+
+    // Fotos: sobem depois dos itens (o caminho leva a requisição). Se alguma
+    // falhar, a requisição inteira é desfeita, para não ficar pela metade.
+    const enviadas: string[] = [];
+    const registros: { requisicaoItemId: string; caminho: string; nome: string; mime: string; tamanho: number }[] = [];
+    for (const [indice, fotos] of fotosPorItem.entries()) {
+      const itemId = itensCriados.find((i) => i.ordem === indice + 1)?.id;
+      if (!itemId) continue;
+      for (const foto of fotos) {
+        const caminho = `requisicoes/${requisicao.id}/${crypto.randomUUID()}-${nomeSeguro(foto.name)}`;
+        const { error } = await supabase.storage.from(BUCKET).upload(caminho, foto, { contentType: foto.type });
+        if (error) {
+          if (enviadas.length) await supabase.storage.from(BUCKET).remove(enviadas);
+          await supabase.from("Requisicao").delete().eq("id", requisicao.id);
+          return { erro: "Falha ao enviar as fotos. Tente de novo." };
+        }
+        enviadas.push(caminho);
+        registros.push({ requisicaoItemId: itemId, caminho, nome: foto.name, mime: foto.type, tamanho: foto.size });
+      }
+    }
+    if (registros.length) {
+      const { error } = await supabase.from("RequisicaoItemFoto").insert(registros);
+      if (error) {
+        await supabase.storage.from(BUCKET).remove(enviadas);
+        await supabase.from("Requisicao").delete().eq("id", requisicao.id);
+        return { erro: error.message };
+      }
     }
 
     const emergencial = dados.data.urgencia === "emergencial";
     await notificar(await usuariosComPapel("comprador"), {
       tipo: "nova_requisicao",
-      titulo: `${emergencial ? "EMERGENCIAL · " : ""}${codigoRequisicao(requisicao.numero)} — ${obra.nomeProjeto ?? "obra"}`,
+      titulo: `${emergencial ? "EMERGENCIAL · " : ""}${codigoRequisicao(requisicao.numero)} — ${nomeCentro}`,
       detalhe: `${dados.data.itens.length} ${dados.data.itens.length === 1 ? "item" : "itens"} para cotar.`,
       requisicaoId: requisicao.id,
       referencia: requisicao.id,
