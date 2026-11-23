@@ -12,13 +12,20 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
 
   const { data: r } = await supabase
     .from("Requisicao")
-    .select("id, numero, status, obraId, obra:Obra(cliente:Cliente(razaoSocial))")
+    .select("id, numero, status, obraId, obra:Obra(clienteId)")
     .eq("id", requisicaoId)
     .maybeSingle();
   if (!r) notFound();
   if (!STATUS_COTACAO_ABERTA.includes(r.status)) redirect(`/suprimentos/requisicoes/${r.id}/cotacao`);
 
-  const [{ data: itens }, { data: fornecedores }, { data: cotacoes }, { data: empresas }, { data: daObra }] = await Promise.all([
+  const [
+    { data: itens },
+    { data: fornecedores },
+    { data: cotacoes },
+    { data: empresas },
+    { data: daObra },
+    { data: clientes },
+  ] = await Promise.all([
     supabase
       .from("RequisicaoItem")
       .select("id, ordem, descricao, quantidade, unidade")
@@ -36,6 +43,7 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
     r.obraId
       ? supabase.from("ObraFaturamento").select("empresaId").eq("obraId", r.obraId).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase.from("Cliente").select("id, razaoSocial, cnpj").order("razaoSocial"),
   ]);
 
   const cotacao = cotacaoId ? (cotacoes ?? []).find((c) => c.id === cotacaoId) : null;
@@ -53,14 +61,14 @@ export async function dadosFormCotacao(requisicaoId: string, cotacaoId: string |
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
-  // Empresa padrão: a da cotação, ou a configurada para a obra.
+  // Empresa padrão: a da cotação, ou a configurada para a obra (requisições antigas).
   const faturamento: FaturamentoOpcoes = {
     empresas: (empresas ?? [])
       .filter((e) => e.ativo || e.id === cotacao?.empresaId)
       .map((e) => ({ id: e.id, nome: e.nomeFantasia ? `${e.nomeFantasia} (${e.razaoSocial})` : e.razaoSocial })),
     empresaPadraoId: daObra?.empresaId ?? null,
-    // Compra em nome do cliente só existe quando o centro de custo é uma obra com cliente.
-    cliente: r.obra?.cliente?.razaoSocial ?? null,
+    clientes: (clientes ?? []).map((c) => ({ id: c.id, nome: c.cnpj ? `${c.razaoSocial} — ${c.cnpj}` : c.razaoSocial })),
+    clientePadraoId: cotacao?.clienteId ?? r.obra?.clienteId ?? null,
   };
 
   return {

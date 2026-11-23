@@ -40,8 +40,8 @@ const itemSchema = z.object({
 });
 
 const requisicaoSchema = z.object({
-  // "obra:<id>" ou "centro:<id>".
-  centroCusto: z.string().regex(/^(obra|centro):.+$/, "Selecione a obra ou o centro de custo."),
+  // Id de um centro de custo do cadastro (Cadastros → Centros de custo).
+  centroCusto: z.string().trim().min(1, "Selecione o centro de custo."),
   prazoDesejado: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o prazo desejado."),
   urgencia: z.enum(["normal", "emergencial"]),
   observacoes: z.string().trim().max(2000).optional(),
@@ -81,33 +81,16 @@ export async function criarRequisicao(
       return { erro: "O prazo desejado não pode ser uma data passada." };
     }
 
-    // Centro de custo: uma obra em andamento ou um centro cadastrado e ativo.
-    const separador = dados.data.centroCusto.indexOf(":");
-    const tipoCentro = dados.data.centroCusto.slice(0, separador);
-    const idCentro = dados.data.centroCusto.slice(separador + 1);
-    let obraId: string | null = null;
-    let centroCustoId: string | null = null;
-    let nomeCentro: string;
-    if (tipoCentro === "obra") {
-      const { data: obra } = await supabase
-        .from("Obra")
-        .select("id, nomeProjeto, status")
-        .eq("id", idCentro)
-        .maybeSingle();
-      if (!obra) return { erro: "Obra não encontrada." };
-      if (obra.status === "concluida") return { erro: "Esta obra já está concluída." };
-      obraId = obra.id;
-      nomeCentro = obra.nomeProjeto ?? "obra";
-    } else {
-      const { data: centro } = await supabase
-        .from("CentroCusto")
-        .select("id, nome, ativo")
-        .eq("id", idCentro)
-        .maybeSingle();
-      if (!centro?.ativo) return { erro: "Centro de custo não encontrado." };
-      centroCustoId = centro.id;
-      nomeCentro = centro.nome;
-    }
+    // Centro de custo cadastrado e ativo. Requisições antigas apontavam para a
+    // obra (obraId); as novas, só para o centro de custo.
+    const { data: centro } = await supabase
+      .from("CentroCusto")
+      .select("id, nome, ativo")
+      .eq("id", dados.data.centroCusto)
+      .maybeSingle();
+    if (!centro?.ativo) return { erro: "Centro de custo não encontrado ou desativado." };
+    const centroCustoId = centro.id;
+    const nomeCentro = centro.nome;
 
     // Unidade da lista fechada; só a do próprio produto do catálogo foge dela.
     const unidadesValidas = new Set(UNIDADES_REQUISICAO.map((u) => u.valor));
@@ -151,7 +134,6 @@ export async function criarRequisicao(
       .from("Requisicao")
       .insert({
         requisitanteId: usuarioId,
-        obraId,
         centroCustoId,
         prazoDesejado: dados.data.prazoDesejado,
         urgencia: dados.data.urgencia,

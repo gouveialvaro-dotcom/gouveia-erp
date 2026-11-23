@@ -240,16 +240,18 @@ export async function salvarCotacao(
       .maybeSingle();
     if (!fornecedor) return { erro: "Fornecedor não encontrado." };
 
-    // Faturamento: CNPJ do grupo (ativo) ou o cliente da obra, com autorização.
+    // Faturamento: CNPJ do grupo ou um cliente do cadastro, com autorização.
     const faturadoCliente = dados.data.faturarPara === "cliente";
     let empresaId: string | null = null;
+    let clienteId: string | null = null;
     if (faturadoCliente) {
-      const { data: req } = await supabase
-        .from("Requisicao")
-        .select("obra:Obra(clienteId)")
-        .eq("id", requisicaoId)
+      const { data: cliente } = await supabase
+        .from("Cliente")
+        .select("id")
+        .eq("id", String(formData.get("clienteId") ?? ""))
         .maybeSingle();
-      if (!req?.obra?.clienteId) return { erro: "Só compra de obra com cliente pode ser faturada em nome dele." };
+      if (!cliente) return { erro: "Escolha o cliente em nome de quem a compra será faturada." };
+      clienteId = cliente.id;
     } else {
       const { data: empresa } = await supabase
         .from("EmpresaGrupo")
@@ -317,6 +319,7 @@ export async function salvarCotacao(
       ...pagamento,
       empresaId,
       faturadoCliente,
+      clienteId,
       ...(autorizacao ?? {}),
       prazoEntregaDias: dados.data.prazoEntregaDias,
       observacoes: dados.data.observacoes ?? null,

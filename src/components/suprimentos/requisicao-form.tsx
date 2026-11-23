@@ -42,7 +42,7 @@ type Item = {
 /** Até 3 fotos por item: com ~300 KB cada, 20 itens cabem no limite de envio. */
 const FOTOS_POR_ITEM = 3;
 
-export type OpcaoCentroCusto = { valor: string; nome: string; grupo: "obra" | "centro" };
+export type OpcaoCentroCusto = { id: string; nome: string; codigo: string | null };
 
 let proximaChave = 1;
 const itemVazio = (): Item => ({
@@ -60,7 +60,7 @@ export function RequisicaoForm({
   centros,
   hoje,
 }: {
-  /** Obras em andamento e centros de custo (sede, frota...). valor = "obra:id" ou "centro:id". */
+  /** Centros de custo ativos do cadastro. */
   centros: OpcaoCentroCusto[];
   /** "Hoje" calculado no servidor no fuso de Natal. */
   hoje: string;
@@ -149,29 +149,16 @@ export function RequisicaoForm({
             className="h-10"
           >
             <option value="" disabled>
-              Selecione a obra ou o centro de custo
+              Selecione o centro de custo
             </option>
-            <optgroup label="Obras">
-              {centros
-                .filter((c) => c.grupo === "obra")
-                .map((c) => (
-                  <option key={c.valor} value={c.valor}>
-                    {c.nome}
-                  </option>
-                ))}
-            </optgroup>
-            <optgroup label="Outros centros de custo">
-              {centros
-                .filter((c) => c.grupo === "centro")
-                .map((c) => (
-                  <option key={c.valor} value={c.valor}>
-                    {c.nome}
-                  </option>
-                ))}
-            </optgroup>
+            {centros.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.codigo ? `${c.codigo} · ${c.nome}` : c.nome}
+              </option>
+            ))}
           </SelectNativo>
           <span className="text-xs text-muted-foreground">
-            Compra que não é de obra (sede, frota, manutenção) vai no centro de custo.
+            Não achou? Os centros de custo são mantidos em Cadastros → Centros de custo.
           </span>
         </div>
 

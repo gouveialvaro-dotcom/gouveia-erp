@@ -12,6 +12,7 @@ export async function carregarPedido(id: string) {
       `*,
        fornecedor:Fornecedor(razaoSocial, nomeFantasia, cnpj, uf, cidade, telefone, email),
        empresa:EmpresaGrupo(razaoSocial, nomeFantasia, cnpj, uf),
+       cliente:Cliente(razaoSocial, cnpj),
        cotacao:Cotacao(vendedor, observacoes),
        emitidoPor:Usuario!PedidoCompra_emitidoPorId_fkey(nome),
        itens:PedidoCompraItem(id, ordem, descricao, especificacao, quantidade, unidade, precoUnitario, precoTotal, quantidadeRecebida, quantidadeDevolvida),

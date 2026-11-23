@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { exigirPermissao } from "@/lib/api-auth";
 import { podeEscrever, type Perfil } from "@/lib/permissoes";
 import { chaveTelefone } from "@/lib/pos-venda-whatsapp";
-import { modulosDoPerfil } from "@/lib/modulos-menu";
+import { cadastrosConfiguraveis, chaveCadastro, modulosDoPerfil } from "@/lib/modulos-menu";
 import type { EstadoExclusao } from "@/components/ui/botao-excluir";
 
 const ROTA = "/administracao";
@@ -354,9 +354,11 @@ export async function redefinirSenhaUsuario(
   return { ok: true };
 }
 
-// Módulos que a pessoa vê no menu. O formulário manda os marcados; guarda-se o
-// contrário — o que o perfil dela lê e ficou desmarcado —, para que um módulo
-// novo apareça para todos até alguém decidir escondê-lo.
+// Módulos e tipos de cadastro que a pessoa vê. O formulário manda os marcados.
+// Do que o perfil já dá, guarda-se o contrário — o que ficou desmarcado —, para
+// que um módulo novo apareça para todos até alguém decidir escondê-lo. Os
+// cadastros sem módulo de perfil (Centros de custo) são guardados como
+// liberados. Chaves de fora da lista são ignoradas.
 export async function atualizarModulosUsuario(
   usuarioId: string,
   _estado: EstadoFormUsuario,
@@ -371,14 +373,21 @@ export async function atualizarModulosUsuario(
     .maybeSingle();
   if (!usuario) return { erro: "Usuário não encontrado." };
 
+  const perfil = usuario.perfil as Perfil;
   const marcados = new Set(formData.getAll("modulo").map(String));
-  const ocultos = modulosDoPerfil(usuario.perfil as Perfil)
-    .map((m) => m.chave)
-    .filter((chave) => !marcados.has(chave));
+  const cadastros = cadastrosConfiguraveis(perfil);
+  const ocultos = [
+    ...modulosDoPerfil(perfil).map((m) => m.chave),
+    ...cadastros.filter((c) => c.modulo).map((c) => chaveCadastro(c.tipo)),
+  ].filter((chave) => !marcados.has(chave));
+  const liberados = cadastros
+    .filter((c) => !c.modulo && perfil !== "admin")
+    .map((c) => chaveCadastro(c.tipo))
+    .filter((chave) => marcados.has(chave));
 
   const { error } = await supabase
     .from("Usuario")
-    .update({ modulosOcultos: ocultos })
+    .update({ modulosOcultos: ocultos, modulosLiberados: liberados })
     .eq("id", usuarioId);
   if (error) return { erro: "Não foi possível salvar os módulos." };
 
