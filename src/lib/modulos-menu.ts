@@ -8,7 +8,8 @@ import { podeLer, type Modulo, type Perfil } from "@/lib/permissoes";
 // módulo novo apareça para todos até alguém decidir escondê-lo.
 //
 // Alguns cadastros não dependem do perfil e são liberados pessoa a pessoa
-// (Usuario.modulosLiberados) — hoje, só Centros de custo. O admin vê todos.
+// (Usuario.modulosLiberados) — Centros de custo e Unidades de medida. O admin
+// vê todos.
 //
 // Administração fica de fora: é por ela que todo mundo troca a própria senha.
 
@@ -45,7 +46,8 @@ export type TipoCadastro =
   | "tiposProblema"
   | "descricoes"
   | "parametros"
-  | "centrosCusto";
+  | "centrosCusto"
+  | "unidades";
 
 /**
  * Abas de Cadastros, na ordem do menu. Com `modulo`, o perfil decide quem lê;
@@ -103,6 +105,11 @@ export const TIPOS_CADASTRO: {
     tipo: "centrosCusto",
     titulo: "Centros de custo",
     abas: [{ titulo: "Centros de custo", href: "/cadastros/centros-custo" }],
+  },
+  {
+    tipo: "unidades",
+    titulo: "Unidades de medida",
+    abas: [{ titulo: "Unidades de medida", href: "/cadastros/unidades-medida" }],
   },
 ];
 

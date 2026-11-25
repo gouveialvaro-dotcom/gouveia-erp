@@ -496,7 +496,9 @@ objetos novos** (nada existente é alterado), e nos ajustes da reunião em
 `scripts/sql/016-suprimentos-ajustes.sql` (centro de custo, faturamento,
 recebimento por item, módulos por usuário) e
 `scripts/sql/017-centros-custo-cadastro.sql` (cadastro de centros de custo,
-cliente escolhido na cotação, cadastros liberados por pessoa). Código em
+cliente escolhido na cotação, cadastros liberados por pessoa) e
+`scripts/sql/018-suprimentos-unidades.sql` (cadastro de unidades de medida,
+autorização do cliente opcional). Código em
 `src/app/(app)/suprimentos`, `src/components/suprimentos` e
 `src/lib/suprimentos*.ts`; impressão do pedido em `/pedidos-compra/[id]`
 (fora do grupo `(app)`, como `/propostas/[id]`).
@@ -512,14 +514,15 @@ cliente escolhido na cotação, cadastros liberados por pessoa). Código em
 - **Módulos por usuário** — em Administração → "Módulos", o admin marca os
   módulos do menu e os **tipos de cadastro** que a pessoa vê (`lib/modulos-menu.ts`).
   Para o que o perfil já dá, desmarcar esconde (`Usuario.modulosOcultos`).
-  Centros de custo não depende do perfil: é liberado por pessoa
+  Centros de custo e Unidades de medida não dependem do perfil: são liberados por pessoa
   (`Usuario.modulosLiberados`); o admin vê sempre. Vale no menu, no layout de
   cada módulo e de cada cadastro (`exigirModuloVisivel`,
-  `exigirCadastroVisivel`) e nas ações de Suprimentos e de centros de custo.
+  `exigirCadastroVisivel`) e nas ações de Suprimentos e desses dois cadastros.
 - **Destino** — a requisição aponta para um centro de custo de
   Cadastros → Centros de custo (`CentroCusto`, com código opcional). As
-  requisições antigas, de antes do 017, continuam com a obra (`obraId`). Unidade em lista fixa
-  (`UNIDADES_REQUISICAO`) e até 3 fotos por item (`RequisicaoItemFoto`).
+  requisições antigas, de antes do 017, continuam com a obra (`obraId`). A unidade de
+  cada item vem de Cadastros → Unidades de medida (`UnidadeMedida`; a sigla é o
+  que fica gravado e não muda depois de usada) e até 3 fotos por item (`RequisicaoItemFoto`).
 - **Catálogo** — `Produto` (chave de duplicidade `chaveDescricao`: maiúsculas,
   sem acento) com códigos do Conta Azul em `ProdutoCodigoExterno`, importados
   dos CSVs de cada CNPJ. O requisitante escreve texto livre; o comprador vincula
@@ -529,8 +532,8 @@ cliente escolhido na cotação, cadastros liberados por pessoa). Código em
   item (compra dividida) ou "tudo de um fornecedor". Abaixo de
   `minimoCotacoes` segue, com alerta para comprador, requisitante e aprovadores.
   O comprador escolhe o CNPJ faturado (`Cotacao.empresaId`) ou fatura em nome
-  de um cliente do cadastro (`Cotacao.clienteId`, copiado para o pedido), com
-  autorização anexada (OC ou print). Pagamento em forma,
+  de um cliente do cadastro (`Cotacao.clienteId`, copiado para o pedido); a
+  autorização dele (OC ou print) pode ser anexada, mas é opcional. Pagamento em forma,
   prazo e parcelas (`textoCondicaoPagamento`).
 - **Alçada** — total = itens + frete + DIFAL de cada fornecedor usado. Até
   `limiteComprador` (R$ 500) a remessa já fecha a compra; até `limiteGerencia`

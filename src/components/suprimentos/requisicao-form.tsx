@@ -9,7 +9,6 @@ import {
 import {
   DIAS_PRAZO_PADRAO,
   ITENS_POR_REQUISICAO_MAX,
-  UNIDADES_REQUISICAO,
   somarDiasIso,
   type UrgenciaRequisicao,
 } from "@/lib/suprimentos";
@@ -45,23 +44,28 @@ const FOTOS_POR_ITEM = 3;
 export type OpcaoCentroCusto = { id: string; nome: string; codigo: string | null };
 
 let proximaChave = 1;
-const itemVazio = (): Item => ({
+const itemVazio = (unidade: string): Item => ({
   chave: proximaChave++,
   produto: null,
   foraCatalogo: false,
   descricao: "",
   quantidade: "",
-  unidade: "UN",
+  unidade,
   especificacao: "",
   fotos: [],
 });
 
+export type OpcaoUnidade = { sigla: string; nome: string };
+
 export function RequisicaoForm({
   centros,
+  unidades,
   hoje,
 }: {
   /** Centros de custo ativos do cadastro. */
   centros: OpcaoCentroCusto[];
+  /** Unidades ativas do cadastro (Cadastros → Unidades de medida), na ordem. */
+  unidades: OpcaoUnidade[];
   /** "Hoje" calculado no servidor no fuso de Natal. */
   hoje: string;
 }) {
@@ -72,7 +76,8 @@ export function RequisicaoForm({
   const [urgencia, setUrgencia] = useState<UrgenciaRequisicao>("normal");
   const [prazo, setPrazo] = useState(somarDiasIso(hoje, DIAS_PRAZO_PADRAO.normal));
   const [prazoEditado, setPrazoEditado] = useState(false);
-  const [itens, setItens] = useState<Item[]>(() => [itemVazio()]);
+  const unidadePadrao = unidades[0]?.sigla ?? "UN";
+  const [itens, setItens] = useState<Item[]>(() => [itemVazio(unidadePadrao)]);
   // Controlados: o React limpa campos não controlados depois da action, e um
   // erro de validação apagaria a obra e as observações já preenchidas.
   const [centroCusto, setCentroCusto] = useState("");
@@ -294,13 +299,13 @@ export function RequisicaoForm({
                 onChange={(e) => alterarItem(item.chave, { unidade: e.target.value })}
                 className="h-10"
               >
-                {UNIDADES_REQUISICAO.map((u) => (
-                  <option key={u.valor} value={u.valor}>
-                    {u.rotulo}
+                {unidades.map((u) => (
+                  <option key={u.sigla} value={u.sigla}>
+                    {u.nome}
                   </option>
                 ))}
                 {/* Unidade do catálogo fora da lista (ex.: produto antigo em PC). */}
-                {!UNIDADES_REQUISICAO.some((u) => u.valor === item.unidade) && (
+                {!unidades.some((u) => u.sigla === item.unidade) && (
                   <option value={item.unidade}>{item.unidade}</option>
                 )}
               </SelectNativo>
@@ -330,7 +335,7 @@ export function RequisicaoForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setItens((atual) => [...atual, itemVazio()])}
+            onClick={() => setItens((atual) => [...atual, itemVazio(unidadePadrao)])}
             className="self-start"
           >
             <Plus className="h-4 w-4" /> Adicionar item

@@ -12,7 +12,6 @@ import {
   ITENS_POR_REQUISICAO_MAX,
   STATUS_CANCELAVEL_COMPRADOR,
   STATUS_CANCELAVEL_REQUISITANTE,
-  UNIDADES_REQUISICAO,
   codigoRequisicao,
   hojeSaoPaulo,
 } from "@/lib/suprimentos";
@@ -92,8 +91,9 @@ export async function criarRequisicao(
     const centroCustoId = centro.id;
     const nomeCentro = centro.nome;
 
-    // Unidade da lista fechada; só a do próprio produto do catálogo foge dela.
-    const unidadesValidas = new Set(UNIDADES_REQUISICAO.map((u) => u.valor));
+    // Unidade do cadastro (ativa); só a do próprio produto do catálogo foge dela.
+    const { data: unidadesAtivas } = await supabase.from("UnidadeMedida").select("sigla").eq("ativo", true);
+    const unidadesValidas = new Set((unidadesAtivas ?? []).map((u) => u.sigla));
 
     // Fotos de cada item (campo "foto-<índice do item>").
     const fotosPorItem = dados.data.itens.map((_, indice) =>

@@ -7,11 +7,11 @@ export default async function PaginaNovaRequisicao() {
   await contextoSuprimentos();
 
   // Só os centros ativos do cadastro (Cadastros → Centros de custo).
-  const { data: centros } = await supabase
-    .from("CentroCusto")
-    .select("id, nome, codigo")
-    .eq("ativo", true)
-    .order("nome");
+  const [{ data: centros }, { data: unidades }] = await Promise.all([
+    supabase.from("CentroCusto").select("id, nome, codigo").eq("ativo", true).order("nome"),
+    // Unidades ativas do cadastro (Cadastros → Unidades de medida).
+    supabase.from("UnidadeMedida").select("sigla, nome").eq("ativo", true).order("ordem").order("nome"),
+  ]);
 
   return (
     <div className="flex flex-col gap-1">
@@ -19,7 +19,7 @@ export default async function PaginaNovaRequisicao() {
       <p className="text-sm text-muted-foreground mb-4">
         Pedido de material, peça, serviço ou locação para um centro de custo.
       </p>
-      <RequisicaoForm hoje={hojeSaoPaulo()} centros={centros ?? []} />
+      <RequisicaoForm hoje={hojeSaoPaulo()} centros={centros ?? []} unidades={unidades ?? []} />
     </div>
   );
 }

@@ -279,11 +279,11 @@ export function CotacaoForm({
               ))}
             </SelectNativo>
             <Label htmlFor="autorizacao" className="mt-2">
-              Autorização do cliente
+              Autorização do cliente (opcional)
             </Label>
             <span className="text-xs text-muted-foreground">
-              Ordem de compra, e-mail ou print da conversa em que o cliente autoriza. Obrigatória: a compra em
-              nome do cliente passa só pela Gerência, que confere este documento.
+              Ordem de compra, e-mail ou print da conversa em que o cliente autoriza, se houver. A compra em
+              nome do cliente passa pela Gerência.
             </span>
             {cotacao?.autorizacaoNome && (
               <a
@@ -300,7 +300,6 @@ export function CotacaoForm({
               name="autorizacao"
               type="file"
               accept=".pdf,image/*"
-              required={!cotacao?.autorizacaoNome}
             />
             <span className="text-xs text-muted-foreground">
               {cotacao?.autorizacaoNome ? "Escolha um arquivo só para trocar o anexo. " : ""}PDF ou imagem, até 10 MB.

@@ -110,12 +110,6 @@ export function MatrizCotacao({
       : totalCliente > 0 && nivelEmpresa === "comprador"
         ? "gerencia"
         : nivelEmpresa;
-  const semAutorizacao = resumo.fornecedores.filter(
-    (f) => {
-      const c = cotacoes.find((x) => x.id === f.cotacaoId);
-      return c?.faturadoCliente && !c.temAutorizacao;
-    }
-  ).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -234,7 +228,7 @@ export function MatrizCotacao({
                             (ver autorização)
                           </a>
                         ) : (
-                          <span className="text-destructive">(sem autorização)</span>
+                          <span className="text-muted-foreground">(sem autorização anexada)</span>
                         )}
                       </span>
                     ) : (
@@ -367,7 +361,6 @@ export function MatrizCotacao({
               ? [`${resumo.semVencedor} ${resumo.semVencedor === 1 ? "item" : "itens"} sem fornecedor escolhido`]
               : []),
             ...(alterado ? ["Salve a escolha antes de enviar"] : []),
-            ...(semAutorizacao > 0 ? ["Anexe a autorização do cliente na cotação faturada em nome dele"] : []),
           ]}
         />
       )}
