@@ -266,15 +266,9 @@ export async function salvarCotacao(
     if (arquivoAutorizacao && arquivoAutorizacao.size > TAMANHO_MAXIMO_ANEXO) {
       return { erro: "A autorização passa de 10 MB." };
     }
+    // A autorização do cliente é opcional: quando vem, fica anexada para a
+    // Gerência conferir.
     let autorizacaoAnterior: string | null = null;
-    if (faturadoCliente && !arquivoAutorizacao) {
-      const { data: atual } = cotacaoId
-        ? await supabase.from("Cotacao").select("autorizacaoCaminho").eq("id", cotacaoId).maybeSingle()
-        : { data: null };
-      if (!atual?.autorizacaoCaminho) {
-        return { erro: "Anexe a autorização do cliente (ordem de compra ou print da conversa)." };
-      }
-    }
     if (cotacaoId && (arquivoAutorizacao || !faturadoCliente)) {
       const { data: atual } = await supabase
         .from("Cotacao")

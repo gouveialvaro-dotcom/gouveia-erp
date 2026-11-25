@@ -3610,6 +3610,44 @@ export type Database = {
           },
         ]
       }
+      UnidadeMedida: {
+        Row: {
+          ativo: boolean
+          criadoEm: string
+          criadoPorId: string | null
+          id: string
+          nome: string
+          ordem: number
+          sigla: string
+        }
+        Insert: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          sigla: string
+        }
+        Update: {
+          ativo?: boolean
+          criadoEm?: string
+          criadoPorId?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          sigla?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "UnidadeMedida_criadoPorId_fkey"
+            columns: ["criadoPorId"]
+            isOneToOne: false
+            referencedRelation: "Usuario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       Usuario: {
         Row: {
           modulosLiberados: string[]

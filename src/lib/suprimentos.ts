@@ -128,21 +128,6 @@ export const UFS = [
 /** UF da Gouveia. Fornecedor de fora dela acende o alerta de DIFAL na cotação. */
 export const UF_EMPRESA = "RN";
 
-/**
- * Unidades da requisição: lista fechada, para não haver "SACO", "SC" e "sc"
- * para a mesma coisa nos relatórios. M³ entra porque o catálogo já usa
- * (areia, brita).
- */
-export const UNIDADES_REQUISICAO: { valor: string; rotulo: string }[] = [
-  { valor: "UN", rotulo: "Unidade" },
-  { valor: "SC", rotulo: "Saco" },
-  { valor: "M", rotulo: "Metro" },
-  { valor: "M2", rotulo: "Metro quadrado (m²)" },
-  { valor: "M3", rotulo: "Metro cúbico (m³)" },
-  { valor: "KG", rotulo: "Quilo (kg)" },
-  { valor: "T", rotulo: "Tonelada" },
-];
-
 export const UNIDADES_SUGERIDAS = [
   "UN", "PC", "CX", "PCT", "KG", "G", "T", "M", "M2", "M3", "L", "ML",
   "SC", "BARRA", "ROLO", "GL", "JG", "PAR", "KIT", "H", "DIA", "MES", "SERV",

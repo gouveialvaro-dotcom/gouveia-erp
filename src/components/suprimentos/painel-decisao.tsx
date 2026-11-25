@@ -65,7 +65,7 @@ export function PainelDecisao({
       {valorCliente > 0 && (
         <p className="rounded-md border border-sky-300 bg-sky-50 p-2 text-sm text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
           {moeda(valorCliente)} {valorCliente < valorTotal ? "deste total são faturados" : "faturados"} em nome do
-          cliente. Confira a autorização dele nas cotações abaixo antes de aprovar.
+          cliente. Se houver autorização anexada, ela está nas cotações abaixo.
         </p>
       )}
       {niveis.length > 1 && (
